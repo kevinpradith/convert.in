@@ -39,6 +39,7 @@
     "typecheck": "tsc --noEmit",
     "cli": "node bin/convert.in.mjs",
     "audit:fixtures": "tsx test/encryption-fixtures.mts",
+    "test:browser": "python3 test/browser/suite.py dist fixtures",
     "notices": "node scripts/notices.mjs"
   },
   "dependencies": {
