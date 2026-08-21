@@ -1,3 +1,5 @@
+import { explain } from '../core/pdf-security.ts'
+
 /**
  * Names come from whatever the dropped file was called, which can carry path
  * separators, control characters or a leading dot. Browsers mostly sanitise the
@@ -52,7 +54,10 @@ export function toBlob(bytes: Uint8Array, type: string): Blob {
 }
 
 export function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+  // explain() turns the library's internal complaints into something a person
+  // who only picked a file can act on. The CLI routes its errors through the
+  // same function, so both surfaces say the same thing about the same failure.
+  return explain(error)
 }
 
 /** Pad to a fixed width so exported page files sort correctly in a file manager. */
