@@ -1,0 +1,60 @@
+{
+  "name": "convert-in",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Image and PDF tools that run entirely on your own machine: a browser app that never uploads a file, and a CLI sharing the same core.",
+  "license": "MIT",
+  "author": "Kevin Pradith",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kevinpradith/convert.in.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kevinpradith/convert.in/issues"
+  },
+  "keywords": [
+    "pdf",
+    "merge-pdf",
+    "split-pdf",
+    "watermark",
+    "pdf-encryption",
+    "aes-256",
+    "image-to-pdf",
+    "offline",
+    "privacy",
+    "cli"
+  ],
+  "type": "module",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "bin": {
+    "convert.in": "bin/convert.in.mjs"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "tsx --test test/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "cli": "node bin/convert.in.mjs",
+    "audit:fixtures": "tsx test/encryption-fixtures.mts"
+  },
+  "dependencies": {
+    "@cantoo/pdf-lib": "^2.9.1",
+    "pdfjs-dist": "^6.2.108",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^24",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6.1.0",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.12",
+    "typescript": "^5.9.0",
+    "vite": "^8.2.2"
+  }
+}

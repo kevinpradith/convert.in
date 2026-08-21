@@ -1,0 +1,8 @@
+# The repo is edited from both a MINGW shell and WSL, so line endings are pinned
+# rather than left to core.autocrlf: a file that flips between LF and CRLF shows
+# up as changed on every checkout even when nobody touched it.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.pdf binary

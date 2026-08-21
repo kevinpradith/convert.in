@@ -1,0 +1,273 @@
+@import 'tailwindcss';
+
+/*
+  A monochrome reading of Apple's current design language: translucent layers
+  over a soft backdrop, capsule controls, radii that nest concentrically, and a
+  single ink colour doing the work a brand colour usually does.
+
+  Every colour is written once, with light-dark(). The theme switch only has to
+  change `color-scheme`, so there is no second palette to keep in sync.
+*/
+
+/* Touch devices: no hover to reveal anything, and bigger targets. */
+@custom-variant touch (@media (hover: none));
+
+@theme {
+  /*
+    macOS text styles, named the way Apple names them. Body is 13px because that
+    is what a Mac window uses; the display step is body x 1.618, which is the one
+    place a golden ratio earns its keep here. Everything between follows the
+    ~1.13 steps of the system scale rather than a ratio applied for its own sake.
+  */
+  --text-caption: 0.6875rem; /* 11 */
+  --text-footnote: 0.75rem; /* 12 */
+  --text-body: 0.8125rem; /* 13 */
+  --text-headline: 0.9375rem; /* 15 */
+  --text-title: 1.0625rem; /* 17 */
+  --text-display: 1.3125rem; /* 21 = 13 x 1.618 */
+
+  /*
+    Control heights on the 4pt grid Apple actually ships. These live in the
+    --spacing-* namespace because that is the one every size utility reads from.
+  */
+  --spacing-bar: 3.25rem; /* 52 */
+  --spacing-control: 1.875rem; /* 30 */
+  --spacing-control-sm: 1.625rem; /* 26 */
+  --spacing-touch: 2.75rem; /* 44, the minimum touch target */
+  --spacing-sidebar: 15rem; /* 240 */
+
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display',
+    'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+
+  /* Concentric set: an inner radius is its parent minus the padding between them. */
+  --radius-window: 22px;
+  --radius-card: 15px;
+  --radius-tile: 13px;
+  --radius-inner: 7px;
+  --radius-capsule: 999px;
+
+  /* Apple's standard ease-out: fast to start, long settle, no overshoot. */
+  --ease-glass: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+:root {
+  color-scheme: light dark;
+
+  --c-ink: light-dark(#1b1b1b, #f2f2f2);
+  --c-muted: light-dark(#6d6d6d, #999999);
+  --c-invert: light-dark(#ffffff, #171717);
+
+  /*
+    Emphasis is ink, not a hue: the primary button, the current selection, the
+    active tool and the focus ring all reach for it. Keeping it a token rather
+    than a hard-coded colour means one line here changes every one of them.
+  */
+  --c-accent: light-dark(#1b1b1b, #f2f2f2);
+  --c-accent-soft: light-dark(rgb(0 0 0 / 0.07), rgb(255 255 255 / 0.1));
+  --c-accent-ring: light-dark(rgb(0 0 0 / 0.32), rgb(255 255 255 / 0.34));
+  --c-on-accent: light-dark(#ffffff, #171717);
+
+  --c-glass: light-dark(rgb(255 255 255 / 0.5), rgb(64 64 64 / 0.42));
+  --c-glass-strong: light-dark(rgb(255 255 255 / 0.72), rgb(88 88 88 / 0.42));
+  --c-surface: light-dark(rgb(253 253 253 / 0.66), rgb(25 25 25 / 0.7));
+  --c-raised: light-dark(rgb(0 0 0 / 0.045), rgb(255 255 255 / 0.07));
+
+  --c-line: light-dark(rgb(0 0 0 / 0.09), rgb(255 255 255 / 0.1));
+  --c-fill: light-dark(rgb(0 0 0 / 0.05), rgb(255 255 255 / 0.07));
+
+  /* The lit top edge that reads as thickness on a pane of glass. */
+  --c-specular: light-dark(rgb(255 255 255 / 0.75), rgb(255 255 255 / 0.16));
+
+  --glass-blur: 30px;
+  --glass-saturate: 180%;
+
+  --s-window: 0 32px 70px -24px light-dark(rgb(0 0 0 / 0.4), rgb(0 0 0 / 0.75)),
+    0 2px 10px light-dark(rgb(0 0 0 / 0.08), rgb(0 0 0 / 0.4));
+  --s-tile: 0 1px 3px light-dark(rgb(0 0 0 / 0.08), rgb(0 0 0 / 0.45));
+  --s-thumb: 0 1px 3px light-dark(rgb(0 0 0 / 0.12), rgb(0 0 0 / 0.5)),
+    0 0 0 0.5px light-dark(rgb(0 0 0 / 0.06), rgb(255 255 255 / 0.08));
+  --s-accent: 0 8px 20px -8px light-dark(rgb(0 0 0 / 0.4), rgb(0 0 0 / 0.75)),
+    inset 0 1px 0 light-dark(rgb(255 255 255 / 0.2), rgb(255 255 255 / 0.4));
+}
+
+/* The switch changes only which side of every light-dark() pair is picked. */
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-ink: var(--c-ink);
+  --color-muted: var(--c-muted);
+  --color-invert: var(--c-invert);
+  --color-surface: var(--c-surface);
+  --color-raised: var(--c-raised);
+  --color-line: var(--c-line);
+  --color-fill: var(--c-fill);
+  --color-specular: var(--c-specular);
+  --color-accent: var(--c-accent);
+  --color-accent-soft: var(--c-accent-soft);
+  --color-accent-ring: var(--c-accent-ring);
+  --color-on-accent: var(--c-on-accent);
+  --shadow-accent: var(--s-accent);
+  --shadow-window: var(--s-window);
+  --shadow-tile: var(--s-tile);
+  --shadow-thumb: var(--s-thumb);
+}
+
+@utility glass {
+  background-color: var(--c-glass);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+}
+
+@utility glass-strong {
+  background-color: var(--c-glass-strong);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+}
+
+/* Light catching the top edge, the way a real bevel would. */
+/* The content pane: still glass, just far less of it, so text stays readable. */
+@utility pane {
+  background-color: var(--c-surface);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+}
+
+/*
+  Toolbars scroll sideways on a phone rather than growing a second row, so the
+  bar keeps one height everywhere. The fade is the only honest way to say there
+  is more to the right, and it is only applied where the overflow happens.
+*/
+@utility bar-scroll {
+  overflow-x: auto;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  @media (width < 40rem) {
+    mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
+  }
+}
+
+@utility specular {
+  box-shadow: inset 0 1px 0 0 var(--c-specular);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  /* Mobile browsers shrink the viewport as their toolbars slide away. */
+  height: 100dvh;
+}
+
+/* Keep the interface clear of notches and home indicators. */
+#root {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}
+
+body {
+  /* Glass needs something behind it, so the page carries a quiet backdrop. */
+  background-color: light-dark(#dedede, #0a0a0a);
+  background-image:
+    radial-gradient(
+      75% 60% at 6% -8%,
+      light-dark(rgb(255 255 255 / 0.95), rgb(155 155 155 / 0.24)) 0%,
+      transparent 62%
+    ),
+    radial-gradient(
+      70% 60% at 96% 8%,
+      light-dark(rgb(255 255 255 / 0.6), rgb(120 120 120 / 0.15)) 0%,
+      transparent 64%
+    ),
+    radial-gradient(
+      85% 75% at 88% 105%,
+      light-dark(rgb(72 72 72 / 0.26), rgb(96 96 96 / 0.2)) 0%,
+      transparent 66%
+    ),
+    radial-gradient(
+      60% 55% at 18% 100%,
+      light-dark(rgb(122 122 122 / 0.3), rgb(28 28 28 / 0.6)) 0%,
+      transparent 68%
+    );
+  background-attachment: fixed;
+  color: var(--c-ink);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+  text-rendering: optimizeLegibility;
+}
+
+/* Larger type sits tighter, the way SF Pro tracks its optical sizes. */
+h1,
+h2 {
+  letter-spacing: -0.014em;
+}
+
+h2 {
+  letter-spacing: -0.02em;
+}
+
+/* One keyboard focus ring for everything, so no control can quietly lack one. */
+:where(button, [role='radio'], a, input, [tabindex]):focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
+}
+
+/*
+  A film of noise over the backdrop. Large soft gradients band on 8-bit
+  displays; this hides the steps and is the only reason it is here.
+*/
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.045;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-line) transparent;
+}
+
+/*
+  The three settings Apple's own glass was criticised for ignoring. Honouring
+  them costs a few lines and is the difference between a look and a usable one.
+*/
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --glass-blur: 0px;
+    --c-glass: light-dark(#f4f4f4, #1e1e1e);
+    --c-glass-strong: light-dark(#f8f8f8, #232323);
+    --c-surface: light-dark(#ffffff, #171717);
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --c-line: light-dark(rgb(0 0 0 / 0.4), rgb(255 255 255 / 0.4));
+    --c-muted: light-dark(#3a3a3a, #c9c9c9);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 1ms !important;
+    animation-duration: 1ms !important;
+  }
+}

@@ -1,0 +1,120 @@
+"""Audit convert.in's PDF encryption against an implementation that did not write it.
+
+pdf-lib produces the files; pypdf reads them back. Anything both agree on is a
+property of the file rather than of one library's opinion of it.
+
+Usage:
+
+    npm run audit:fixtures -- ./fixtures
+    python3 test/encryption-audit.py ./fixtures
+
+Requires pypdf. Exits non-zero on the first failing expectation, so it drops
+straight into CI.
+"""
+import re, sys, pathlib
+from pypdf import PdfReader
+from pypdf._encryption import PasswordType
+from pypdf.constants import UserAccessPermissions as UAP
+
+D = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else '.')
+ok, bad = [], []
+def check(cond, label):
+    (ok if cond else bad).append(label)
+    print(('  PASS  ' if cond else '  FAIL  ') + label)
+
+def encdict(name):
+    raw = (D / name).read_bytes().decode('latin1')
+    i = raw.find('/Filter /Standard')
+    if i < 0: return ''
+    j, depth, k = raw.rfind('<<', 0, i), 0, raw.rfind('<<', 0, i)
+    while k < len(raw):
+        if raw.startswith('<<', k): depth += 1; k += 2
+        elif raw.startswith('>>', k):
+            depth -= 1; k += 2
+            if depth == 0: break
+        else: k += 1
+    return re.sub(r'\s+', ' ', raw[j:k])
+
+print('== 1. encryption dictionary, ISO 32000-2 / Acrobat X and later ==')
+d = encdict('open-only.pdf')
+for token, label in [
+    ('/Filter /Standard', 'standard security handler'),
+    ('/V 5', 'V 5, the AES-256 handler'),
+    ('/R 6', 'R 6, the revision Acrobat X and later writes'),
+    ('/Length 256', 'file encryption key is 256 bits'),
+    ('/CFM /AESV3', 'crypt filter method AESV3'),
+    ('/Length 32', 'crypt filter key is 32 bytes'),
+    ('/StmF /StdCF', 'streams go through the standard crypt filter'),
+    ('/StrF /StdCF', 'strings go through the standard crypt filter'),
+    ('/AuthEvent /DocOpen', 'authenticated at document open'),
+]:
+    check(token in d, f'{label}: {token}')
+# ISO 32000-2 Table 21: hex strings, /U and /O 48 bytes, /UE /OE 32, /Perms 16
+for key, want in (('/U', 48), ('/O', 48), ('/UE', 32), ('/OE', 32), ('/Perms', 16)):
+    m = re.search(re.escape(key) + r' <([0-9a-fA-F]+)>', d)
+    check(bool(m) and len(m.group(1)) // 2 == want,
+          f'{key} is a {want}-byte hex string (found {len(m.group(1))//2 if m else 0})')
+check('/EncryptMetadata false' not in d, 'metadata is encrypted (the spec default, and Acrobat\'s)')
+
+print()
+print('== 2. an independent implementation opens it ==')
+r = PdfReader(D / 'open-only.pdf')
+check(r.is_encrypted, 'pypdf sees encryption')
+check(r.decrypt('hunter2') != PasswordType.NOT_DECRYPTED, 'the password opens it')
+check(len(r.pages) == 3, 'three pages readable')
+check('page 2' in r.pages[1].extract_text(), 'page content intact')
+check(PdfReader(D / 'open-only.pdf').decrypt('wrong') == PasswordType.NOT_DECRYPTED, 'wrong password refused')
+check(PdfReader(D / 'open-only.pdf').decrypt('') == PasswordType.NOT_DECRYPTED, 'empty password refused')
+
+print()
+print('== 3. Acrobat permission semantics ==')
+r3 = PdfReader(D / 'both.pdf')
+check(r3.decrypt('openpw') == PasswordType.USER_PASSWORD, 'open password authenticates as user')
+p = r3.user_access_permissions
+check(UAP.PRINT in p, 'printing allowed')
+check(UAP.PRINT_TO_REPRESENTATION not in p, 'high-resolution printing denied, so "low" means low')
+check(UAP.MODIFY not in p, 'modifying denied')
+check(UAP.EXTRACT not in p, 'copying denied')
+check(UAP.ADD_OR_MODIFY not in p, 'annotating denied')
+check(UAP.FILL_FORM_FIELDS not in p, 'form filling denied')
+check(UAP.ASSEMBLE_DOC not in p, 'assembly denied')
+check(UAP.EXTRACT_TEXT_AND_GRAPHICS in p, 'screen-reader access always allowed')
+check(PdfReader(D / 'both.pdf').decrypt('ownerpw') == PasswordType.OWNER_PASSWORD,
+      'permissions password authenticates as owner')
+
+r5 = PdfReader(D / 'perms-only.pdf')
+check(r5.is_encrypted and r5.decrypt('') == PasswordType.USER_PASSWORD,
+      'permissions-only file is encrypted yet opens with no prompt')
+check(UAP.PRINT not in r5.user_access_permissions, 'and its restrictions are in force')
+
+print()
+print('== 4. nothing is lost on the way through ==')
+plain = PdfReader(D / 'plain.pdf')
+enc = PdfReader(D / 'open-only.pdf'); enc.decrypt('hunter2')
+unl = PdfReader(D / 'unlocked.pdf')
+want_meta = {k: v for k, v in (plain.metadata or {}).items() if k in ('/Title', '/Author', '/Subject', '/Keywords')}
+check(len(want_meta) == 4, 'the source really carries metadata to lose')
+check(all((enc.metadata or {}).get(k) == v for k, v in want_meta.items()), 'protect keeps metadata')
+check(list((enc.get_fields() or {}).keys()) == ['who'], 'protect keeps form fields')
+check(not unl.is_encrypted, 'unlocked file carries no /Encrypt')
+check(len(unl.pages) == 3 and 'page 3' in unl.pages[2].extract_text(), 'unlock keeps pages and content')
+check(all((unl.metadata or {}).get(k) == v for k, v in want_meta.items()), 'unlock keeps metadata')
+check(list((unl.get_fields() or {}).keys()) == ['who'], 'unlock keeps form fields')
+
+
+print()
+print('== 5. re-locking an already locked file ==')
+rl = PdfReader(D / 'relocked.pdf')
+check(rl.is_encrypted, 'relocked file is encrypted')
+check(rl.decrypt('second') != PasswordType.NOT_DECRYPTED, 'the new password opens it')
+check(PdfReader(D / 'relocked.pdf').decrypt('hunter2') == PasswordType.NOT_DECRYPTED, 'the old password no longer does')
+check(len(rl.pages) == 3 and 'page 1' in rl.pages[0].extract_text(), 'content survived re-locking')
+d2 = encdict('relocked.pdf')
+check('/V 5' in d2 and '/R 6' in d2, 're-lock still writes V5/R6')
+check(len(re.findall(r'/Filter /Standard', (D/'unlocked.pdf').read_bytes().decode('latin1'))) == 0,
+      'the unlocked file has no encryption dictionary left in it at all')
+
+print()
+print(f'== {len(ok)} passed, {len(bad)} failed ==')
+for b in bad: print('   FAILED:', b)
+sys.exit(1 if bad else 0)
