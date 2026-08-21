@@ -110,6 +110,12 @@ SECURITY
   The format uses only the first 127 bytes of a password, so a longer one is
   refused rather than quietly cut down to a length you cannot see.
 
+  Given --permissions-password on its own, protect does not ask for an open
+  password: a permissions-only file is a real thing to want. To set both you
+  have to pass both flags, which does put them in your shell history. That is
+  the lesser evil, because a permissions password protects nothing from the
+  person you handed the open password to anyway.
+
   Three limits come from the format, not from this tool, and hold for Acrobat
   too. Printing, copying and editing are bits a reader is expected to honour,
   not a lock: whoever holds the open password can take the restrictions off,
@@ -250,6 +256,13 @@ KEAMANAN
 
   Format PDF cuma memakai 127 byte pertama dari sebuah password, jadi yang lebih
   panjang ditolak, bukan diam-diam dipotong ke panjang yang tidak lu lihat.
+
+  Kalau cuma --permissions-password yang diberikan, protect tidak menanyakan
+  open password: berkas yang hanya dibatasi izinnya memang hal yang wajar
+  diinginkan. Untuk memasang keduanya, dua flag itu harus ditulis semua, dan itu
+  memang masuk ke history shell. Itu pilihan yang lebih ringan, karena
+  permissions password toh tidak melindungi apa pun dari orang yang sudah lu
+  kasih open password.
 
   Tiga batasan berikut datang dari format PDF-nya, bukan dari alat ini, dan
   berlaku juga di Acrobat. Cetak, salin dan ubah cuma bit yang diharapkan
