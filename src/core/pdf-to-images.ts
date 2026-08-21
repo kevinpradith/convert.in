@@ -16,11 +16,31 @@ export interface RenderOptions {
 }
 
 /**
+ * Where vite.config.ts puts the pdf.js runtime assets. They are fetched only
+ * when a document needs them, and pdf.js merely warns when it cannot find them,
+ * so leaving these unset does not fail loudly: it renders scanned pages blank
+ * and CJK text as missing glyphs. Resolving against document.baseURI rather
+ * than a leading slash keeps the app working when it is served from a
+ * subdirectory, which is what base: './' in the Vite config is for.
+ */
+const asset = (name: string): string => new URL(`pdfjs/${name}/`, document.baseURI).href
+
+/**
  * pdf.js takes ownership of the buffer it is handed and detaches it, which
  * silently empties the caller's Uint8Array. Hand it a copy instead.
  */
 export function loadDoc(file: Uint8Array): Promise<PDFDocumentProxy> {
-  return getDocument({ data: file.slice() }).promise
+  return getDocument({
+    data: file.slice(),
+    // JBIG2 and JPEG 2000, the two encodings a scanner reaches for.
+    wasmUrl: asset('wasm'),
+    // Adobe's character maps, shipped in the binary form pdf.js prefers.
+    cMapUrl: asset('cmaps'),
+    cMapPacked: true,
+    // The fourteen fonts a PDF may name without carrying them.
+    standardFontDataUrl: asset('standard_fonts'),
+    iccUrl: asset('iccs'),
+  }).promise
 }
 
 /**

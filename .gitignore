@@ -10,3 +10,9 @@ dist/
 *.local
 .DS_Store
 Thumbs.db
+
+# Copied out of node_modules by the pdfjs-assets plugin in vite.config.ts.
+public/pdfjs/
+
+# Written by "npm run audit:fixtures" for the encryption and browser suites.
+fixtures/
