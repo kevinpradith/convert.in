@@ -91,6 +91,8 @@ const en = {
     changesComments: 'Comments',
     changesAny: 'Any',
     copying: 'Allow copying text and images',
+    restrictionsNote:
+      'Printing, changes and copying are honoured by the reader rather than enforced by the cipher. Only an open password keeps a document from being read.',
     lock: 'Lock PDF',
     unlock: 'Remove password',
     working: 'Working…',
@@ -220,6 +222,8 @@ const id: Strings = {
     changesComments: 'Komentar',
     changesAny: 'Bebas',
     copying: 'Izinkan menyalin teks dan gambar',
+    restrictionsNote:
+      'Cetak, ubahan dan salinan dipatuhi oleh aplikasi pembacanya, bukan dipaksakan oleh enkripsinya. Hanya password buka yang benar-benar menahan dokumen supaya tidak terbaca.',
     lock: 'Kunci PDF',
     unlock: 'Lepas password',
     working: 'Memproses…',
