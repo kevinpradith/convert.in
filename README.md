@@ -336,4 +336,31 @@ variables, no services, no accounts.
 
 ## Licence
 
-MIT. See [LICENSE](LICENSE).
+convert.in is MIT. See [LICENSE](LICENSE).
+
+MIT rather than Apache-2.0 because this is a small tool with no patent surface
+worth granting around, and MIT is the shorter, more widely understood of the
+two. Apache-2.0 would be the better choice if the project ever needed to give
+contributors and adopters an express patent licence.
+
+The built application bundles code under MIT and Apache-2.0, and both require
+their copyright notices to travel with any copy. Those notices are reproduced in
+[`public/THIRD-PARTY-NOTICES.txt`](public/THIRD-PARTY-NOTICES.txt), which ships
+inside `dist/` and is linked from the sidebar, so anyone running a hosted copy is
+served them too. It is generated from what is actually installed:
+
+```sh
+npm run notices     # runs automatically as part of npm run build
+```
+
+pdf.js is the one to keep an eye on: it is Apache-2.0, whose attribution clause
+is stricter than MIT's. Adding a runtime dependency means adding it to the list
+in `scripts/notices.mjs`.
+
+Two things this repository cannot settle for you. Whether the name **convert.in**
+collides with an existing trademark is worth checking before putting it on a
+domain. And if any of this were written on an employer's time or equipment, their
+IP agreement may give them a claim on it regardless of the licence file.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the terms contributions are accepted
+under.
