@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { deflateSync, crc32 } from 'node:zlib'
 import { PDFDocument } from '@cantoo/pdf-lib'
 
@@ -381,4 +382,43 @@ test('a unicode password round-trips exactly, and a renormalised one does not', 
   const locked = await protectPdf(await makePdf(2), { openPassword: password })
   assert.equal(await pageCount(await unlockPdf(locked, password)), 2)
   await assert.rejects(() => unlockPdf(locked, password.normalize('NFD')), /does not open/)
+})
+
+/**
+ * vercel.json and public/_headers say the same thing to two different hosts,
+ * and both are edited by hand. A policy that is strict on one host and lax on
+ * the other is worse than one that is merely strict, because nobody would know.
+ */
+test('the two header files carry the same security headers', () => {
+  const json = JSON.parse(readFileSync('vercel.json', 'utf8'))
+  const vercel = new Map<string, string>(
+    json.headers
+      .filter((rule: { source: string }) => rule.source === '/(.*)')
+      .flatMap((rule: { headers: { key: string; value: string }[] }) => rule.headers)
+      .map((header: { key: string; value: string }) => [header.key, header.value]),
+  )
+
+  const netlify = new Map<string, string>()
+  for (const line of readFileSync('public/_headers', 'utf8').split('\n')) {
+    const match = /^ {2}([A-Za-z-]+): (.*)$/.exec(line)
+    if (match?.[1] && match[2] !== undefined && !netlify.has(match[1])) {
+      netlify.set(match[1], match[2])
+    }
+  }
+
+  assert.ok(vercel.size > 0, 'vercel.json declares no site-wide headers')
+  for (const [key, value] of vercel) {
+    assert.equal(netlify.get(key), value, `public/_headers disagrees about ${key}`)
+  }
+
+  // The CSP is the one people relax by accident, so name what it must and must
+  // not allow rather than only checking the two files match each other.
+  const csp = vercel.get('Content-Security-Policy') ?? ''
+  assert.match(csp, /script-src 'self' 'wasm-unsafe-eval'/, 'wasm needs its keyword, nothing more')
+  // The lookbehind is the point: 'wasm-unsafe-eval' contains 'unsafe-eval'.
+  assert.doesNotMatch(csp, /(?<!wasm-)'unsafe-eval'/, 'the wasm keyword must not widen into a full eval grant')
+  assert.doesNotMatch(csp, /script-src[^;]*'unsafe-inline'/, 'inline script stays blocked')
+  for (const directive of ["default-src 'self'", "connect-src 'self'", "object-src 'none'", "frame-ancestors 'none'"]) {
+    assert.ok(csp.includes(directive), `the CSP dropped ${directive}`)
+  }
 })
