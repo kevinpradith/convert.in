@@ -110,6 +110,14 @@ SECURITY
   The format uses only the first 127 bytes of a password, so a longer one is
   refused rather than quietly cut down to a length you cannot see.
 
+  Three limits come from the format, not from this tool, and hold for Acrobat
+  too. Printing, copying and editing are bits a reader is expected to honour,
+  not a lock: only an open password stops a document from being read. AES in
+  CBC mode carries no integrity check, so encryption hides the contents but
+  does not prove the file arrived the way it left; a signature does that, and
+  this tool does not sign. And offline guessing is still the attack that
+  matters, so the open password is the whole strength.
+
 PAGE ORDER
   Pages follow the order the files arrive in, which is the order your shell
   expanded the glob. Most shells sort shot10.png before shot2.png; --sort natural
@@ -240,6 +248,16 @@ KEAMANAN
 
   Format PDF cuma memakai 127 byte pertama dari sebuah password, jadi yang lebih
   panjang ditolak, bukan diam-diam dipotong ke panjang yang tidak lu lihat.
+
+  Tiga batasan berikut datang dari format PDF-nya, bukan dari alat ini, dan
+  berlaku juga di Acrobat. Cetak, salin dan ubah cuma bit yang diharapkan
+  dipatuhi pembaca, bukan kunci: hanya open password yang benar-benar menahan
+  dokumen supaya tidak terbaca. AES mode CBC tidak membawa pemeriksaan
+  integritas, jadi enkripsi menyembunyikan isi tapi tidak membuktikan berkasnya
+  sampai dalam keadaan yang sama seperti waktu dikirim; tanda tangan digital
+  yang melakukan itu, dan alat ini tidak menandatangani. Dan tebakan offline
+  tetap serangan yang paling relevan, jadi open password itulah seluruh
+  kekuatannya.
 
 URUTAN HALAMAN
   Urutan halaman mengikuti urutan berkas yang masuk, dan itu urutan hasil glob

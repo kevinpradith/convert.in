@@ -32,12 +32,27 @@ npm run audit:fixtures -- ./fixtures
 python3 test/encryption-audit.py ./fixtures
 ```
 
+If you touch the interface, the response headers or anything pdf.js loads, run
+the browser suite. It serves the real `dist/` with the real `public/_headers`,
+so a change that only works without the Content-Security-Policy fails here
+rather than after deployment:
+
+```sh
+npm run build
+npm run test:browser
+```
+
+Both suites need `playwright` and `pypdf`; the browser one also needs
+`python3 -m playwright install chromium` once.
+
 ## Adding a dependency
 
 Anything that ends up in the browser bundle also ends up in the licence notices.
-Add it to the list in `scripts/notices.mjs` and run `npm run notices`. A
-dependency under a copyleft licence needs discussing first, since it would
-change the terms the whole project can ship under.
+Add it to the list in `scripts/notices.mjs` and run `npm run notices`. If it
+ships loose files rather than bundled code, copy the directory whole so its
+licence file travels with it, the way the pdf.js assets are handled in
+`vite.config.ts`. A dependency under a copyleft licence needs discussing first,
+since it would change the terms the whole project can ship under.
 
 ## Scope
 

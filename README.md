@@ -153,7 +153,17 @@ tool should not merely promise it never uploads anything; the CSP means that eve
 a compromised dependency has nowhere to send a file. The whole browser suite is
 re-run against the built output served with these exact headers, so the policy is
 known to be one the app can actually live under rather than one that looks good
-in a config file.
+in a config file. A test asserts the two header files still agree, because they
+are maintained by hand and a policy that drifts between hosts is worse than no
+policy at all.
+
+`script-src` carries one addition, `'wasm-unsafe-eval'`. pdf.js decodes JBIG2 and
+JPEG 2000 images in WebAssembly, and browsers refuse to compile a WebAssembly
+module under a CSP that does not say so. The keyword permits exactly that and
+nothing else: `eval` and the `Function` constructor stay blocked, which the
+browser suite checks by running both from a real same-origin script rather than
+through the automation channel, since that channel is exempt from CSP and would
+have reported a pass either way.
 
 Two things to keep in mind:
 
@@ -250,6 +260,40 @@ cleared as soon as the file is saved.
 Screen-reader access is always permitted, which is what Acrobat also forces for
 256-bit AES. Denying a screen reader is not a restriction worth offering.
 
+#### What it does not do
+
+Three limits are worth stating plainly, because none of them are defects in this
+tool: they are properties of the format, and they hold for Acrobat too.
+
+**Permissions are a request, not a lock.** Printing, copying and editing are bits
+in the `/P` field that a reader is expected to honour. Revision 6 stores them
+again inside the encrypted `/Perms` entry, so tampering with them is detectable,
+but a reader that simply ignores `/P` will print the document anyway. If a file
+carries only a permissions password, anyone can open it, and what happens next is
+the reader's choice. Only an open password keeps a document from being read.
+
+**Encryption is not a signature.** `AESV3` is AES in CBC mode with no integrity
+check, so ciphertext can be altered without the change being detected. [Practical
+Decryption exFiltration](https://dl.acm.org/doi/10.1145/3319535.3354214) (ACM CCS
+2019) turned that malleability into working attacks against all 27 readers its
+authors tested. [ISO/TS 32003:2023](https://pdfa.org/pdf-2-0-adds-aes-gcm-support/)
+adds AES-GCM to PDF 2.0 to close it, but Acrobat does not read GCM yet, so AESV3
+remains the only choice a recipient can actually open. An encrypted PDF keeps its
+contents from someone without the password; it does not prove the file arrived
+the way it left. A digital signature does that, and this tool does not sign.
+
+That paper's other attack needs a *partially* encrypted file, which the format
+permits and some writers produce. This one never does: `/StmF` and `/StrF` both
+point at the standard crypt filter, and the audit greps the finished bytes for
+the source document's own title, author, page text and field names to prove none
+of them survived in the clear.
+
+**The password is the whole strength.** Revision 6 derives the key with a
+hardened SHA-2 loop rather than the single MD5 of the older revisions, which
+makes each guess far more expensive, but it is not a memory-hard function such as
+Argon2 and offline guessing is still the attack that matters. A short password is
+a short password whatever the cipher is.
+
 The encryption is checked against an implementation that is not the one writing
 it. `test/encryption-audit.py` opens the produced files with **pypdf** and
 asserts, among other things, that the encryption dictionary is `/V 5 /R 6
@@ -292,6 +336,8 @@ src/ui/       React components. The tools are thin wrappers around core.
 src/ui/i18n.ts   Both languages in one object; `id` must match `en` or the build fails.
 src/ui/prefs.ts  Theme and language, persisted, with storage failures swallowed.
 test/         node:test over core, no framework.
+test/browser/   the built app driven in a real browser, under the shipped headers.
+test/encryption-audit.py  the produced PDFs read back by pypdf, not by pdf-lib.
 ```
 
 `src/core/` does not know whether it is running in a browser or a terminal, which is
@@ -310,6 +356,26 @@ npm run cli -- --help
 
 Everything runs from a clean checkout with no configuration: no environment
 variables, no services, no accounts.
+
+Two suites reach past the core and need Python, because the whole point of both
+is to check the work with something other than the library that produced it:
+
+```sh
+npm run build
+npm run audit:fixtures -- ./fixtures   # documents with something to lose
+python3 test/encryption-audit.py ./fixtures   # pypdf reads the encryption back
+npm run test:browser                   # the built app, driven in Chromium
+```
+
+`npm run test:browser` serves `dist/` with the contents of `public/_headers` and
+drives every tool through the interface: images in, pages out, a watermark that
+has to be findable in the text of the saved file, a password that has to open it
+and a wrong one that must not. It also checks what should *not* happen: no
+request leaves the origin, pdf.js never warns that an asset is missing, and
+nothing is refused by the Content-Security-Policy.
+
+They need `playwright` (plus `python3 -m playwright install chromium`) and
+`pypdf`. Nothing else in the project does.
 
 ## Deliberate limits
 
