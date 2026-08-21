@@ -9,6 +9,7 @@ import type { Lang } from './prefs.ts'
 const en = {
   tagline: 'Everything runs in this browser. Nothing is uploaded, so nothing can leak.',
   appearance: 'Appearance',
+  licences: 'Licences',
   language: 'Language',
   theme: { system: 'Auto', light: 'Light', dark: 'Dark' },
   chooseFiles: 'Choose files',
@@ -137,6 +138,7 @@ type Strings = typeof en
 const id: Strings = {
   tagline: 'Semua diproses di peramban ini. Tidak ada yang diunggah, jadi tidak ada yang bocor.',
   appearance: 'Tampilan',
+  licences: 'Lisensi',
   language: 'Bahasa',
   theme: { system: 'Otomatis', light: 'Terang', dark: 'Gelap' },
   chooseFiles: 'Pilih berkas',
