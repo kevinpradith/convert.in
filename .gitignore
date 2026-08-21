@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.vite/
+
+# Never let a secret reach a public repository by accident.
+.env
+.env.*
+
+*.log
+*.local
+.DS_Store
+Thumbs.db
