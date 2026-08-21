@@ -271,7 +271,17 @@ def run():
         note = current.get_by_text('honoured by the reader')
         note.wait_for(timeout=15000)
         check(note.is_visible(), 'the restrictions note sits next to the controls it qualifies')
+
+        # The note has to follow the settings. Nothing is restricted yet, so it
+        # says the general thing; switching printing off has to sharpen it, and
+        # adding an open password has to change which of the two limits applies.
+        current.get_by_role('group', name='Printing').get_by_role(
+            'radio', name='None', exact=True).click()
+        check(current.get_by_text('no open password').is_visible(),
+              'restricting with no open password is called out as opening for anyone')
         current.locator('input[type=password]').first.fill('browser-pw')
+        check(current.get_by_text('can take these restrictions off').is_visible(),
+              'once an open password is set, the note says the reader can still lift them')
         reader = saved(lambda: current.get_by_role('button', name='Lock PDF').click())
         check(reader.is_encrypted, 'the saved file is encrypted')
         # With no permissions password the open password is also the owner

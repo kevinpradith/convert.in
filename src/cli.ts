@@ -19,6 +19,7 @@ import {
 } from './core/pdf-pages.ts'
 import {
   CHANGES_LEVELS,
+  caveat,
   describeSecurity,
   explain,
   PRINTING_LEVELS,
@@ -355,22 +356,35 @@ async function main(): Promise<void> {
           ? await askSecret('Document open password: ')
           : undefined)
 
+      const settings = {
+        openPassword,
+        permissionsPassword: values['permissions-password'],
+        printing: oneOf<PrintingLevel>(values.printing, PRINTING_LEVELS, 'printing'),
+        changes: oneOf<ChangesLevel>(values.changes, CHANGES_LEVELS, 'changes'),
+        copying: !values['no-copying'],
+        currentPassword: values.password,
+      }
+      // Said before the file is written, while the settings can still be
+      // changed, rather than left for a README to explain afterwards.
+      const limit = caveat(settings)
+      if (limit === 'opensToAnyone') {
+        warn(
+          'these restrictions carry no open password, so the file opens for anyone and\n' +
+            '            they come off again with no password at all.',
+        )
+      } else if (limit === 'liftableByReader') {
+        warn(
+          'anyone you give the open password to can take these restrictions off, with this\n' +
+            '            tool or any other. They record an intention; they do not enforce one.',
+        )
+      }
+
       const out = await outputFile(
         values.out,
         beside(input!, `${stem(input!)}-protected.pdf`),
         force,
       )
-      await writeFile(
-        out,
-        await protectPdf(file, {
-          openPassword,
-          permissionsPassword: values['permissions-password'],
-          printing: oneOf<PrintingLevel>(values.printing, PRINTING_LEVELS, 'printing'),
-          changes: oneOf<ChangesLevel>(values.changes, CHANGES_LEVELS, 'changes'),
-          copying: !values['no-copying'],
-          currentPassword: values.password,
-        }),
-      )
+      await writeFile(out, await protectPdf(file, settings))
       return report(out, 'AES-256, Acrobat X and later')
     }
 

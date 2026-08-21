@@ -17,7 +17,7 @@ import {
   selectPages,
   splitPdf,
 } from '../src/core/pdf-pages.ts'
-import { describeSecurity, explain, protectPdf, unlockPdf } from '../src/core/pdf-security.ts'
+import { caveat, describeSecurity, explain, protectPdf, unlockPdf } from '../src/core/pdf-security.ts'
 import { numberPages, watermarkPdf } from '../src/core/pdf-stamp.ts'
 
 /* ---------- fixtures, built here so the repo carries no binary blobs ---------- */
@@ -473,4 +473,25 @@ test('a permissions password protects nothing from whoever can open the file', a
   assert.deepEqual(await describeSecurity(permissionsOnly), { encrypted: true, needsPassword: false })
   const opened = await unlockPdf(permissionsOnly, '')
   assert.deepEqual(await describeSecurity(opened), { encrypted: false, needsPassword: false })
+})
+
+/**
+ * The CLI and the web app both ask this before locking, so the wording they
+ * show has to follow the settings rather than a fixed footnote.
+ */
+test('caveat reports what a set of restrictions is actually worth', () => {
+  // Nothing restricted, so there is nothing to qualify.
+  assert.equal(caveat({ openPassword: 'reader' }), null)
+  assert.equal(caveat({ openPassword: 'reader', printing: 'high', changes: 'any', copying: true }), null)
+
+  // Restricted with no open password: the file opens for anyone.
+  assert.equal(caveat({ permissionsPassword: 'owner', printing: 'none' }), 'opensToAnyone')
+  assert.equal(caveat({ permissionsPassword: 'owner', changes: 'none' }), 'opensToAnyone')
+  assert.equal(caveat({ permissionsPassword: 'owner', copying: false }), 'opensToAnyone')
+
+  // Restricted behind an open password: the reader can still lift them.
+  assert.equal(
+    caveat({ openPassword: 'reader', permissionsPassword: 'owner', printing: 'low' }),
+    'liftableByReader',
+  )
 })
