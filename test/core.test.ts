@@ -17,7 +17,7 @@ import {
   selectPages,
   splitPdf,
 } from '../src/core/pdf-pages.ts'
-import { describeSecurity, protectPdf, unlockPdf } from '../src/core/pdf-security.ts'
+import { describeSecurity, explain, protectPdf, unlockPdf } from '../src/core/pdf-security.ts'
 import { numberPages, watermarkPdf } from '../src/core/pdf-stamp.ts'
 
 /* ---------- fixtures, built here so the repo carries no binary blobs ---------- */
@@ -421,4 +421,56 @@ test('the two header files carry the same security headers', () => {
   for (const directive of ["default-src 'self'", "connect-src 'self'", "object-src 'none'", "frame-ancestors 'none'"]) {
     assert.ok(csp.includes(directive), `the CSP dropped ${directive}`)
   }
+})
+
+/**
+ * The library's own wording reaches a person who only picked a file, so both
+ * surfaces route it through explain(). A damaged PDF used to arrive as
+ * "Cannot read properties of undefined (reading 'Pages')".
+ */
+test('library failures are translated before anyone sees them', () => {
+  assert.equal(explain(new Error('No PDF header found')), 'this file is not a PDF')
+  assert.equal(
+    explain(new Error("Cannot read properties of undefined (reading 'Pages')")),
+    'this PDF is damaged past the point where it can be read',
+  )
+  assert.equal(
+    explain(new Error('Expected instance of PDFDict, but got instance of PDFInvalidObject')),
+    'this PDF is damaged past the point where it can be read',
+  )
+  assert.equal(
+    explain(new Error('Input document to `PDFDocument.load` is encrypted')),
+    'this PDF is password protected: unlock it first',
+  )
+  // Anything it does not recognise has to survive untouched, or a real message
+  // would be replaced by a guess.
+  assert.equal(explain(new Error('disk full')), 'disk full')
+})
+
+/**
+ * Confirmed by testing rather than assumed: holding the open password is enough
+ * to strip a permissions password, and a file carrying only a permissions
+ * password needs no password at all. Both are properties of the format, and
+ * both are stated in the README, the help and the web app. The test is here so
+ * nobody later writes a claim the format cannot keep.
+ */
+test('a permissions password protects nothing from whoever can open the file', async () => {
+  const source = await PDFDocument.create()
+  source.addPage([200, 200])
+  const plain = await source.save()
+
+  const both = await protectPdf(plain, {
+    openPassword: 'reader',
+    permissionsPassword: 'owner',
+    printing: 'none',
+    changes: 'none',
+    copying: false,
+  })
+  const stripped = await unlockPdf(both, 'reader')
+  assert.deepEqual(await describeSecurity(stripped), { encrypted: false, needsPassword: false })
+
+  const permissionsOnly = await protectPdf(plain, { permissionsPassword: 'owner', printing: 'none' })
+  assert.deepEqual(await describeSecurity(permissionsOnly), { encrypted: true, needsPassword: false })
+  const opened = await unlockPdf(permissionsOnly, '')
+  assert.deepEqual(await describeSecurity(opened), { encrypted: false, needsPassword: false })
 })

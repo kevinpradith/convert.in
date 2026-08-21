@@ -95,14 +95,28 @@ export async function describeSecurity(file: Uint8Array): Promise<Security> {
 }
 
 /**
- * The library reports encryption with a message aimed at its own callers. Every
- * entry point that loads a PDF can hit it, so the translation lives here rather
- * than being repeated at each one.
+ * The library reports its failures with messages aimed at its own callers, and
+ * a few of them reach a person who only picked a file. Every entry point that
+ * loads a PDF can hit them, so the translation lives here rather than being
+ * repeated at each one.
  */
 export function explain(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error)
   if (/document to `PDFDocument.load` is encrypted/i.test(message)) {
     return 'this PDF is password protected: unlock it first'
+  }
+  // A file that is damaged past the point of being read comes back as an
+  // internal type complaint. "No PDF header found" is its own case, because
+  // that one almost always means the wrong file was picked.
+  if (/no pdf header found/i.test(message)) {
+    return 'this file is not a PDF'
+  }
+  if (
+    /failed to parse pdf document/i.test(message) ||
+    /expected instance of pdf/i.test(message) ||
+    /cannot read propert(y|ies) of (undefined|null)/i.test(message)
+  ) {
+    return 'this PDF is damaged past the point where it can be read'
   }
   return message
 }
