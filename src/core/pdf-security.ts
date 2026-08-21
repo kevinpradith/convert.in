@@ -155,6 +155,33 @@ function permissionsFor(printing: PrintingLevel, changes: ChangesLevel, copying:
   }
 }
 
+/**
+ * What a set of restrictions will actually be worth once the file leaves.
+ *
+ * Both answers were confirmed against this tool rather than reasoned about.
+ * Neither is a defect being worked around: permissions live in the /P field,
+ * which a reader is asked to honour, and anyone who can decrypt the document
+ * holds the file encryption key that /P is stored under.
+ */
+export type Caveat =
+  /** No open password, so the file opens for anyone and the restrictions lift with no secret. */
+  | 'opensToAnyone'
+  /** The recipient's own open password is enough to take the restrictions off. */
+  | 'liftableByReader'
+
+/**
+ * Callers ask before locking and say so where the choice is being made. A
+ * warning in a README is read by nobody in the middle of protecting a file, and
+ * having one function answer for both the CLI and the web app is the only way
+ * the two cannot end up promising different things.
+ */
+export function caveat(options: ProtectOptions): Caveat | null {
+  const { openPassword, printing = 'high', changes = 'any', copying = true } = options
+  const restricted = printing !== 'high' || changes !== 'any' || !copying
+  if (!restricted) return null
+  return openPassword ? 'liftableByReader' : 'opensToAnyone'
+}
+
 export async function protectPdf(file: Uint8Array, options: ProtectOptions): Promise<Uint8Array> {
   const {
     openPassword,

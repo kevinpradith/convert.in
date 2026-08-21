@@ -92,7 +92,11 @@ const en = {
     changesAny: 'Any',
     copying: 'Allow copying text and images',
     restrictionsNote:
-      'Printing, changes and copying are honoured by the reader rather than enforced by the cipher, and whoever holds the open password can take them off again. Only an open password keeps a document from being read.',
+      'Printing, changes and copying are honoured by the reader rather than enforced by the cipher. Only an open password keeps a document from being read.',
+    restrictionsOpenToAnyone:
+      'These restrictions carry no open password, so the file opens for anyone and they come off again with no password at all. Set an open password if the document should stay shut.',
+    restrictionsLiftable:
+      'Anyone you give the open password to can take these restrictions off, with this tool or any other. They record an intention; they do not enforce one.',
     lock: 'Lock PDF',
     unlock: 'Remove password',
     working: 'Working…',
@@ -223,7 +227,11 @@ const id: Strings = {
     changesAny: 'Bebas',
     copying: 'Izinkan menyalin teks dan gambar',
     restrictionsNote:
-      'Cetak, ubahan dan salinan dipatuhi oleh aplikasi pembacanya, bukan dipaksakan oleh enkripsinya, dan siapa pun yang memegang password buka bisa mencabutnya lagi. Hanya password buka yang benar-benar menahan dokumen supaya tidak terbaca.',
+      'Cetak, ubahan dan salinan dipatuhi oleh aplikasi pembacanya, bukan dipaksakan oleh enkripsinya. Hanya password buka yang benar-benar menahan dokumen supaya tidak terbaca.',
+    restrictionsOpenToAnyone:
+      'Batasan ini tidak disertai password buka, jadi berkasnya terbuka untuk siapa saja dan batasannya lepas lagi tanpa password sama sekali. Isi password buka kalau dokumennya memang harus tertutup.',
+    restrictionsLiftable:
+      'Siapa pun yang lu kasih password buka bisa mencabut batasan ini, lewat alat ini atau alat lain mana pun. Batasan ini mencatat niat, bukan memaksakannya.',
     lock: 'Kunci PDF',
     unlock: 'Lepas password',
     working: 'Memproses…',

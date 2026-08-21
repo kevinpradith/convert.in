@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import {
+  caveat,
   describeSecurity,
   protectPdf,
   unlockPdf,
@@ -77,6 +78,7 @@ export function Protect() {
   }
 
   const locked = loaded?.security.needsPassword === true
+  const limitation = caveat({ openPassword, printing, changes, copying })
 
   return (
     <Workspace
@@ -204,11 +206,16 @@ export function Protect() {
                 {t.protect.copying}
               </label>
 
-              {/* The restrictions above are a request to the reader, not a lock.
-                  Saying so next to the controls is more use than saying it in a
-                  README nobody opens while protecting a file. */}
+              {/* What the settings above are actually worth, recomputed as they
+                  change. A fixed footnote would be read once and stop meaning
+                  anything; this sharpens the moment a restriction is switched on,
+                  which is the moment the difference matters. */}
               <p className="text-caption text-muted max-w-[52ch] leading-[1.5]">
-                {t.protect.restrictionsNote}
+                {limitation === 'opensToAnyone'
+                  ? t.protect.restrictionsOpenToAnyone
+                  : limitation === 'liftableByReader'
+                    ? t.protect.restrictionsLiftable
+                    : t.protect.restrictionsNote}
               </p>
 
               <Button
