@@ -112,7 +112,9 @@ SECURITY
 
   Three limits come from the format, not from this tool, and hold for Acrobat
   too. Printing, copying and editing are bits a reader is expected to honour,
-  not a lock: only an open password stops a document from being read. AES in
+  not a lock: whoever holds the open password can take the restrictions off,
+  and a file with only a permissions password comes apart with no password at
+  all. Only an open password stops a document from being read. AES in
   CBC mode carries no integrity check, so encryption hides the contents but
   does not prove the file arrived the way it left; a signature does that, and
   this tool does not sign. And offline guessing is still the attack that
@@ -251,7 +253,9 @@ KEAMANAN
 
   Tiga batasan berikut datang dari format PDF-nya, bukan dari alat ini, dan
   berlaku juga di Acrobat. Cetak, salin dan ubah cuma bit yang diharapkan
-  dipatuhi pembaca, bukan kunci: hanya open password yang benar-benar menahan
+  dipatuhi pembaca, bukan kunci: siapa pun yang memegang open password bisa
+  mencabut batasannya, dan berkas yang cuma berisi permissions password terbuka
+  tanpa password sama sekali. Hanya open password yang benar-benar menahan
   dokumen supaya tidak terbaca. AES mode CBC tidak membawa pemeriksaan
   integritas, jadi enkripsi menyembunyikan isi tapi tidak membuktikan berkasnya
   sampai dalam keadaan yang sama seperti waktu dikirim; tanda tangan digital

@@ -268,9 +268,21 @@ tool: they are properties of the format, and they hold for Acrobat too.
 **Permissions are a request, not a lock.** Printing, copying and editing are bits
 in the `/P` field that a reader is expected to honour. Revision 6 stores them
 again inside the encrypted `/Perms` entry, so tampering with them is detectable,
-but a reader that simply ignores `/P` will print the document anyway. If a file
-carries only a permissions password, anyone can open it, and what happens next is
-the reader's choice. Only an open password keeps a document from being read.
+but a reader that simply ignores `/P` will print the document anyway.
+
+Two consequences are worth being blunt about, because both were confirmed
+against this tool rather than assumed:
+
+- **Whoever holds the open password can remove the restrictions**, including
+  with `convert.in unlock`. Anyone able to decrypt the file holds the file
+  encryption key, and the permissions password protects nothing from them. Set
+  restrictions to state an intention, not to enforce one against a reader who
+  already has the document open.
+- **A permissions-only file comes apart with no password at all.** Its open
+  password is empty, so it is not asked for. The CLI now says so instead of
+  prompting for a secret that is not required.
+
+Only an open password keeps a document from being read.
 
 **Encryption is not a signature.** `AESV3` is AES in CBC mode with no integrity
 check, so ciphertext can be altered without the change being detected. [Practical
