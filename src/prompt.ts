@@ -51,7 +51,11 @@ function readPipedLine(): Promise<string> {
     process.stdin.on('data', (chunk) => {
       buffer += chunk
     })
-    process.stdin.on('end', () => resolve(buffer.replace(/\r?\n$/, '')))
+    // Strip every trailing newline, not one: a file saved on Windows, an echo
+    // that added a blank line, or a stray carriage return would otherwise ride
+    // along inside the password and come back as "that password does not open
+    // this PDF", which sends people looking in entirely the wrong place.
+    process.stdin.on('end', () => resolve(buffer.replace(/[\r\n]+$/, '')))
     process.stdin.on('error', reject)
   })
 }

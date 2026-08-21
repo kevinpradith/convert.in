@@ -179,14 +179,18 @@ function number(value: string, flag: string): number {
  * Page copying carries a form's widgets but not the form itself. Silently
  * breaking someone's fillable PDF is worse than a line of warning.
  */
+/** Something worth knowing that is not a reason to stop. Goes to stderr, so a
+ *  redirected stdout still carries only the result. */
+function warn(text: string): void {
+  console.error(dim(`convert.in: ${text}`))
+}
+
 async function warnFormLoss(files: Uint8Array[]): Promise<void> {
   const anyForms = (await Promise.all(files.map(hasFormFields))).some(Boolean)
   if (anyForms) {
-    console.error(
-      dim(
-        'convert.in: this document has form fields, and copying pages leaves them behind.\n' +
-          '            rotate, watermark, number and protect keep them intact.',
-      ),
+    warn(
+      'this document has form fields, and copying pages leaves them behind.\n' +
+        '            rotate, watermark, number and protect keep them intact.',
     )
   }
 }
@@ -194,11 +198,9 @@ async function warnFormLoss(files: Uint8Array[]): Promise<void> {
 /** Passwords do not belong in argv; say so once, then carry on. */
 function warnInlineSecret(...given: (string | undefined)[]): void {
   if (given.some((value) => value !== undefined)) {
-    console.error(
-      dim(
-        'convert.in: a password typed as an argument stays in your shell history and shows up in ps.\n' +
-          '            Leave the flag off and you will be asked for it instead.',
-      ),
+    warn(
+      'a password typed as an argument stays in your shell history and shows up in ps.\n' +
+        '            Leave the flag off and you will be asked for it instead.',
     )
   }
 }
@@ -376,10 +378,28 @@ async function main(): Promise<void> {
       const [input] = requireInputs(rest, 'PDF')
       const file = await read(input!)
       warnInlineSecret(values.password)
-      const password = values.password ?? (await askSecret('Password: '))
+
+      const security = await describeSecurity(file)
+      if (!security.encrypted) fail(`${input} is not encrypted, so there is nothing to unlock.`)
+      // A file carrying only a permissions password has an empty open password,
+      // so it comes apart without a secret. Prompting for one would suggest the
+      // restrictions are holding something shut when they are not.
+      if (!security.needsPassword) {
+        warn(
+          'this file has no open password: only its permissions are set, and those come off\n' +
+            '            without a secret. Any PDF tool can do the same.',
+        )
+      }
+      const password = security.needsPassword
+        ? (values.password ?? (await askSecret('Password: ')))
+        : (values.password ?? '')
+
       const out = await outputFile(values.out, beside(input!, `${stem(input!)}-unlocked.pdf`), force)
       const opened = await unlockPdf(file, password)
-      await writeFile(out, opened)
+      // The point of this command is to strip protection, so the result is the
+      // readable copy of something that was deliberately locked. Default
+      // permissions would hand it to every account on the machine.
+      await writeFile(out, opened, { mode: 0o600 })
       return report(out, plural(await pageCount(opened), 'page'))
     }
 
