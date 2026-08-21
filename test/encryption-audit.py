@@ -115,6 +115,26 @@ check(len(re.findall(r'/Filter /Standard', (D/'unlocked.pdf').read_bytes().decod
       'the unlocked file has no encryption dictionary left in it at all')
 
 print()
+print('== 6. nothing readable is left outside the ciphertext ==')
+# The direct-exfiltration half of PDFex (Muller et al., ACM CCS 2019) needs a
+# partially encrypted file: the format permits ciphertext and plaintext side by
+# side, and a reader will happily render both. /StmF and /StrF above say every
+# stream and every string goes through the crypt filter; this says the same
+# thing from the outside, by looking for the source document's own words in the
+# bytes we shipped.
+for name, password in (('open-only.pdf', 'hunter2'), ('both.pdf', 'openpw'), ('perms-only.pdf', '')):
+    raw = (D / name).read_bytes()
+    # Title and author live in /Info, the text in a content stream, the field
+    # name in the AcroForm. Different places, all of them strings or streams.
+    for probe in (b'Audit Source', b'convert.in', b'encryption audit', b'page 1', b'who'):
+        check(probe not in raw, f'{name}: {probe.decode()!r} is not sitting in the file in the clear')
+    # A name object is not a string and the spec never encrypts one, so finding
+    # /Helvetica is correct rather than a leak. Assert that, so a future change
+    # that starts leaking real strings cannot hide behind it.
+    check(raw.count(b'Helvetica') == raw.count(b'/Helvetica'),
+          f'{name}: the only Helvetica in the file is the font name object, which is never encrypted')
+
+print()
 print(f'== {len(ok)} passed, {len(bad)} failed ==')
 for b in bad: print('   FAILED:', b)
 sys.exit(1 if bad else 0)
