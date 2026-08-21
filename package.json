@@ -33,12 +33,13 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "npm run notices && vite build",
     "preview": "vite preview",
     "test": "tsx --test test/*.test.ts",
     "typecheck": "tsc --noEmit",
     "cli": "node bin/convert.in.mjs",
-    "audit:fixtures": "tsx test/encryption-fixtures.mts"
+    "audit:fixtures": "tsx test/encryption-fixtures.mts",
+    "notices": "node scripts/notices.mjs"
   },
   "dependencies": {
     "@cantoo/pdf-lib": "^2.9.1",

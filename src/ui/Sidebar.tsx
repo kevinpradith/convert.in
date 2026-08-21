@@ -124,7 +124,20 @@ export function Sidebar({
           />
         </div>
 
-        <p className="text-muted text-caption px-0.5 leading-relaxed">{t.tagline}</p>
+        <p className="text-muted text-caption px-0.5 leading-relaxed">
+          {t.tagline}{' '}
+          {/* The bundle carries Apache-2.0 and MIT code whose notices have to
+              travel with it. Shipping the file is the requirement; linking it is
+              what makes it reachable by the people it is meant for. */}
+          <a
+            href="./THIRD-PARTY-NOTICES.txt"
+            target="_blank"
+            rel="noreferrer"
+            className="hover:text-ink underline underline-offset-2"
+          >
+            {t.licences}
+          </a>
+        </p>
       </div>
     </div>
   )
