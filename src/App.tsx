@@ -4,6 +4,7 @@ import { Organize } from './ui/tools/Organize.tsx'
 import { PdfToImages } from './ui/tools/PdfToImages.tsx'
 import { Protect } from './ui/tools/Protect.tsx'
 import { Stamp } from './ui/tools/Stamp.tsx'
+import { Boundary } from './ui/Boundary.tsx'
 import { Sidebar, ShellContext, TOOL_IDS, type ToolId } from './ui/Sidebar.tsx'
 import { LangContext } from './ui/i18n.ts'
 import {
@@ -58,11 +59,16 @@ export default function App() {
             <main className="pane flex min-w-0 flex-1 flex-col">
               {TOOL_IDS.map((id) => (
                 <div key={id} className={cx(id === active ? 'flex min-h-0 flex-1 flex-col' : 'hidden')}>
-                  {id === 'images' && <ImagesToPdf />}
-                  {id === 'organize' && <Organize />}
-                  {id === 'stamp' && <Stamp />}
-                  {id === 'protect' && <Protect />}
-                  {id === 'export' && <PdfToImages />}
+                  {/* One boundary each, not one around the lot: a tool that
+                      breaks should not take the other four's loaded files
+                      down with it. */}
+                  <Boundary lang={lang}>
+                    {id === 'images' && <ImagesToPdf />}
+                    {id === 'organize' && <Organize />}
+                    {id === 'stamp' && <Stamp />}
+                    {id === 'protect' && <Protect />}
+                    {id === 'export' && <PdfToImages />}
+                  </Boundary>
                 </div>
               ))}
             </main>
