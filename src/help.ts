@@ -77,6 +77,7 @@ OPTIONS
       --start <n>                   First number printed, default 1     number
       --format <template>           {n} and {total}, default "{n}"      number
   -h, --help [id]        This guide. Add "id" for Bahasa Indonesia
+  -v, --version          Print the version and exit
 
 THE WEB APP
   Every command here has a tool in the window, and both sit on the same code
@@ -109,6 +110,11 @@ SECURITY
 
   The format uses only the first 127 bytes of a password, so a longer one is
   refused rather than quietly cut down to a length you cannot see.
+
+  unlock opens the older schemes too, RC4-40, RC4-128 and AES-128 as well as
+  AES-256, since files written years ago are still in circulation. To bring one
+  up to the current cipher, unlock it and then protect it again: the result is
+  AES-256 whatever the file arrived as.
 
   Given --permissions-password on its own, protect does not ask for an open
   password: a permissions-only file is a real thing to want. To set both you
@@ -223,6 +229,7 @@ OPSI
       --start <n>                   Nomor pertama yang dicetak, bawaan 1  number
       --format <template>           {n} dan {total}, bawaan "{n}"        number
   -h, --help [id]        Panduan ini. Tambahkan "id" untuk Bahasa Indonesia
+  -v, --version          Cetak versinya lalu keluar
 
 APLIKASI WEB
   Tiap perintah di sini punya tool di jendela, dan dua-duanya berdiri di atas
@@ -256,6 +263,11 @@ KEAMANAN
 
   Format PDF cuma memakai 127 byte pertama dari sebuah password, jadi yang lebih
   panjang ditolak, bukan diam-diam dipotong ke panjang yang tidak lu lihat.
+
+  unlock juga membuka skema yang lebih tua, RC4-40, RC4-128 dan AES-128, bukan
+  cuma AES-256, karena berkas yang ditulis bertahun-tahun lalu masih beredar.
+  Untuk menaikkannya ke cipher yang sekarang, buka dulu lalu protect lagi:
+  hasilnya AES-256, apa pun bentuk berkasnya waktu datang.
 
   Kalau cuma --permissions-password yang diberikan, protect tidak menanyakan
   open password: berkas yang hanya dibatasi izinnya memang hal yang wajar
