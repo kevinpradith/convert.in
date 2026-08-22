@@ -42,6 +42,7 @@ const COMMANDS = [
   'number',
   'info',
   'help',
+  'version',
 ]
 
 function fail(message: string): never {
@@ -252,10 +253,19 @@ async function main(): Promise<void> {
       format: { type: 'string', default: '{n}' },
       'text-size': { type: 'string' },
       help: { type: 'boolean', short: 'h', default: false },
+      version: { type: 'boolean', short: 'v', default: false },
     },
   })
 
   const [command, ...rest] = positionals
+  if (values.version || command === 'version') {
+    // Read at run time rather than baked in, so a checkout and an installed
+    // copy cannot disagree about which one is running.
+    const manifest = new URL('../package.json', import.meta.url)
+    const { version } = JSON.parse(await readFile(manifest, 'utf8')) as { version: string }
+    console.log(`convert.in ${version}`)
+    return
+  }
   if (values.help || command === undefined || command === 'help') {
     const lang: Lang = [command, ...rest].includes('id') ? 'id' : 'en'
     console.log(guide(lang))
