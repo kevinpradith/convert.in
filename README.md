@@ -323,6 +323,14 @@ The fixtures are generated rather than committed: the audit needs a document wit
 something to lose, and a binary blob in the repository would itself have to be
 trusted. `pypdf` is the only extra requirement.
 
+**Files this project did not write open too.** Every earlier standard revision is
+still in circulation, so the audit has pypdf write the same document five ways,
+RC4-40, RC4-128, AES-128, AES-256 revision 5 and AES-256 revision 6, and drives
+`convert.in unlock` against each. All five open with the right password, refuse
+the wrong one, keep their metadata, and re-protect as AES-256 revision 6, which
+is the way to bring an old file up to the current cipher: unlock it, then lock it
+again.
+
 Two defects it caught, both now fixed:
 
 - Unlocking used to lose the document's title, author, subject and keywords. The
