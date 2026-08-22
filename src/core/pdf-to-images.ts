@@ -13,6 +13,8 @@ export interface RenderOptions {
   quality?: number
   /** 1-based page numbers; omit for every page. */
   pages?: number[]
+  /** Called after each page, so a caller can show how far along it is. */
+  onPage?: (done: number, total: number) => void
 }
 
 /**
@@ -84,7 +86,7 @@ export async function pdfToImages(
   file: Uint8Array,
   options: RenderOptions = {},
 ): Promise<Blob[]> {
-  const { scale = 2, type = 'image/png', quality = 0.92, pages } = options
+  const { scale = 2, type = 'image/png', quality = 0.92, pages, onPage } = options
   if (!Number.isFinite(scale) || scale <= 0) throw new Error('scale must be a number > 0')
 
   const doc = await loadDoc(file)
@@ -97,6 +99,7 @@ export async function pdfToImages(
       }
       const canvas = await renderPage(doc, pageNumber, scale)
       images.push(await canvasToBlob(canvas, type, type === 'image/jpeg' ? quality : undefined))
+      onPage?.(images.length, numbers.length)
       // Free the backing store now rather than waiting for GC; a 40-page render
       // otherwise holds every full-size canvas in memory at once.
       canvas.width = 0

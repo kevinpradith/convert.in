@@ -53,6 +53,7 @@ export function Organize() {
           // everyday documents; page them in on scroll before opening books.
           const rendered: Page[] = []
           for (let number = 1; number <= doc.numPages; number++) {
+            setBusy(t.progress(number, doc.numPages))
             rendered.push({
               id: newId(),
               sourceId: source.id,
@@ -180,6 +181,7 @@ export function Organize() {
       accept={ACCEPT}
       onFiles={add}
       error={error}
+      busy={busy}
       empty={
         pages.length === 0
           ? { icon: <PagesIcon />, title: t.organize.emptyTitle, hint: t.organize.emptyHint }

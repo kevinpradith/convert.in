@@ -32,7 +32,7 @@ export function Stamp() {
   const [format, setFormat] = useState('{n}')
   const [textSize, setTextSize] = useState('')
   const [margin, setMargin] = useState('28')
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   function clear() {
@@ -46,13 +46,14 @@ export function Stamp() {
     if (!file) return
     clear()
     setError(null)
-    setBusy(true)
+    setBusy(t.stamp.working)
     try {
       const bytes = await readBytes(file)
       const doc = await loadDoc(bytes)
       try {
         const pages = []
         for (let number = 1; number <= doc.numPages; number++) {
+          setBusy(t.progress(number, doc.numPages))
           pages.push({
             id: newId(),
             index: number - 1,
@@ -66,7 +67,7 @@ export function Stamp() {
     } catch (failure) {
       setError(message(failure))
     } finally {
-      setBusy(false)
+      setBusy(null)
     }
   }
 
@@ -80,7 +81,7 @@ export function Stamp() {
 
   async function apply() {
     if (!loaded) return
-    setBusy(true)
+    setBusy(t.stamp.working)
     setError(null)
     try {
       // No selection means the whole document, which is what the core call
@@ -110,7 +111,7 @@ export function Stamp() {
     } catch (failure) {
       setError(message(failure))
     } finally {
-      setBusy(false)
+      setBusy(null)
     }
   }
 
@@ -126,6 +127,7 @@ export function Stamp() {
       accept={ACCEPT}
       onFiles={open}
       error={error}
+      busy={busy}
       empty={
         loaded
           ? undefined
@@ -270,9 +272,9 @@ export function Stamp() {
                 </Field>
               </>
             )}
-            <Button variant="primary" className="ml-auto" onClick={apply} disabled={busy}>
+            <Button variant="primary" className="ml-auto" onClick={apply} disabled={busy !== null}>
               <DownloadIcon />
-              {busy ? t.stamp.working : t.stamp.save}
+              {busy ?? t.stamp.save}
             </Button>
           </>
         ) : undefined

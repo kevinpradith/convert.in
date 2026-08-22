@@ -13,6 +13,7 @@ export function Workspace({
   accept,
   onFiles,
   empty,
+  busy,
   toolbar,
   footer,
   error,
@@ -23,6 +24,12 @@ export function Workspace({
   onFiles: (files: File[]) => void
   /** Shown instead of `children` while there is nothing loaded. */
   empty?: { icon: ReactNode; title: string; hint: string }
+  /**
+   * What is happening before there is anything to show. Opening a large
+   * document renders every page up front, and until this the empty state simply
+   * sat there through it, which reads as nothing having happened at all.
+   */
+  busy?: string | null
   toolbar?: ReactNode
   footer?: ReactNode
   error?: string | null
@@ -51,7 +58,19 @@ export function Workspace({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {empty ? (
+        {empty && busy ? (
+          <div className="flex h-full items-center justify-center p-6 sm:p-8">
+            <div className="flex flex-col items-center gap-4 text-center">
+              <div
+                aria-hidden="true"
+                className="border-line border-t-ink h-8 w-8 animate-spin rounded-full border-2 motion-reduce:animate-none"
+              />
+              <p aria-live="polite" className="text-body text-muted tabular-nums">
+                {busy}
+              </p>
+            </div>
+          </div>
+        ) : empty ? (
           <div className="flex h-full items-center justify-center p-6 sm:p-8">
             <div className="flex flex-col items-center gap-4 text-center">
               {/* 64 outer, 40 inner: the nesting people read as balanced, 1:1.618. */}
