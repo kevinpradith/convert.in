@@ -11,8 +11,8 @@ Usage:
 Requires pypdf. Exits non-zero on the first failing expectation, so it drops
 straight into CI.
 """
-import re, sys, pathlib
-from pypdf import PdfReader
+import re, subprocess, sys, pathlib
+from pypdf import PdfReader, PdfWriter
 from pypdf._encryption import PasswordType
 from pypdf.constants import UserAccessPermissions as UAP
 
@@ -115,7 +115,52 @@ check(len(re.findall(r'/Filter /Standard', (D/'unlocked.pdf').read_bytes().decod
       'the unlocked file has no encryption dictionary left in it at all')
 
 print()
-print('== 6. nothing readable is left outside the ciphertext ==')
+print('== 6. files this project did not write ==')
+# Every other check here reads back something pdf-lib produced, which cannot
+# say whether a locked PDF from anywhere else opens at all. So encrypt with
+# pypdf, in the older schemes real documents still arrive in, and drive the
+# actual command a person would run.
+FOREIGN = D / 'foreign'
+FOREIGN.mkdir(exist_ok=True)
+source = PdfReader(D / 'plain.pdf')
+schemes = [
+    ('RC4-40', 'rc4-40'),
+    ('RC4-128', 'rc4-128'),
+    ('AES-128', 'aes-128'),
+    ('AES-256-R5', 'aes-256-r5'),
+    ('AES-256', 'aes-256-r6'),
+]
+for algorithm, slug in schemes:
+    locked = FOREIGN / f'{slug}.pdf'
+    unlocked = FOREIGN / f'{slug}-unlocked.pdf'
+    unlocked.unlink(missing_ok=True)
+    writer = PdfWriter(clone_from=source)
+    writer.encrypt('hunter2', 'ownerpw', algorithm=algorithm)
+    writer.write(locked)
+
+    run = subprocess.run(
+        ['node', 'bin/convert.in.mjs', 'unlock', str(locked), '-o', str(unlocked)],
+        input='hunter2\n', capture_output=True, text=True,
+    )
+    check(run.returncode == 0, f'{algorithm}: convert.in unlock exits cleanly ({run.stderr.strip()[:60]})')
+    if run.returncode != 0:
+        continue
+    back = PdfReader(unlocked)
+    check(not back.is_encrypted, f'{algorithm}: the result carries no encryption')
+    check(len(back.pages) == 3, f'{algorithm}: all three pages came through')
+    check('page 2' in back.pages[1].extract_text(), f'{algorithm}: page content is readable')
+    check(back.metadata is not None and back.metadata.title == 'Audit Source',
+          f'{algorithm}: the title survived')
+
+    wrong = subprocess.run(
+        ['node', 'bin/convert.in.mjs', 'unlock', str(locked),
+         '-o', str(FOREIGN / f'{slug}-nope.pdf')],
+        input='wrong\n', capture_output=True, text=True,
+    )
+    check(wrong.returncode != 0, f'{algorithm}: a wrong password is refused')
+
+print()
+print('== 7. nothing readable is left outside the ciphertext ==')
 # The direct-exfiltration half of PDFex (Muller et al., ACM CCS 2019) needs a
 # partially encrypted file: the format permits ciphertext and plaintext side by
 # side, and a reader will happily render both. /StmF and /StrF above say every
