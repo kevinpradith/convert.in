@@ -45,6 +45,7 @@ export function PdfToImages() {
       try {
         const pages = []
         for (let number = 1; number <= doc.numPages; number++) {
+          setBusy(t.progress(number, doc.numPages))
           pages.push({ id: newId(), number, url: await renderThumbnail(doc, number) })
         }
         setLoaded({ name: file.name, bytes, pages })
@@ -77,6 +78,7 @@ export function PdfToImages() {
         scale: Number(scale),
         type: format,
         pages: chosen.map((page) => page.number),
+        onPage: (done, total) => setBusy(t.progress(done, total)),
       })
       const extension = format === 'image/png' ? 'png' : 'jpg'
       const base = stem(loaded.name)
@@ -107,6 +109,7 @@ export function PdfToImages() {
       accept={ACCEPT}
       onFiles={open}
       error={error}
+      busy={busy}
       empty={
         loaded
           ? undefined

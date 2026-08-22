@@ -9,6 +9,13 @@ import type { Lang } from './prefs.ts'
 const en = {
   tagline: 'Everything runs in this browser. Nothing is uploaded, so nothing can leak.',
   appearance: 'Appearance',
+  /** Shown while a long render works through a document, so a ten-second wait
+   *  on a five-hundred-page file reads as progress rather than a hang. */
+  progress: (done: number, total: number) => `${done} of ${total}…`,
+  brokeTitle: 'This tool stopped working',
+  brokeHint:
+    'Something went wrong while drawing this tool. Your other tools still hold their files. Try again, and if it keeps happening the file is probably one this cannot read.',
+  brokeRetry: 'Try again',
   licences: 'Licences',
   language: 'Language',
   theme: { system: 'Auto', light: 'Light', dark: 'Dark' },
@@ -144,6 +151,11 @@ type Strings = typeof en
 const id: Strings = {
   tagline: 'Semua diproses di peramban ini. Tidak ada yang diunggah, jadi tidak ada yang bocor.',
   appearance: 'Tampilan',
+  progress: (done: number, total: number) => `${done} dari ${total}…`,
+  brokeTitle: 'Alat ini berhenti bekerja',
+  brokeHint:
+    'Ada yang salah waktu menggambar alat ini. Alat lain masih memegang berkasnya masing-masing. Coba lagi, dan kalau terus berulang kemungkinan berkasnya memang tidak terbaca di sini.',
+  brokeRetry: 'Coba lagi',
   licences: 'Lisensi',
   language: 'Bahasa',
   theme: { system: 'Otomatis', light: 'Terang', dark: 'Gelap' },
