@@ -178,6 +178,15 @@ async function report(target: string, detail: string): Promise<void> {
   console.log(`✓ ${target}  ${dim(`${detail} · ${humanSize(total)}`)}`)
 }
 
+/** What a one-in, one-out command hands back for {@link each} to write. */
+interface Produced {
+  bytes: Uint8Array
+  /** What was done, printed beside the path once the file is on disk. */
+  detail: string
+  /** Non-default permissions, where the result is more sensitive than its input. */
+  mode?: number
+}
+
 /* ------------------------------------------------------------- argument --- */
 
 function requireInputs(files: string[], what: string): string[] {
@@ -206,11 +215,12 @@ function warn(text: string): void {
   console.error(dim(`convert.in: ${text}`))
 }
 
-async function warnFormLoss(files: Uint8Array[]): Promise<void> {
+async function warnFormLoss(files: Uint8Array[], about = ''): Promise<void> {
   const anyForms = (await Promise.all(files.map(hasFormFields))).some(Boolean)
   if (anyForms) {
     warn(
-      'this document has form fields, and copying pages leaves them behind.\n' +
+      about +
+        'this document has form fields, and copying pages leaves them behind.\n' +
         '            rotate, watermark, number and protect keep them intact.',
     )
   }
@@ -227,6 +237,21 @@ function warnInlineSecret(...given: (string | undefined)[]): void {
 }
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`
+
+/**
+ * A warning about one file among many has to say which one. About the only file
+ * there is, naming it again is noise.
+ */
+const named = (files: string[], input: string) =>
+  files.length > 1 ? `${basename(input)}: ` : ''
+
+/**
+ * Several commands read better with their argument last: `watermark in.pdf DRAFT`,
+ * `sign contract.pdf mark.png`. That only works while there is something in front
+ * of it, and the matching flag covers the batch case where every word is a file.
+ */
+const trailingArgument = (positionals: string[]) =>
+  positionals.length > 1 ? positionals.at(-1) : undefined
 
 function sizeDelta(before: number, after: number): string {
   const change = sizeChange(before, after)
@@ -309,6 +334,50 @@ async function main(): Promise<void> {
 
   const force = values.force
 
+  /**
+   * Run a one-in, one-out command over however many files were given. A single
+   * input keeps -o meaning the file it has always meant; several turn it into a
+   * directory, because several results cannot share one name.
+   *
+   * Every target is worked out and checked before the first one is written, so
+   * a batch that would overwrite or collide stops with nothing half done.
+   */
+  async function each(
+    inputs: string[],
+    name: (input: string) => string,
+    work: (file: Uint8Array, input: string) => Promise<Produced | null>,
+  ): Promise<void> {
+    const many = inputs.length > 1
+    const outDir = many ? await outputDir(values.out, dirname(inputs[0]!), true) : undefined
+    const targets: string[] = []
+    for (const input of inputs) {
+      const target = many
+        ? join(outDir!, name(input))
+        : await outputFile(values.out, beside(input, name(input)), force)
+      if (target === input) {
+        fail(`${input} is both the input and the output. Pass -o to write somewhere else.`)
+      }
+      // Two inputs from different folders can share a basename, and the second
+      // would land on top of the first without anything being said.
+      if (targets.includes(target)) {
+        fail(`${basename(target)} would be written twice. Convert those two separately.`)
+      }
+      if (many && !force && (await exists(target))) {
+        fail(`${target} already exists. Add --force to overwrite it.`)
+      }
+      targets.push(target)
+    }
+    for (const [index, input] of inputs.entries()) {
+      const produced = await work(await read(input), input)
+      // null means the command decided this file needed nothing doing, and has
+      // already said why.
+      if (produced === null) continue
+      const target = targets[index]!
+      await writeFile(target, produced.bytes, produced.mode === undefined ? {} : { mode: produced.mode })
+      console.log(`✓ ${target}  ${dim(`${produced.detail} · ${humanSize(produced.bytes.length)}`)}`)
+    }
+  }
+
   switch (command) {
     case 'convert': {
       const files = requireInputs(rest, 'images')
@@ -360,118 +429,105 @@ async function main(): Promise<void> {
         fail('--stretch needs both --width and --height. With one of them the other follows the picture.')
       }
 
-      // Several inputs need somewhere to put several outputs. One input keeps
-      // -o meaning the file it has always meant.
-      const many = files.length > 1
-      const outDir = many
-        ? await outputDir(values.out, dirname(files[0]!), true)
-        : undefined
-      const written: string[] = []
-      for (const input of files) {
-        const source = await read(input)
-        // Re-encoding a lossy format at the same format throws away detail for
-        // nothing. PNG to PNG is worth doing, because it comes out optimised.
-        if (sniff(source) === format && !values.lossless && format !== 'png') {
-          warn(
-            `${basename(input)} is already ${format.toUpperCase()}, and encoding it again ` +
-              'loses a little more detail.',
-          )
-        }
-        const out = many
-          ? join(outDir!, `${stem(input)}.${extensionFor(format)}`)
-          : await outputFile(values.out, beside(input, `${stem(input)}.${extensionFor(format)}`), force)
-        if (out === input) fail(`${input} is both the input and the output. Pass -o to write somewhere else.`)
-        if (many && !force && (await exists(out))) {
-          fail(`${out} already exists. Add --force to overwrite it.`)
-        }
-        const decoded = await decodeImage(source)
-        const pixels = resizing === undefined ? decoded : resize(decoded, resizing)
-        const bytes = await encodeImage(pixels, {
-          format,
-          quality,
-          lossless: values.lossless,
-          background: values.background,
-        })
-        await writeFile(out, bytes)
-        written.push(out)
-        const shape =
-          resizing === undefined
-            ? `${pixels.width}x${pixels.height}`
-            : `${decoded.width}x${decoded.height} to ${pixels.width}x${pixels.height}`
-        if (many) {
-          console.log(
-            `✓ ${out}  ${dim(`${shape} · ${humanSize(bytes.length)}, ${sizeDelta(source.length, bytes.length)}`)}`,
-          )
-        } else {
-          const setting =
-            values.lossless || format === 'png'
-              ? 'lossless'
-              : `quality ${quality ?? defaultQuality(format)}`
-          await report(out, `${format.toUpperCase()}, ${shape}, ${setting}, ${sizeDelta(source.length, bytes.length)}`)
-        }
-      }
-      return
+      const setting =
+        values.lossless || format === 'png'
+          ? 'lossless'
+          : `quality ${quality ?? defaultQuality(format)}`
+
+      return each(
+        files,
+        (input) => `${stem(input)}.${extensionFor(format)}`,
+        async (source, input) => {
+          // Re-encoding a lossy format at the same format throws away detail for
+          // nothing. PNG to PNG is worth doing, because it comes out optimised.
+          if (sniff(source) === format && !values.lossless && format !== 'png') {
+            warn(
+              `${basename(input)} is already ${format.toUpperCase()}, and encoding it again ` +
+                'loses a little more detail.',
+            )
+          }
+          const decoded = await decodeImage(source)
+          const pixels = resizing === undefined ? decoded : resize(decoded, resizing)
+          const bytes = await encodeImage(pixels, {
+            format,
+            quality,
+            lossless: values.lossless,
+            background: values.background,
+          })
+          const shape =
+            resizing === undefined
+              ? `${pixels.width}x${pixels.height}`
+              : `${decoded.width}x${decoded.height} to ${pixels.width}x${pixels.height}`
+          return {
+            bytes,
+            detail: `${format.toUpperCase()}, ${shape}, ${setting}, ${sizeDelta(source.length, bytes.length)}`,
+          }
+        },
+      )
     }
 
     case 'compress': {
-      const [input] = requireInputs(rest, 'PDF')
-      const file = await read(input!)
-      const out = await outputFile(
-        values.out,
-        beside(input!, `${stem(input!)}-compressed.pdf`),
-        force,
-      )
-      if (out === input) fail(`${input} is both the input and the output. Pass -o to write somewhere else.`)
-      const result = await compressPdf(file, {
+      const files = requireInputs(rest, 'PDFs')
+      const settings = {
         ...(values.quality === undefined ? {} : { quality: number(values.quality, 'quality') }),
         ...(values['max-side'] === undefined
           ? {}
           : { maxSide: number(values['max-side'], 'max-side') }),
-      })
-      // Saying why nothing happened is the whole difference between a tool that
-      // looks broken and one that has told you your file is already as small as
-      // it goes.
-      if (result.replaced === 0) {
-        warn(
-          result.images === 0
-            ? 'this PDF holds no images, so there was nothing to re-encode. Text and vector\n' +
-                '            drawings are already about as small as they get.'
-            : `none of its ${plural(result.images, 'image')} came out smaller than they already were.`,
-        )
       }
-      await writeFile(out, result.bytes)
-      const detail = [
-        `${plural(result.replaced, 'image')} re-encoded`,
-        result.skipped > 0 ? `${result.skipped} left alone` : '',
-        sizeDelta(result.before, result.after),
-      ].filter(Boolean).join(', ')
-      return report(out, detail)
+      return each(files, (input) => `${stem(input)}-compressed.pdf`, async (file, input) => {
+        const result = await compressPdf(file, settings)
+        // Saying why nothing happened is the whole difference between a tool that
+        // looks broken and one that has told you your file is already as small as
+        // it goes.
+        if (result.replaced === 0) {
+          warn(
+            named(files, input) +
+              (result.images === 0
+                ? 'this PDF holds no images, so there was nothing to re-encode. Text and vector\n' +
+                  '            drawings are already about as small as they get.'
+                : `none of its ${plural(result.images, 'image')} came out smaller than they already were.`),
+          )
+        }
+        return {
+          bytes: result.bytes,
+          detail: [
+            `${plural(result.replaced, 'image')} re-encoded`,
+            result.skipped > 0 ? `${result.skipped} left alone` : '',
+            sizeDelta(result.before, result.after),
+          ]
+            .filter(Boolean)
+            .join(', '),
+        }
+      })
     }
 
     case 'sign': {
-      const [input] = requireInputs(rest, 'PDF')
-      const file = await read(input!)
-      // "sign contract.pdf mark.png" reads better than spelling out the flag.
-      const given = values.signature ?? rest[1]
+      // "sign contract.pdf mark.png" reads better than spelling out the flag, so
+      // the last word names the signature. --signature says it once instead,
+      // which is what a whole folder of contracts needs.
+      const given = values.signature ?? trailingArgument(rest)
       if (given === undefined) {
         fail('which signature? e.g. convert.in sign contract.pdf signature.png')
       }
+      const files = requireInputs(values.signature === undefined ? rest.slice(0, -1) : rest, 'PDFs')
       const signature = await read(localPath(given))
-      const pages =
-        values.pages === undefined ? undefined : parseRanges(values.pages, await pageCount(file))
-      const out = await outputFile(values.out, beside(input!, `${stem(input!)}-signed.pdf`), force)
-      await writeFile(
-        out,
-        await signPdf(file, {
-          signature,
-          // Where a form is signed, rather than the centre a page number wants.
-          position: oneOf<Corner>(values.position ?? 'bottom-right', CORNERS, 'position'),
-          width: number(values.width ?? '150', 'width'),
-          margin: number(values.margin ?? '36', 'margin'),
-          ...(pages === undefined ? {} : { pages }),
-        }),
-      )
-      return report(out, `${basename(given)} on ${pages === undefined ? 'the last page' : plural(pages.length, 'page')}`)
+      const settings = {
+        signature,
+        // Where a form is signed, rather than the centre a page number wants.
+        position: oneOf<Corner>(values.position ?? 'bottom-right', CORNERS, 'position'),
+        width: number(values.width ?? '150', 'width'),
+        margin: number(values.margin ?? '36', 'margin'),
+      }
+      return each(files, (input) => `${stem(input)}-signed.pdf`, async (file) => {
+        // Worked out per file, because the last page of one is not the last page
+        // of the next.
+        const pages =
+          values.pages === undefined ? undefined : parseRanges(values.pages, await pageCount(file))
+        return {
+          bytes: await signPdf(file, { ...settings, ...(pages === undefined ? {} : { pages }) }),
+          detail: `${basename(given)} on ${pages === undefined ? 'the last page' : plural(pages.length, 'page')}`,
+        }
+      })
     }
 
     case 'images': {
@@ -506,36 +562,40 @@ async function main(): Promise<void> {
     }
 
     case 'select': {
-      const [input] = requireInputs(rest, 'PDF')
-      const file = await read(input!)
       // "select in.pdf 1-3" reads better than "select in.pdf --pages 1-3", so the
-      // second positional is accepted as the range. The flag still works.
-      const spec = rest[1] ?? values.pages
+      // last word is accepted as the range. The flag still works, and is what a
+      // batch needs.
+      const spec = values.pages ?? trailingArgument(rest)
       if (spec === undefined) fail('which pages? e.g. convert.in select in.pdf 1-3,7')
-      await warnFormLoss([file])
-      const out = await outputFile(
-        values.out,
-        beside(input!, `${stem(input!)}-selected.pdf`),
-        force,
-      )
-      const pdf = await selectPages(file, parseRanges(spec, await pageCount(file)))
-      await writeFile(out, pdf)
-      return report(out, plural(await pageCount(pdf), 'page'))
+      const files = requireInputs(values.pages === undefined ? rest.slice(0, -1) : rest, 'PDFs')
+      return each(files, (input) => `${stem(input)}-selected.pdf`, async (file, input) => {
+        await warnFormLoss([file], named(files, input))
+        // The range is re-read against each document, so 1-3 means the first
+        // three pages of whichever file is in hand.
+        const pdf = await selectPages(file, parseRanges(spec, await pageCount(file)))
+        return { bytes: pdf, detail: plural(await pageCount(pdf), 'page') }
+      })
     }
 
     case 'rotate': {
-      const [input] = requireInputs(rest, 'PDF')
-      const file = await read(input!)
-      const total = await pageCount(file)
-      // No pages named means the whole document, which is what "rotate this" means.
-      const indices =
-        values.pages === undefined
-          ? Array.from({ length: total }, (_, i) => i)
-          : parseRanges(values.pages, total)
-      const degrees = number(rest[1] ?? values.by, 'by')
-      const out = await outputFile(values.out, beside(input!, `${stem(input!)}-rotated.pdf`), force)
-      await writeFile(out, await rotatePages(file, indices, degrees))
-      return report(out, `${indices.length} of ${plural(total, 'page')} turned ${degrees}°`)
+      // A trailing number is the angle, but only a number: a file called 90.pdf
+      // is still a file.
+      const trailing = trailingArgument(rest)
+      const angle = trailing !== undefined && Number.isFinite(Number(trailing)) ? trailing : undefined
+      const degrees = number(angle ?? values.by, 'by')
+      const files = requireInputs(angle === undefined ? rest : rest.slice(0, -1), 'PDFs')
+      return each(files, (input) => `${stem(input)}-rotated.pdf`, async (file) => {
+        const total = await pageCount(file)
+        // No pages named means the whole document, which is what "rotate this" means.
+        const indices =
+          values.pages === undefined
+            ? Array.from({ length: total }, (_, i) => i)
+            : parseRanges(values.pages, total)
+        return {
+          bytes: await rotatePages(file, indices, degrees),
+          detail: `${indices.length} of ${plural(total, 'page')} turned ${degrees}°`,
+        }
+      })
     }
 
     case 'split': {
@@ -555,8 +615,7 @@ async function main(): Promise<void> {
     }
 
     case 'protect': {
-      const [input] = requireInputs(rest, 'PDF')
-      const file = await read(input!)
+      const files = requireInputs(rest, 'PDFs')
       warnInlineSecret(values['open-password'], values['permissions-password'], values.password)
 
       // With neither flag given, ask for the one Acrobat asks for first.
@@ -589,111 +648,119 @@ async function main(): Promise<void> {
         )
       }
 
-      const out = await outputFile(
-        values.out,
-        beside(input!, `${stem(input!)}-protected.pdf`),
-        force,
-      )
-      await writeFile(out, await protectPdf(file, settings))
-      return report(out, 'AES-256, Acrobat X and later')
+      // Asked for once and applied to all of them, which is the point of handing
+      // over a folder rather than a file.
+      return each(files, (input) => `${stem(input)}-protected.pdf`, async (file) => ({
+        bytes: await protectPdf(file, settings),
+        detail: 'AES-256, Acrobat X and later',
+      }))
     }
 
     case 'unlock': {
-      const [input] = requireInputs(rest, 'PDF')
-      const file = await read(input!)
+      const files = requireInputs(rest, 'PDFs')
       warnInlineSecret(values.password)
+      // Asked for at the first file that actually needs one and kept for the
+      // rest, because a folder of statements shares a password.
+      let secret = values.password
 
-      const security = await describeSecurity(file)
-      if (!security.encrypted) fail(`${input} is not encrypted, so there is nothing to unlock.`)
-      // A file carrying only a permissions password has an empty open password,
-      // so it comes apart without a secret. Prompting for one would suggest the
-      // restrictions are holding something shut when they are not.
-      if (!security.needsPassword) {
-        warn(
-          'this file has no open password: only its permissions are set, and those come off\n' +
-            '            without a secret. Any PDF tool can do the same.',
-        )
-      }
-      const password = security.needsPassword
-        ? (values.password ?? (await askSecret('Password: ')))
-        : (values.password ?? '')
-
-      const out = await outputFile(values.out, beside(input!, `${stem(input!)}-unlocked.pdf`), force)
-      const opened = await unlockPdf(file, password)
-      // The point of this command is to strip protection, so the result is the
-      // readable copy of something that was deliberately locked. Default
-      // permissions would hand it to every account on the machine.
-      await writeFile(out, opened, { mode: 0o600 })
-      return report(out, plural(await pageCount(opened), 'page'))
+      return each(files, (input) => `${stem(input)}-unlocked.pdf`, async (file, input) => {
+        const security = await describeSecurity(file)
+        if (!security.encrypted) {
+          const why = 'is not encrypted, so there is nothing to unlock.'
+          // Alone it is the whole request and worth failing on; among others it
+          // is one file to leave out.
+          if (files.length === 1) fail(`${input} ${why}`)
+          warn(`${basename(input)} ${why}`)
+          return null
+        }
+        // A file carrying only a permissions password has an empty open password,
+        // so it comes apart without a secret. Prompting for one would suggest the
+        // restrictions are holding something shut when they are not.
+        if (!security.needsPassword) {
+          warn(
+            named(files, input) +
+              'this file has no open password: only its permissions are set, and those come off\n' +
+              '            without a secret. Any PDF tool can do the same.',
+          )
+        }
+        const password = security.needsPassword
+          ? (secret ??= await askSecret('Password: '))
+          : (secret ?? '')
+        const opened = await unlockPdf(file, password)
+        return {
+          bytes: opened,
+          detail: plural(await pageCount(opened), 'page'),
+          // The point of this command is to strip protection, so the result is
+          // the readable copy of something that was deliberately locked. Default
+          // permissions would hand it to every account on the machine.
+          mode: 0o600,
+        }
+      })
     }
 
     case 'watermark': {
-      const [input] = requireInputs(rest, 'PDF')
-      const file = await read(input!)
-      const text = rest[1] ?? values.text
+      const text = values.text ?? trailingArgument(rest)
       if (text === undefined) fail('what should it say? e.g. convert.in watermark in.pdf "DRAFT"')
-      const total = await pageCount(file)
-      const pages = values.pages === undefined ? undefined : parseRanges(values.pages, total)
-      const out = await outputFile(
-        values.out,
-        beside(input!, `${stem(input!)}-watermarked.pdf`),
-        force,
-      )
-      await writeFile(
-        out,
-        await watermarkPdf(file, {
-          text,
-          opacity: number(values.opacity, 'opacity'),
-          angleDegrees: number(values.angle, 'angle'),
-          size: values['text-size'] === undefined ? undefined : number(values['text-size'], 'text-size'),
-          pages,
-        }),
-      )
-      return report(out, `"${text}" on ${plural(pages?.length ?? total, 'page')}`)
+      const files = requireInputs(values.text === undefined ? rest.slice(0, -1) : rest, 'PDFs')
+      const settings = {
+        text,
+        opacity: number(values.opacity, 'opacity'),
+        angleDegrees: number(values.angle, 'angle'),
+        size: values['text-size'] === undefined ? undefined : number(values['text-size'], 'text-size'),
+      }
+      return each(files, (input) => `${stem(input)}-watermarked.pdf`, async (file) => {
+        const total = await pageCount(file)
+        const pages = values.pages === undefined ? undefined : parseRanges(values.pages, total)
+        return {
+          bytes: await watermarkPdf(file, { ...settings, pages }),
+          detail: `"${text}" on ${plural(pages?.length ?? total, 'page')}`,
+        }
+      })
     }
 
     case 'number': {
-      const [input] = requireInputs(rest, 'PDF')
-      const file = await read(input!)
-      const total = await pageCount(file)
-      const pages = values.pages === undefined ? undefined : parseRanges(values.pages, total)
-      const out = await outputFile(values.out, beside(input!, `${stem(input!)}-numbered.pdf`), force)
-      await writeFile(
-        out,
-        await numberPages(file, {
-          position: oneOf<Corner>(values.position ?? 'bottom-center', CORNERS, 'position'),
-          start: number(values.start, 'start'),
-          size: number(values['text-size'] ?? '10', 'text-size'),
-          margin: number(values.margin ?? '28', 'margin'),
-          format: values.format,
-          pages,
-        }),
-      )
-      return report(out, plural(pages?.length ?? total, 'page'))
+      const files = requireInputs(rest, 'PDFs')
+      const settings = {
+        position: oneOf<Corner>(values.position ?? 'bottom-center', CORNERS, 'position'),
+        start: number(values.start, 'start'),
+        size: number(values['text-size'] ?? '10', 'text-size'),
+        margin: number(values.margin ?? '28', 'margin'),
+        format: values.format,
+      }
+      return each(files, (input) => `${stem(input)}-numbered.pdf`, async (file) => {
+        const total = await pageCount(file)
+        const pages = values.pages === undefined ? undefined : parseRanges(values.pages, total)
+        return {
+          bytes: await numberPages(file, { ...settings, pages }),
+          detail: plural(pages?.length ?? total, 'page'),
+        }
+      })
     }
 
     case 'info': {
-      const [input] = requireInputs(rest, 'PDF')
-      const file = await read(input!)
-      const { size } = await stat(input!)
-      const security = await describeSecurity(file)
+      const files = requireInputs(rest, 'PDFs')
+      for (const input of files) {
+        const file = await read(input)
+        const { size } = await stat(input)
+        const security = await describeSecurity(file)
 
-      // A locked file still has something worth saying about it, so report the
-      // lock rather than failing on the read.
-      if (security.needsPassword) {
-        console.log(`${input}  ${dim(`${humanSize(size)} · encrypted, needs a password`)}`)
-        return
+        // A locked file still has something worth saying about it, so report the
+        // lock rather than failing on the read.
+        if (security.needsPassword) {
+          console.log(`${input}  ${dim(`${humanSize(size)} · encrypted, needs a password`)}`)
+          continue
+        }
+
+        const { pages, width, height } = await describe(
+          security.encrypted ? await unlockPdf(file, '') : file,
+        )
+        const inches = `${(width / 72).toFixed(2)} × ${(height / 72).toFixed(2)} in`
+        const lock = security.encrypted ? ' · encrypted, opens without a password' : ''
+        console.log(
+          `${input}  ${dim(`${plural(pages, 'page')} · ${humanSize(size)} · ` +
+            `${Math.round(width)} × ${Math.round(height)} pt · ${inches}${lock}`)}`,
+        )
       }
-
-      const { pages, width, height } = await describe(
-        security.encrypted ? await unlockPdf(file, '') : file,
-      )
-      const inches = `${(width / 72).toFixed(2)} × ${(height / 72).toFixed(2)} in`
-      const lock = security.encrypted ? ' · encrypted, opens without a password' : ''
-      console.log(
-        `${input}  ${dim(`${plural(pages, 'page')} · ${humanSize(size)} · ` +
-          `${Math.round(width)} × ${Math.round(height)} pt · ${inches}${lock}`)}`,
-      )
       return
     }
 
