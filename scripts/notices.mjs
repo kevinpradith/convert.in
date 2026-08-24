@@ -9,7 +9,23 @@ import { readFile, writeFile } from 'node:fs/promises'
  * package entry points, because a package is free to keep ./package.json out of
  * its "exports" and several do.
  */
-const BUNDLED = ['@cantoo/pdf-lib', 'pdfjs-dist', 'react', 'react-dom', 'scheduler']
+const BUNDLED = [
+  '@cantoo/pdf-lib',
+  'pdfjs-dist',
+  'react',
+  'react-dom',
+  'scheduler',
+  // The image codecs and the CPU feature check that picks between their builds.
+  // Each @jsquash package carries a WebAssembly build of somebody else's
+  // encoder, and the licence shipped in the package covers that too.
+  '@jsquash/png',
+  '@jsquash/jpeg',
+  '@jsquash/webp',
+  '@jsquash/avif',
+  '@jsquash/jxl',
+  '@jsquash/oxipng',
+  'wasm-feature-detect',
+]
 const LICENCE_FILES = ['LICENSE', 'LICENSE.md', 'LICENCE', 'COPYING', 'NOTICE']
 
 const sections = []
