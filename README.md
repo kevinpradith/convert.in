@@ -11,11 +11,12 @@ npm run dev       # http://localhost:5173
 npm run build     # static files in dist/, host them anywhere or open them locally
 ```
 
-Three tools, all in one window:
+Five tools, all in one window:
 
 | Tool | What it does |
 | --- | --- |
-| **Images to PDF** | JPEG and PNG in, one image per page. Fit-to-image, A4 or Letter, with an optional margin. |
+| **Convert images** | PNG, JPEG, WebP, AVIF and JPEG XL, in any direction, plus GIF, BMP, TIFF, ICO, HEIC and SVG on the way in. Shows what each file cost or saved. |
+| **Images to PDF** | Any image in, one image per page. Fit-to-image, A4 or Letter, with an optional margin. |
 | **Organize PDF** | Drop any number of PDFs, then reorder, rotate, delete and duplicate pages. Save the result as one file or as one file per page. |
 | **Stamp PDF** | A watermark across the pages, or page numbers on them. Select tiles to stamp only those. |
 | **Protect PDF** | Lock with a password, or hand it a locked file and take the password off. |
@@ -31,6 +32,7 @@ ranges are parsed by the same function down to the error messages.
 
 | What you want | In the window | On the command line |
 | --- | --- | --- |
+| One image format into another | Convert images | `convert` |
 | Images into one PDF | Images to PDF | `images` |
 | Join documents | Organize, drop several | `merge` |
 | Reorder, delete, extract | Organize, drag and select | `select` |
@@ -202,6 +204,9 @@ Then:
 convert.in                         # banner and the full guide
 convert.in help id                 # the same guide in Bahasa Indonesia
 
+convert.in convert photo.png --to webp     # -> photo.webp, beside the input
+convert.in convert *.heic --to jpeg -o out/
+convert.in convert logo.png --to webp --lossless
 convert.in images shot-*.png       # -> shot.pdf, beside the first input
 convert.in images scan-*.jpg -o scan.pdf --size a4 --margin 24
 convert.in merge part-1.pdf part-2.pdf -o whole.pdf
@@ -232,6 +237,61 @@ so `select scan.pdf 1-3` and `select scan.pdf --pages 1-3` are the same thing.
 Windows paths are translated automatically, so `'C:\Users\me\shot.png'` resolves
 to `/mnt/c/Users/me/shot.png`. Quote it, or the shell eats the backslashes before
 the CLI ever sees them.
+
+### Image formats
+
+`convert` reads PNG, JPEG, WebP, AVIF and JPEG XL and writes the same five. The
+browser app reads six more, GIF, BMP, TIFF, ICO, HEIC and SVG, because the only
+decoders for those are the ones a browser already ships.
+
+Both surfaces run the same WebAssembly codecs, the ones
+[Squoosh](https://github.com/GoogleChromeLabs/squoosh) settled on after
+measuring, packaged as [jSquash](https://github.com/jamsinclair/jSquash) and
+licensed Apache-2.0: MozJPEG, libwebp, libavif, libjxl and Oxipng. So a file
+converted in the window and the same file converted at the prompt come out
+identical. They are loaded on demand, because the AVIF encoder alone is 3.5 MB
+and nobody should download it to turn a PNG into a JPEG.
+
+The browser decodes with `createImageBitmap` first and falls back to those same
+codecs, which is what makes the extra six formats work and what makes JPEG XL
+work in a browser that has never heard of it.
+
+Quality is 1 to 100. The scales are not comparable between formats, so the
+defaults are deliberately different numbers, chosen to look alike rather than to
+read alike. JPEG 80 is the long-standing web default and the point past which
+MozJPEG's gains flatten out; the WebP and AVIF figures come from
+[Malte Ubl's DSSIM measurements](https://www.industrialempathy.com/posts/avif-webp-quality-settings/)
+against JPEG at matched quality; JPEG XL's is libjxl's own.
+
+| Format | Default | Why |
+| --- | --- | --- |
+| JPEG | 80 | the reference |
+| WebP | 82 | measured equal to JPEG 80 |
+| AVIF | 64 | measured equal to JPEG 80, at roughly a third off the size |
+| JPEG XL | 75 | libjxl's default, on the libjpeg scale |
+| PNG | lossless | then run through Oxipng, which on flat graphics is routinely an order of magnitude |
+
+Three things happen to a file on the way through, and all three are the point.
+
+**Metadata is dropped.** Converting decodes to pixels and encodes again, so EXIF,
+GPS coordinates, camera serial numbers, editing history and colour profiles are
+left behind. A photo posted straight from a phone otherwise carries where it was
+taken.
+
+**A sideways photo is turned the right way up.** JPEG records the camera angle in
+a tag rather than in the pixels, and
+[no other format carries that tag](https://zpl.fi/exif-orientation-in-different-formats/),
+so the rotation is baked into the pixels instead. Both sides do this: the
+browser through `createImageBitmap`'s `imageOrientation: 'from-image'`, and the
+CLI through MozJPEG's own orientation handling. `test/browser/suite.py` bolts an
+orientation tag onto a JPEG by hand and checks a 240x180 file comes out 180x240.
+
+**Transparency is flattened for JPEG**, which has no alpha channel, onto
+`--background` (white unless told otherwise). Every other format keeps it. Without
+this, transparent pixels land on whatever was underneath them, which in most
+drawing tools is black.
+
+Animation is not kept: an animated GIF or WebP converts as its first frame.
 
 ### Passwords
 
@@ -399,9 +459,15 @@ They need `playwright` (plus `python3 -m playwright install chromium`) and
 
 ## Deliberate limits
 
-- **JPEG and PNG only** for image input. JPEGs are embedded byte for byte, so nothing
-  is re-compressed. HEIC would need a ~1 MB wasm decoder, which is not worth carrying
-  until an iPhone photo actually shows up.
+- **Only JPEG goes into a PDF untouched.** PDF can hold a JPEG or a PNG and nothing
+  else, so a JPEG is embedded byte for byte and everything else is decoded and
+  re-written as a lossless PNG on the way in. Nothing is re-compressed either way.
+- **No animation.** An animated GIF or WebP converts as its first frame. Keeping the
+  frames would mean an animation encoder for every target format, for a case that is
+  better served by a video tool.
+- **No resizing.** `convert` changes the format, not the dimensions. Cropping and
+  scaling are a different tool with a different interface, and half a version of
+  them is worse than none.
 - **No compress tool.** Worthwhile PDF compression rebuilds the whole document the way
   Ghostscript does. What a browser can manage is re-encoding the images inside, which
   does nothing at all for a text-only PDF.
