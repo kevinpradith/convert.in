@@ -315,6 +315,22 @@ export const SwapIcon = ({ size = 40, stroke = 0.9 }: IconProps) => (
   </Icon>
 )
 
+/** Compression: a page squeezed inwards from both sides. */
+export const CompressIcon = ({ size = 40, stroke = 0.9 }: IconProps) => (
+  <Icon size={size} stroke={stroke}>
+    <rect x="3" y="2" width="10" height="12" rx="2" />
+    <path d="M5.5 6.5h5M8 4.5v2M8 9.5v2M5.5 9.5h5" />
+  </Icon>
+)
+
+/** A signature: a written stroke over the line it sits on. */
+export const SignIcon = ({ size = 40, stroke = 0.9 }: IconProps) => (
+  <Icon size={size} stroke={stroke}>
+    <path d="M2.5 9.5c2-4 3-4.5 4-1s2 2 3-1 1.5-1 2 1" />
+    <path d="M2.5 13h11" />
+  </Icon>
+)
+
 export const ImageIcon = ({ size = 40, stroke = 0.9 }: IconProps) => (
   <Icon size={size} stroke={stroke}>
     <rect x="2" y="3" width="12" height="10" rx="2.5" />
