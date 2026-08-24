@@ -15,9 +15,13 @@ import {
   extensionFor,
   isImageFormat,
   keepsAlpha,
+  resize,
+  resizedTo,
   sniff,
   type ImageFormat,
 } from './core/images.ts'
+import { compressPdf } from './core/pdf-compress.ts'
+import { signPdf } from './core/pdf-sign.ts'
 import {
   chunkPages,
   describe,
@@ -44,6 +48,8 @@ import { numberPages, watermarkPdf, type Corner, CORNERS } from './core/pdf-stam
 
 const COMMANDS = [
   'convert',
+  'compress',
+  'sign',
   'images',
   'merge',
   'select',
@@ -268,7 +274,7 @@ async function main(): Promise<void> {
       text: { type: 'string' },
       opacity: { type: 'string', default: '0.12' },
       angle: { type: 'string', default: '45' },
-      position: { type: 'string', default: 'bottom-center' },
+      position: { type: 'string' },
       start: { type: 'string', default: '1' },
       format: { type: 'string', default: '{n}' },
       'text-size': { type: 'string' },
@@ -276,6 +282,11 @@ async function main(): Promise<void> {
       quality: { type: 'string' },
       lossless: { type: 'boolean', default: false },
       background: { type: 'string', default: '#ffffff' },
+      width: { type: 'string' },
+      height: { type: 'string' },
+      stretch: { type: 'boolean', default: false },
+      'max-side': { type: 'string' },
+      signature: { type: 'string' },
       help: { type: 'boolean', short: 'h', default: false },
       version: { type: 'boolean', short: 'v', default: false },
     },
@@ -330,6 +341,25 @@ async function main(): Promise<void> {
         warn(`${format.toUpperCase()} keeps transparency, so --background does nothing here.`)
       }
 
+      // Worked out once rather than per file, so a batch is refused before the
+      // first output is written rather than halfway through.
+      const resizing =
+        values.width === undefined && values.height === undefined
+          ? undefined
+          : {
+              ...(values.width === undefined ? {} : { width: number(values.width, 'width') }),
+              ...(values.height === undefined ? {} : { height: number(values.height, 'height') }),
+              fit: !values.stretch,
+            }
+      if (resizing !== undefined) {
+        // A one-pixel probe, only to make the range check fail here rather than
+        // once per file in the middle of a batch.
+        resizedTo({ width: 100, height: 100, data: new Uint8ClampedArray(0) }, resizing)
+      }
+      if (values.stretch && (values.width === undefined || values.height === undefined)) {
+        fail('--stretch needs both --width and --height. With one of them the other follows the picture.')
+      }
+
       // Several inputs need somewhere to put several outputs. One input keeps
       // -o meaning the file it has always meant.
       const many = files.length > 1
@@ -354,7 +384,8 @@ async function main(): Promise<void> {
         if (many && !force && (await exists(out))) {
           fail(`${out} already exists. Add --force to overwrite it.`)
         }
-        const pixels = await decodeImage(source)
+        const decoded = await decodeImage(source)
+        const pixels = resizing === undefined ? decoded : resize(decoded, resizing)
         const bytes = await encodeImage(pixels, {
           format,
           quality,
@@ -363,19 +394,84 @@ async function main(): Promise<void> {
         })
         await writeFile(out, bytes)
         written.push(out)
+        const shape =
+          resizing === undefined
+            ? `${pixels.width}x${pixels.height}`
+            : `${decoded.width}x${decoded.height} to ${pixels.width}x${pixels.height}`
         if (many) {
           console.log(
-            `✓ ${out}  ${dim(`${pixels.width}x${pixels.height} · ${humanSize(bytes.length)}, ${sizeDelta(source.length, bytes.length)}`)}`,
+            `✓ ${out}  ${dim(`${shape} · ${humanSize(bytes.length)}, ${sizeDelta(source.length, bytes.length)}`)}`,
           )
         } else {
           const setting =
             values.lossless || format === 'png'
               ? 'lossless'
               : `quality ${quality ?? defaultQuality(format)}`
-          await report(out, `${format.toUpperCase()}, ${setting}, ${sizeDelta(source.length, bytes.length)}`)
+          await report(out, `${format.toUpperCase()}, ${shape}, ${setting}, ${sizeDelta(source.length, bytes.length)}`)
         }
       }
       return
+    }
+
+    case 'compress': {
+      const [input] = requireInputs(rest, 'PDF')
+      const file = await read(input!)
+      const out = await outputFile(
+        values.out,
+        beside(input!, `${stem(input!)}-compressed.pdf`),
+        force,
+      )
+      if (out === input) fail(`${input} is both the input and the output. Pass -o to write somewhere else.`)
+      const result = await compressPdf(file, {
+        ...(values.quality === undefined ? {} : { quality: number(values.quality, 'quality') }),
+        ...(values['max-side'] === undefined
+          ? {}
+          : { maxSide: number(values['max-side'], 'max-side') }),
+      })
+      // Saying why nothing happened is the whole difference between a tool that
+      // looks broken and one that has told you your file is already as small as
+      // it goes.
+      if (result.replaced === 0) {
+        warn(
+          result.images === 0
+            ? 'this PDF holds no images, so there was nothing to re-encode. Text and vector\n' +
+                '            drawings are already about as small as they get.'
+            : `none of its ${plural(result.images, 'image')} came out smaller than they already were.`,
+        )
+      }
+      await writeFile(out, result.bytes)
+      const detail = [
+        `${plural(result.replaced, 'image')} re-encoded`,
+        result.skipped > 0 ? `${result.skipped} left alone` : '',
+        sizeDelta(result.before, result.after),
+      ].filter(Boolean).join(', ')
+      return report(out, detail)
+    }
+
+    case 'sign': {
+      const [input] = requireInputs(rest, 'PDF')
+      const file = await read(input!)
+      // "sign contract.pdf mark.png" reads better than spelling out the flag.
+      const given = values.signature ?? rest[1]
+      if (given === undefined) {
+        fail('which signature? e.g. convert.in sign contract.pdf signature.png')
+      }
+      const signature = await read(localPath(given))
+      const pages =
+        values.pages === undefined ? undefined : parseRanges(values.pages, await pageCount(file))
+      const out = await outputFile(values.out, beside(input!, `${stem(input!)}-signed.pdf`), force)
+      await writeFile(
+        out,
+        await signPdf(file, {
+          signature,
+          // Where a form is signed, rather than the centre a page number wants.
+          position: oneOf<Corner>(values.position ?? 'bottom-right', CORNERS, 'position'),
+          width: number(values.width ?? '150', 'width'),
+          margin: number(values.margin ?? '36', 'margin'),
+          ...(pages === undefined ? {} : { pages }),
+        }),
+      )
+      return report(out, `${basename(given)} on ${pages === undefined ? 'the last page' : plural(pages.length, 'page')}`)
     }
 
     case 'images': {
@@ -565,7 +661,7 @@ async function main(): Promise<void> {
       await writeFile(
         out,
         await numberPages(file, {
-          position: oneOf<Corner>(values.position, CORNERS, 'position'),
+          position: oneOf<Corner>(values.position ?? 'bottom-center', CORNERS, 'position'),
           start: number(values.start, 'start'),
           size: number(values['text-size'] ?? '10', 'text-size'),
           margin: number(values.margin ?? '28', 'margin'),

@@ -28,6 +28,8 @@ USAGE
 
 COMMANDS
   convert <img...> --to <f>   Between PNG, JPEG, WebP, AVIF and JPEG XL
+  compress <in.pdf>           Re-encode the pictures inside a PDF
+  sign    <in.pdf> <sig.png>  Draw a signature image onto a page
   images  <img...>            JPEG and PNG into one PDF, one image per page
   merge   <pdf...>            Join PDFs in the order given
   select  <in.pdf> <pages>    Keep those pages in that order: reorder, delete, extract
@@ -44,6 +46,9 @@ OUTPUT
 
     convert shot.png --to webp  ->  shot.webp
     convert *.png --to avif     ->  beside each file, or -o into one folder
+    convert shot.png --to jpeg --width 800   ->  scaled on the way out
+    compress scan.pdf      ->  scan-compressed.pdf
+    sign    deal.pdf me.png ->  deal-signed.pdf
     images  shot.png       ->  shot.pdf
     images  shot1-12.png   ->  shot.pdf        named after what they share
     merge   a.pdf b.pdf    ->  a-merged.pdf
@@ -65,6 +70,11 @@ OPTIONS
       --quality <1-100>  Per-format default, see FORMATS              convert
       --lossless         Throw nothing away: png, webp, avif, jxl     convert
       --background <hex> Behind transparency in JPEG, default #ffffff convert
+      --width <px>       Scale to this width, height follows        convert
+      --height <px>      Scale to this height, width follows        convert
+      --stretch          Give both sides exactly, ignoring the shape convert
+      --max-side <px>    Shrink images past this many pixels       compress
+      --signature <file> Same as the second positional             sign
       --size <mode>      fit (default), a4, letter                 images
       --orientation <o>  auto (default), portrait, landscape       images
       --margin <pt>      White border, 0 for images, 28 for number
@@ -83,6 +93,10 @@ OPTIONS
       --position <corner>           top or bottom, plus left/center/right  number
       --start <n>                   First number printed, default 1     number
       --format <template>           {n} and {total}, default "{n}"      number
+      --quality <1-100>             Default 55                          compress
+      --width <pt>                  Signature width on the page, 150    sign
+      --position <corner>           Default bottom-right                sign
+      --margin <pt>                 From the page edges, default 36     sign
   -h, --help [id]        This guide. Add "id" for Bahasa Indonesia
   -v, --version          Print the version and exit
 
@@ -91,6 +105,8 @@ THE WEB APP
   underneath, so the two cannot drift apart. Start it with: npm run dev
 
     convert                       Convert images
+    compress                      Compress PDF
+    sign                          Sign PDF
     images                        Images to PDF
     merge, select, rotate, split  Organize PDF
     watermark, number             Stamp PDF
@@ -103,6 +119,37 @@ THE WEB APP
   Two flags have no browser equivalent, on purpose. --force is meaningless there,
   since a download never overwrites anything. --sort natural is unnecessary,
   since you drag the tiles into the order you want.
+
+MAKING A PDF SMALLER
+  compress re-encodes the JPEG images inside the document. That is where nearly
+  all the weight of a scan is, so a scanned file typically comes back 60 to 90
+  percent smaller. --max-side is worth more than --quality on anything scanned
+  above 300 dpi, because the extra pixels cannot be seen at printing size.
+
+    compress scan.pdf                         quality 55, sizes untouched
+    compress scan.pdf --max-side 1600         cap the long edge as well
+    compress scan.pdf --quality 40 --max-side 1200
+
+  A PDF that is only text comes back the size it went in, and says so. There
+  are no images in it to re-encode, and nothing here rewrites content streams
+  or subsets fonts: Ghostscript and MuPDF both do, and both are AGPL, which
+  this project cannot ship under.
+
+  An image is only replaced when the new one is genuinely smaller, so a file
+  that is already tight is returned untouched rather than made worse.
+
+SIGNING
+  sign draws a picture of a signature onto the page, the way signing a printout
+  and scanning it back does. It is not a cryptographic signature: it proves
+  nothing about who signed or whether the document changed afterwards. Use a
+  PNG so the paper shows through around the ink.
+
+    sign deal.pdf me.png                      bottom right of the last page
+    sign deal.pdf me.png --position top-right --width 200
+    sign deal.pdf me.png --pages 1,4          both pages
+
+  The last page is the default because that is where a contract is signed, and
+  stamping all forty is tedious to undo once the file has been sent.
 
 FORMATS
   convert reads PNG, JPEG, WebP, AVIF and JPEG XL, and writes the same five.
@@ -231,6 +278,8 @@ CARA PAKAI
 
 PERINTAH
   convert <gambar...> --to <f> Antara PNG, JPEG, WebP, AVIF dan JPEG XL
+  compress <in.pdf>            Encode ulang gambar di dalam PDF
+  sign    <in.pdf> <ttd.png>   Tempelkan gambar tanda tangan ke halaman
   images  <gambar...>          JPEG dan PNG jadi satu PDF, satu gambar per halaman
   merge   <pdf...>             Gabung PDF sesuai urutan yang diberikan
   select  <in.pdf> <halaman>   Ambil halaman itu sesuai urutannya: susun ulang, hapus, petik
@@ -247,6 +296,9 @@ HASIL
 
     convert shot.png --to webp  ->  shot.webp
     convert *.png --to avif     ->  di sebelah tiap berkas, atau -o ke satu folder
+    convert shot.png --to jpeg --width 800   ->  diperkecil sekalian
+    compress scan.pdf      ->  scan-compressed.pdf
+    sign    deal.pdf me.png ->  deal-signed.pdf
     images  shot.png       ->  shot.pdf
     images  shot1-12.png   ->  shot.pdf        dinamai dari bagian yang sama
     merge   a.pdf b.pdf    ->  a-merged.pdf
@@ -268,6 +320,11 @@ OPSI
       --quality <1-100>  Bawaan beda per format, lihat FORMAT          convert
       --lossless         Tidak membuang apa pun: png, webp, avif, jxl  convert
       --background <hex> Di balik transparansi JPEG, bawaan #ffffff    convert
+      --width <px>       Skalakan ke lebar ini, tinggi mengikuti     convert
+      --height <px>      Skalakan ke tinggi ini, lebar mengikuti     convert
+      --stretch          Pakai kedua sisi persis, abaikan bentuknya  convert
+      --max-side <px>    Perkecil gambar yang melebihi piksel ini  compress
+      --signature <file> Sama dengan posisi kedua                  sign
       --size <mode>      fit (bawaan), a4, letter                  images
       --orientation <o>  auto (bawaan), portrait, landscape        images
       --margin <pt>      Bingkai putih, 0 untuk images, 28 untuk number
@@ -286,6 +343,10 @@ OPSI
       --position <sudut>            top atau bottom, plus left/center/right  number
       --start <n>                   Nomor pertama yang dicetak, bawaan 1  number
       --format <template>           {n} dan {total}, bawaan "{n}"        number
+      --quality <1-100>             Bawaan 55                           compress
+      --width <pt>                  Lebar tanda tangan di halaman, 150  sign
+      --position <corner>           Bawaan bottom-right                 sign
+      --margin <pt>                 Dari tepi halaman, bawaan 36        sign
   -h, --help [id]        Panduan ini. Tambahkan "id" untuk Bahasa Indonesia
   -v, --version          Cetak versinya lalu keluar
 
@@ -295,6 +356,8 @@ APLIKASI WEB
   npm run dev
 
     convert                       Konversi gambar
+    compress                      Kompres PDF
+    sign                          Tanda tangan PDF
     images                        Gambar ke PDF
     merge, select, rotate, split  Tata PDF
     watermark, number             Cap PDF
@@ -307,6 +370,39 @@ APLIKASI WEB
   Dua flag memang tidak punya padanan di peramban. --force tidak ada artinya di
   sana, karena unduhan tidak pernah menimpa apa pun. --sort natural juga tidak
   perlu, karena di sana lu menyeret kotaknya sendiri ke urutan yang lu mau.
+
+MEMPERKECIL PDF
+  compress meng-encode ulang gambar JPEG di dalam dokumen. Di situlah hampir
+  semua bobot sebuah hasil pindaian berada, jadi berkas scan biasanya kembali
+  60 sampai 90 persen lebih kecil. --max-side lebih berpengaruh daripada
+  --quality untuk apa pun yang dipindai di atas 300 dpi, karena piksel
+  tambahannya tidak terlihat pada ukuran cetak.
+
+    compress scan.pdf                         quality 55, ukuran tidak diubah
+    compress scan.pdf --max-side 1600         batasi juga sisi terpanjang
+    compress scan.pdf --quality 40 --max-side 1200
+
+  PDF yang isinya cuma teks kembali sebesar aslinya, dan itu dikatakan apa
+  adanya. Tidak ada gambar untuk di-encode ulang, dan tidak ada di sini yang
+  menulis ulang content stream atau memangkas font: Ghostscript dan MuPDF
+  melakukannya, dan keduanya AGPL, yang tidak bisa dipakai proyek ini.
+
+  Gambar hanya diganti kalau yang baru benar-benar lebih kecil, jadi berkas
+  yang sudah padat dikembalikan apa adanya, bukan malah dibikin lebih buruk.
+
+TANDA TANGAN
+  sign menggambar tanda tangan ke halaman, sama seperti menandatangani hasil
+  cetak lalu memindainya kembali. Ini bukan tanda tangan kriptografis: tidak
+  membuktikan siapa yang menandatangani maupun apakah dokumennya berubah
+  setelah itu. Pakai PNG supaya kertasnya tembus di sekitar tintanya.
+
+    sign deal.pdf me.png                      kanan bawah halaman terakhir
+    sign deal.pdf me.png --position top-right --width 200
+    sign deal.pdf me.png --pages 1,4          dua halaman itu
+
+  Halaman terakhir jadi bawaan karena di situ kontrak ditandatangani, dan
+  mengecap keempat puluh halaman merepotkan untuk dibatalkan setelah berkasnya
+  terlanjur dikirim.
 
 FORMAT
   convert membaca PNG, JPEG, WebP, AVIF dan JPEG XL, dan menulis kelima-limanya.
