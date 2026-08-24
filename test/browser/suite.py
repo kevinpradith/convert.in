@@ -313,6 +313,34 @@ def run():
         check((width, height) == (180, 240),
               f'the EXIF quarter turn was applied to the pixels ({width}x{height}, was 240x180)')
 
+        print('== a result belongs to the settings that made it ==')
+        # Convert once, then move a setting. The finished file is encoded at the
+        # old setting, so leaving it on offer would hand back something the
+        # controls no longer describe.
+        current.locator('input[type=file]').set_input_files(str(FIXTURES / 'grey.png'))
+        current.locator('img').first.wait_for(timeout=30000)
+        current.get_by_role('combobox', name='To').select_option('webp')
+        current.get_by_role('button', name=re.compile(r'^Convert \d')).click()
+        current.get_by_role('button', name=re.compile('^Download')).wait_for(timeout=120000)
+        current.get_by_role('slider', name='Quality').fill('30')
+        check(current.get_by_role('button', name=re.compile('^Download')).count() == 0,
+              'moving the quality slider drops the file made at the old quality')
+
+        # AVIF can be lossless and JPEG cannot. Switching between them has to
+        # take the setting back down, or the encoder refuses a request the
+        # person has no control left to withdraw.
+        current.get_by_role('combobox', name='To').select_option('avif')
+        current.get_by_role('checkbox', name='Lossless').check()
+        current.get_by_role('combobox', name='To').select_option('jpeg')
+        current.get_by_role('button', name=re.compile(r'^Convert \d')).click()
+        download = current.get_by_role('button', name=re.compile('^Download'))
+        download.wait_for(timeout=120000)
+        with page.expect_download(timeout=60000) as caught:
+            download.click()
+        after = pathlib.Path(caught.value.path()).read_bytes()
+        check(after[:3] == b'\xff\xd8\xff',
+              f'a lossless AVIF switched to JPEG still writes a JPEG ({after[:3]!r})')
+
         print('== images to PDF ==')
         current = tool('Images to PDF')
         current.locator('input[type=file]').set_input_files(

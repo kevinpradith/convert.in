@@ -5,6 +5,7 @@ import {
   defaultQuality,
   encodeImage,
   extensionFor,
+  hasLosslessOption,
   keepsAlpha,
   mimeType,
   type ImageFormat,
@@ -47,17 +48,24 @@ export function Convert() {
   function add(files: File[]) {
     setError(null)
     void (async () => {
-      const loaded: Picture[] = []
-      for (const file of files) {
-        const bytes = await readBytes(file)
-        loaded.push({
-          id: newId(),
-          name: file.name,
-          bytes,
-          url: URL.createObjectURL(file),
-        })
+      try {
+        const loaded: Picture[] = []
+        for (const file of files) {
+          const bytes = await readBytes(file)
+          loaded.push({
+            id: newId(),
+            name: file.name,
+            bytes,
+            url: URL.createObjectURL(file),
+          })
+        }
+        setPictures((previous) => [...previous, ...loaded])
+      } catch (failure) {
+        // A file can go away between being dropped and being read, and a
+        // rejection with nobody catching it would leave the grid empty with no
+        // reason given.
+        setError(message(failure))
       }
-      setPictures((previous) => [...previous, ...loaded])
     })()
   }
 
@@ -76,6 +84,15 @@ export function Convert() {
   }
 
   /**
+   * A result belongs to the settings that produced it. Leaving one on screen
+   * after a setting moves would caption it with the old size and hand the old
+   * bytes to Download, so every setting drops them and the work is done again.
+   */
+  function forgetResults() {
+    setPictures((previous) => previous.map(({ result: _drop, ...rest }) => rest))
+  }
+
+  /**
    * Changing the target format moves the quality with it unless the slider has
    * been touched. The scales are not the same between formats, so carrying 82
    * from WebP over to AVIF would quietly ask for a much larger file.
@@ -83,7 +100,11 @@ export function Convert() {
   function chooseFormat(next: ImageFormat) {
     setFormat(next)
     if (!touchedQuality) setQuality(defaultQuality(next))
-    setPictures((previous) => previous.map(({ result: _drop, ...rest }) => rest))
+    // The switch is hidden for a format with no choice, so leaving it on would
+    // strand it: PNG to AVIF lossless, then to JPEG, and the encoder refuses a
+    // setting there is no longer any control for.
+    if (!hasLosslessOption(next)) setLossless(false)
+    forgetResults()
   }
 
   async function run() {
@@ -206,14 +227,22 @@ export function Convert() {
                     onChange={(next) => {
                       setTouchedQuality(true)
                       setQuality(next)
+                      forgetResults()
                     }}
                   />
                 )}
               </Field>
             )}
 
-            {format !== 'png' && format !== 'jpeg' && (
-              <Toggle label={t.convert.lossless} checked={lossless} onChange={setLossless} />
+            {hasLosslessOption(format) && (
+              <Toggle
+                label={t.convert.lossless}
+                checked={lossless}
+                onChange={(next) => {
+                  setLossless(next)
+                  forgetResults()
+                }}
+              />
             )}
 
             <Spacer />

@@ -105,6 +105,15 @@ export function keepsAlpha(format: ImageFormat): boolean {
 }
 
 /**
+ * Whether the format offers a choice. PNG is always lossless and JPEG never is,
+ * so for those two a lossless switch is not a setting, it is a fact. Callers
+ * that show one have to hide it again when the target changes underneath.
+ */
+export function hasLosslessOption(format: ImageFormat): boolean {
+  return format !== 'png' && format !== 'jpeg'
+}
+
+/**
  * The codecs are typed against the browser's ImageData, which carries a
  * colorSpace field they never read. Node has no ImageData at all, so the three
  * fields they do read are the ones this project passes around.
