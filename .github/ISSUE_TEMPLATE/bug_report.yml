@@ -1,0 +1,82 @@
+name: Bug report
+description: Something behaves differently from what the README says it does.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Everything here runs on your own machine, so nothing about your files
+        reaches anyone unless you attach it yourself. Please do not attach a
+        document you would not publish. A file that reproduces the problem with
+        nothing private in it is worth far more than the real one.
+
+        If this affects the privacy or the encryption claims, close this and use
+        [private reporting](https://github.com/kevinpradith/convert.in/security/advisories/new)
+        instead.
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where
+      options:
+        - The web app
+        - The command line
+        - Both
+    validations:
+      required: true
+  - type: dropdown
+    id: tool
+    attributes:
+      label: Which tool or command
+      options:
+        - Convert images / convert
+        - Images to PDF / images
+        - Organize PDF / merge, select, rotate, split
+        - Stamp PDF / watermark, number
+        - Protect PDF / protect, unlock
+        - PDF to images
+        - info
+        - Something else, or the app as a whole
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got instead.
+      placeholder: |
+        1. Opened a 12 page PDF in Organize
+        2. Selected pages 3 to 5 and clicked Save pages separately
+        3. Expected three files, got one
+    validations:
+      required: true
+  - type: textarea
+    id: file
+    attributes:
+      label: The file it happens with
+      description: >
+        What kind of file, roughly how large, and where it came from, since a
+        PDF written by a scanner and one written by Word fail in different ways.
+        Attach one only if it holds nothing private.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: "`convert.in --version`, or the commit you are on."
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Browser or Node version, and operating system
+      placeholder: Chrome 141 on Windows 11, or Node 24.15 on Ubuntu 24.04
+    validations:
+      required: true
+  - type: textarea
+    id: console
+    attributes:
+      label: Anything in the console or the terminal
+      description: The browser console for the web app, the whole output for the CLI. Automatically formatted as code.
+      render: shell
