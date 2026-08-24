@@ -306,6 +306,9 @@ async function main(): Promise<void> {
       const trailing = rest.at(-1)
       const named = trailing !== undefined && isImageFormat(trailing.toLowerCase()) ? files.pop() : undefined
       if (files.length === 0) fail('no images given. Run "convert.in --help" for examples.')
+      if (values.to !== undefined && named !== undefined && named.toLowerCase() !== values.to.toLowerCase()) {
+        fail(`--to says ${values.to} and the last word says ${named}. Give the format once.`)
+      }
       const target = values.to ?? named
       if (target === undefined) {
         fail(`which format? e.g. convert.in convert photo.png --to webp\n  one of: ${IMAGE_FORMATS.join(', ')}`)

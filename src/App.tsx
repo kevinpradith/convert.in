@@ -56,7 +56,7 @@ export default function App() {
               <Sidebar active={active} onSelect={setActive} {...settings} />
             </aside>
 
-            {/* All three stay mounted: switching tools should not throw away loaded pages. */}
+            {/* All of them stay mounted: switching tools should not throw away loaded pages. */}
             <main className="pane flex min-w-0 flex-1 flex-col">
               {TOOL_IDS.map((id) => (
                 <div key={id} className={cx(id === active ? 'flex min-h-0 flex-1 flex-col' : 'hidden')}>
