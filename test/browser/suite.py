@@ -24,7 +24,7 @@ import threading
 import zlib
 
 from playwright.sync_api import sync_playwright
-from pypdf import PdfReader
+from pypdf import PdfReader, PdfWriter
 from pypdf._encryption import PasswordType
 
 DIST = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else 'dist')
@@ -264,6 +264,14 @@ def run():
             with page.expect_download(timeout=60000) as download:
                 action()
             return PdfReader(io.BytesIO(pathlib.Path(download.value.path()).read_bytes()))
+
+        def produced_bytes(scope, run):
+            scope.get_by_role('button', name=run, exact=True).click()
+            got = scope.get_by_role('button', name=re.compile('^Download'))
+            got.wait_for(timeout=180000)
+            with page.expect_download(timeout=60000) as download:
+                got.click()
+            return pathlib.Path(download.value.path()).read_bytes()
 
         def produced(scope, run):
             """Make the file, then take it. The tools that accept a pile do the
@@ -612,6 +620,59 @@ def run():
         pair.wait_for(timeout=180000)
         came = all_saved(pair.click, 2)
         check(len(came) == 2, f'both stamped files came down ({len(came)})')
+
+        print('== a page that is stored sideways ==')
+        # A page with /Rotate 90 is what comes out of a scanner fed the short
+        # way, and it is the case where the corner the file stores and the
+        # corner the reader sees are not the same one. Drawing into the stored
+        # corner puts the number on the wrong edge, running up the side.
+        turned = PdfWriter()
+        turned.add_blank_page(width=400, height=600)
+        turned.pages[0].rotate(90)
+        with open(FIXTURES / 'sideways.pdf', 'wb') as handle:
+            turned.write(handle)
+
+        current = tool('Stamp PDF')
+        current.get_by_role('button', name='Clear', exact=True).click()
+        current.locator('input[type=file]').set_input_files(str(FIXTURES / 'sideways.pdf'))
+        current.get_by_role('radio', name='Page numbers').click()
+        # Large, so the ink is unmistakable once the page is rasterised small.
+        current.get_by_role('textbox', name='Format').fill('8888')
+        current.get_by_role('spinbutton', name='Size').fill('60')
+        current.get_by_role('combobox', name='Position').select_option('bottom-right')
+        (FIXTURES / 'sideways-numbered.pdf').write_bytes(produced_bytes(current, 'Save PDF'))
+
+        current = tool('PDF to images')
+        current.locator('input[type=file]').set_input_files(str(FIXTURES / 'sideways-numbered.pdf'))
+        current.locator('img').first.wait_for(timeout=30000)
+        page.wait_for_timeout(1500)
+        where = page.evaluate("""() => {
+          const img = document.querySelector('main > div:not(.hidden) img');
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          canvas.getContext('2d').drawImage(img, 0, 0);
+          const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+          let dark = 0, sumX = 0, sumY = 0;
+          for (let i = 0; i < pixels.length; i += 4) {
+            if (pixels[i] > 160) continue;
+            const at = i / 4;
+            dark++;
+            sumX += at % canvas.width;
+            sumY += Math.floor(at / canvas.width);
+          }
+          return { w: canvas.width, h: canvas.height, dark,
+                   x: dark ? sumX / dark : -1, y: dark ? sumY / dark : -1 };
+        }""")
+        check(where['w'] > where['h'],
+              f"the turned page renders landscape ({where['w']}x{where['h']})")
+        check(where['dark'] > 20, f"the page number is on the page ({where['dark']} dark pixels)")
+        # Bottom right of the page as it is looked at. Before this was fixed the
+        # ink landed on the left edge, which is what the first half catches.
+        check(where['x'] > where['w'] / 2,
+              f"the number sits in the right half ({where['x']:.0f} of {where['w']})")
+        check(where['y'] > where['h'] / 2,
+              f"and in the bottom half ({where['y']:.0f} of {where['h']})")
 
         print('== protect ==')
         current = tool('Protect PDF')

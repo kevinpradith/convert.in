@@ -1,4 +1,4 @@
-import { degrees, PDFDocument, rgb, StandardFonts } from '@cantoo/pdf-lib'
+import { degrees, PDFDocument, rgb, StandardFonts, type PDFPage } from '@cantoo/pdf-lib'
 import { resolvePages } from './pdf-pages.ts'
 
 /**
@@ -6,6 +6,49 @@ import { resolvePages } from './pdf-pages.ts'
  * nothing has to be shipped or downloaded, which is also why the text has to sit
  * inside Latin-1.
  */
+
+/**
+ * A page can carry a /Rotate entry, and a scan that came out of the feeder
+ * sideways almost always does. The drawing operators work in the page's own
+ * unrotated space, so a corner worked out from getSize() is not the corner the
+ * reader is looking at: on a page turned a quarter, the bottom right lands
+ * bottom left and the text runs up the side.
+ *
+ * These three translate between the page as displayed and the space the drawing
+ * commands use, so callers can go on thinking about the page a person sees.
+ * A rotation that is not a quarter turn is not something the format allows, so
+ * it is treated as none rather than guessed at.
+ */
+export function turnOf(page: PDFPage): number {
+  const angle = ((page.getRotation().angle % 360) + 360) % 360
+  return angle === 90 || angle === 180 || angle === 270 ? angle : 0
+}
+
+/** The page as the reader sees it: a quarter turn swaps the sides. */
+export function displayedSize(page: PDFPage): { width: number; height: number } {
+  const { width, height } = page.getSize()
+  const turn = turnOf(page)
+  return turn === 90 || turn === 270 ? { width: height, height: width } : { width, height }
+}
+
+/**
+ * Where a point on the displayed page sits in the unrotated drawing space.
+ * Pair it with `rotate: degrees(turnOf(page))`, which cancels the page's own
+ * turn so the drawn thing reads upright and runs the way the reader expects.
+ */
+export function placeOnPage(page: PDFPage, u: number, v: number): { x: number; y: number } {
+  const { width, height } = page.getSize()
+  switch (turnOf(page)) {
+    case 90:
+      return { x: width - v, y: u }
+    case 180:
+      return { x: width - u, y: height - v }
+    case 270:
+      return { x: v, y: height - u }
+    default:
+      return { x: u, y: v }
+  }
+}
 
 /** The few above U+00FF that WinAnsi still maps, so they should not be refused. */
 const EXTRA_ENCODABLE = '‘’“”–—†‡•…€™'
@@ -48,12 +91,16 @@ export async function watermarkPdf(
 
   const pdf = await PDFDocument.load(file)
   const font = await pdf.embedFont(StandardFonts.HelveticaBold)
-  const radians = (angleDegrees * Math.PI) / 180
   const perUnit = font.widthOfTextAtSize(text, 1)
 
   for (const index of resolvePages(pdf.getPageCount(), pages)) {
     const page = pdf.getPage(index)
+    // The centre of the page is the centre whichever way it is turned, so only
+    // the angle has to account for the rotation: without this a 45 degree
+    // watermark leans the other way on a sideways scan.
     const { width, height } = page.getSize()
+    const spin = angleDegrees + turnOf(page)
+    const radians = (spin * Math.PI) / 180
     const fontSize = size ?? (0.78 * Math.hypot(width, height)) / perUnit
     const textWidth = font.widthOfTextAtSize(text, fontSize)
     const textHeight = font.heightAtSize(fontSize)
@@ -65,7 +112,7 @@ export async function watermarkPdf(
       y: height / 2 - (textWidth / 2) * Math.sin(radians) - (textHeight / 2) * Math.cos(radians),
       size: fontSize,
       font,
-      rotate: degrees(angleDegrees),
+      rotate: degrees(spin),
       opacity,
       color: rgb(0, 0, 0),
     })
@@ -134,16 +181,22 @@ export async function numberPages(
     assertEncodable(label)
 
     const page = pdf.getPage(index)
-    const { width, height } = page.getSize()
+    // Worked out on the page as it is displayed, then translated, so "bottom
+    // right" is the corner the reader sees rather than the corner the file
+    // happens to store.
+    const { width, height } = displayedSize(page)
     const labelWidth = font.widthOfTextAtSize(label, size)
     page.drawText(label, {
-      x:
+      ...placeOnPage(
+        page,
         horizontal === 'left'
           ? margin
           : horizontal === 'right'
             ? width - margin - labelWidth
             : (width - labelWidth) / 2,
-      y: vertical === 'top' ? height - margin - size : margin,
+        vertical === 'top' ? height - margin - size : margin,
+      ),
+      rotate: degrees(turnOf(page)),
       size,
       font,
       color: rgb(0, 0, 0),
