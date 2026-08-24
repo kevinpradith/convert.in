@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # So a dependency that breaks the build is found before someone else finds it.
+  schedule:
+    - cron: '0 6 * * 1'
+
+# A second push to the same branch makes the first run pointless.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The floor from package.json engines, the current LTS, and current.
+        node: ['20.19', '22', '24']
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - run: npm test
+
+      - run: npm run build
+
+      # The point of the CLI is that it runs the same core, so a build that
+      # passes while the command line is broken has not passed.
+      - run: npm run cli -- --version
+
+  privacy:
+    name: Nothing leaves the origin
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - run: npm ci
+
+      - run: pip install playwright pypdf
+
+      - run: python -m playwright install --with-deps chromium
+
+      - run: npm run build
+
+      # Encrypted files written by this tool, read back with a library that
+      # shares no code with the one that wrote them.
+      - name: Write the fixtures and audit them independently
+        run: |
+          npm run audit:fixtures -- ./fixtures
+          python3 test/encryption-audit.py ./fixtures
+
+      # Serves the real dist/ with the real headers, drives every tool, and
+      # fails if a single request leaves the origin or the CSP is violated.
+      - run: npm run test:browser
