@@ -101,7 +101,7 @@ export async function describeSecurity(file: Uint8Array): Promise<Security> {
  * repeated at each one.
  */
 export function explain(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error)
+  const message = messageOf(error)
   if (/document to `PDFDocument.load` is encrypted/i.test(message)) {
     return 'this PDF is password protected: unlock it first'
   }
@@ -114,11 +114,30 @@ export function explain(error: unknown): string {
   if (
     /failed to parse pdf document/i.test(message) ||
     /expected instance of pdf/i.test(message) ||
-    /cannot read propert(y|ies) of (undefined|null)/i.test(message)
+    /cannot read propert(y|ies) of (undefined|null)/i.test(message) ||
+    // A page tree that points back at itself walks forever, and what comes back
+    // is the stack running out. That is a broken document, not a broken tool.
+    /maximum call stack size exceeded/i.test(message)
   ) {
     return 'this PDF is damaged past the point where it can be read'
   }
   return message
+}
+
+/**
+ * Not everything thrown is an Error. The WebAssembly codecs abort with a plain
+ * object, and String() on one of those is the word "[object Object]", which is
+ * what a person was shown instead of a reason. Anything carrying a string
+ * message is taken at its word before falling back.
+ */
+function messageOf(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'string') return error
+  if (typeof error === 'object' && error !== null) {
+    const { message } = error as { message?: unknown }
+    if (typeof message === 'string' && message !== '') return message
+  }
+  return 'something went wrong that did not say what it was'
 }
 
 /**

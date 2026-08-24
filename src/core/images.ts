@@ -132,6 +132,38 @@ function buffer(bytes: Uint8Array): ArrayBuffer {
  * a command line with no decoders at all take the same path.
  */
 export async function decodeWithCodec(bytes: Uint8Array, format: ImageFormat): Promise<Pixels> {
+  try {
+    return await runCodec(bytes, format)
+  } catch (failure) {
+    throw asError(failure, `this ${format.toUpperCase()} could not be read here`)
+  }
+}
+
+/**
+ * The codecs are Emscripten builds, and an abort inside one throws an
+ * `ExitStatus` object rather than an Error. It carries a message, but nothing
+ * downstream was looking for one on a non-Error, so a CMYK JPEG reached both
+ * the terminal and the browser as the words "[object Object]".
+ *
+ * Its own message says only "Program terminated with exit(1)", which names
+ * nothing a person can act on, so the caller's description is used instead and
+ * the original is kept as the cause.
+ */
+function asError(failure: unknown, description: string): Error {
+  if (failure instanceof Error) return failure
+  const aborted =
+    typeof failure === 'object' &&
+    failure !== null &&
+    typeof (failure as { message?: unknown }).message === 'string'
+  if (!aborted) return new Error(description, { cause: failure })
+  return new Error(
+    `${description}: the decoder gave up on it. Colour layouts outside plain RGB and greyscale, ` +
+      'CMYK in particular, are the usual reason.',
+    { cause: failure },
+  )
+}
+
+async function runCodec(bytes: Uint8Array, format: ImageFormat): Promise<Pixels> {
   const data = buffer(bytes)
   switch (format) {
     case 'png':
@@ -279,6 +311,17 @@ export interface ResizeOptions {
   fit?: boolean
 }
 
+/**
+ * The most pixels a result is allowed to have.
+ *
+ * Without a ceiling the only thing stopping a typed-in width is the allocator,
+ * and what comes back from it is "Array buffer allocation failed" in a terminal
+ * or a hung tab in a browser. This is Chrome's own canvas area limit, which is
+ * the tightest of the three engines and already the point past which the
+ * browser could not hold the answer anyway.
+ */
+const MAX_PIXELS = 268_435_456
+
 /** What the requested caps work out to for this particular image. */
 export function resizedTo(
   pixels: Pixels,
@@ -294,6 +337,16 @@ export function resizedTo(
     }
   }
   const ratio = pixels.width / pixels.height
+  return checked(sized(pixels, ratio, width, height, fit))
+}
+
+function sized(
+  pixels: Pixels,
+  ratio: number,
+  width: number | undefined,
+  height: number | undefined,
+  fit: boolean,
+): { width: number; height: number } {
   if (width !== undefined && height !== undefined) {
     if (!fit) return { width: Math.round(width), height: Math.round(height) }
     // Fit inside the box: the tighter of the two constraints wins, which is the
@@ -305,6 +358,20 @@ export function resizedTo(
     return { width: Math.round(width), height: Math.max(1, Math.round(width / ratio)) }
   }
   return { width: Math.max(1, Math.round(height! * ratio)), height: Math.round(height!) }
+}
+
+/**
+ * Checked on the result rather than on what was asked for, because one side is
+ * often left to follow the picture and it is the pair that has to fit.
+ */
+function checked(size: { width: number; height: number }): { width: number; height: number } {
+  if (size.width * size.height > MAX_PIXELS) {
+    throw new Error(
+      `${size.width}x${size.height} is ${Math.round((size.width * size.height) / 1e6)} megapixels, ` +
+        `and ${Math.round(MAX_PIXELS / 1e6)} is as large as this goes`,
+    )
+  }
+  return size
 }
 
 /**
@@ -412,7 +479,21 @@ export async function encodeImage(
   }
 
   const source = !KEEPS_ALPHA[format] && hasTransparency(pixels) ? flatten(pixels, background) : pixels
+  try {
+    return await runEncoder(source, format, quality, lossless)
+  } catch (failure) {
+    // Same story as decoding: an abort inside the WebAssembly is not an Error
+    // and would otherwise reach a person as "[object Object]".
+    throw asError(failure, `this image could not be written as ${format.toUpperCase()}`)
+  }
+}
 
+async function runEncoder(
+  source: Pixels,
+  format: ImageFormat,
+  quality: number,
+  lossless: boolean,
+): Promise<Uint8Array> {
   switch (format) {
     case 'png': {
       const encode = (await import('@jsquash/png/encode.js')).default
