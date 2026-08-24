@@ -1,4 +1,5 @@
 import { getDocument, type PDFDocumentProxy } from 'pdfjs-dist'
+import { checkSize } from './images-browser.ts'
 
 /**
  * Browser-only: pdf.js rasterises through a real <canvas>. The page-level tools
@@ -60,9 +61,15 @@ export async function renderPage(
 ): Promise<HTMLCanvasElement> {
   const page = await doc.getPage(pageNumber)
   const viewport = page.getViewport({ scale })
+  const width = Math.ceil(viewport.width)
+  const height = Math.ceil(viewport.height)
+  // A poster-sized page at 288 dpi runs past what a canvas will hold, and past
+  // it the browser hands back transparent black instead of an error. Saying so
+  // is the difference between "try a lower dpi" and a folder of blank images.
+  checkSize(width, height)
   const canvas = document.createElement('canvas')
-  canvas.width = Math.ceil(viewport.width)
-  canvas.height = Math.ceil(viewport.height)
+  canvas.width = width
+  canvas.height = height
   await page.render({ canvas, viewport }).promise
   return canvas
 }

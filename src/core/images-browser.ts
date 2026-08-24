@@ -20,7 +20,12 @@ import { decodeWithCodec, isImageFormat, sniff, type Pixels } from './images.ts'
 const MAX_SIDE = 65535
 const MAX_AREA = 268_435_456
 
-function checkSize(width: number, height: number): void {
+/**
+ * Exported because rasterising a PDF page draws onto a canvas too, and a large
+ * page at 288 dpi passes these limits long before anything complains: the
+ * canvas comes back blank rather than refusing.
+ */
+export function checkSize(width: number, height: number): void {
   if (width < 1 || height < 1) throw new Error('the image has no pixels')
   if (width > MAX_SIDE || height > MAX_SIDE || width * height > MAX_AREA) {
     throw new Error(

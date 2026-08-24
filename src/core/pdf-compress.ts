@@ -72,6 +72,13 @@ function isRewritableImage(stream: PDFRawStream): boolean {
   if (nameOf(dict, 'Subtype') !== '/Image') return false
   if (nameOf(dict, 'Filter') !== JPEG_FILTER) return false
   if (dict.get(PDFName.of('ImageMask'))?.toString() === 'true') return false
+  // A /Mask written as an array is a colour-key mask: ranges of component
+  // values to drop, counted in the image's own colour space. Everything here
+  // comes out as three-channel RGB, so a range written for a one-channel scan
+  // would then be read against the wrong components and punch holes in the
+  // picture. A /Mask that is a reference points at a separate stencil stream,
+  // which does not care what the base image is made of.
+  if (nameOf(dict, 'Mask')?.startsWith('[') === true) return false
   return true
 }
 
