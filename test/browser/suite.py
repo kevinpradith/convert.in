@@ -77,14 +77,27 @@ def serve(directory, headers):
 # fixtures the browser needs and the Node suite does not
 
 
-def png(width, height, grey, alpha=None):
+def png(width, height, grey, alpha=None, noisy=False):
     """A real PNG, built here so the suite needs no image library.
 
     With `alpha` given, the left half of every row is opaque and the right half
     is fully transparent, which is what makes the JPEG path testable: JPEG has
     nowhere to put an alpha channel, so those pixels have to land on something.
+
+    With `noisy`, every pixel differs from its neighbours. A flat colour is the
+    wrong fixture for anything about compression: it encodes down to a few
+    hundred bytes whatever quality is asked for, so a re-encode cannot beat it
+    and a correct compressor rightly declines to try.
     """
-    if alpha is None:
+    if noisy:
+        raw = b''.join(
+            b'\x00' + b''.join(
+                bytes([(x * 7 + y * 3) % 256, (x * 3 + y * 11) % 256, (x ^ y) % 256])
+                for x in range(width)
+            )
+            for y in range(height)
+        )
+    elif alpha is None:
         raw = b''.join(b'\x00' + bytes([grey, grey, grey]) * width for _ in range(height))
     else:
         row = b''.join(
@@ -209,6 +222,7 @@ def main():
     (FIXTURES / 'half-clear.png').write_bytes(png(120, 80, 30, alpha=True))
     (FIXTURES / 'tiny.gif').write_bytes(TINY_GIF)
     (FIXTURES / 'hostile.svg').write_bytes(HOSTILE_SVG)
+    (FIXTURES / 'noisy.png').write_bytes(png(400, 300, 0, noisy=True))
     (DIST / '__csp-probe.js').write_text(PROBE_JS)
     (DIST / '__csp-probe.html').write_text(PROBE_HTML)
 
@@ -365,6 +379,23 @@ def run():
         check(after[:3] == b'\xff\xd8\xff',
               f'a lossless AVIF switched to JPEG still writes a JPEG ({after[:3]!r})')
 
+        print('== scaling on the way out ==')
+        current.get_by_role('button', name='Clear', exact=True).click()
+        current.locator('input[type=file]').set_input_files(str(FIXTURES / 'grey.png'))
+        current.locator('img').first.wait_for(timeout=30000)
+        current.get_by_role('combobox', name='To').select_option('png')
+        current.get_by_role('spinbutton', name='Width').fill('60')
+        current.get_by_role('button', name=re.compile(r'^Convert \d')).click()
+        download = current.get_by_role('button', name=re.compile('^Download'))
+        download.wait_for(timeout=120000)
+        with page.expect_download(timeout=60000) as caught:
+            download.click()
+        scaled = pathlib.Path(caught.value.path()).read_bytes()
+        width, height = struct.unpack('>II', scaled[16:24])
+        # 240x180 asked to be 60 wide keeps its shape, so the height follows.
+        check((width, height) == (60, 45),
+              f'the height followed the width rather than being stretched ({width}x{height})')
+
         print('== images to PDF ==')
         current = tool('Images to PDF')
         current.locator('input[type=file]').set_input_files(
@@ -380,6 +411,84 @@ def run():
         current.locator('img').first.wait_for(timeout=30000)
         reader = saved(lambda: current.get_by_role('button', name='Save PDF').click())
         check(len(reader.pages) == 1, 'a WebP goes into a PDF as well')
+
+        print('== compressing a PDF ==')
+        # A PDF built here from a photographic JPEG, which is the shape a scan has.
+        photo = tool('Convert images')
+        photo.get_by_role('button', name='Clear', exact=True).click()
+        photo.locator('input[type=file]').set_input_files(str(FIXTURES / 'noisy.png'))
+        photo.locator('img').first.wait_for(timeout=30000)
+        # The footer only exists once something is loaded, and the width left
+        # over from the scaling check would shrink this one too.
+        photo.get_by_role('spinbutton', name='Width').fill('')
+        photo.get_by_role('combobox', name='To').select_option('jpeg')
+        photo.get_by_role('slider', name='Quality').fill('95')
+        photo.get_by_role('button', name=re.compile(r'^Convert \d')).click()
+        got = photo.get_by_role('button', name=re.compile('^Download'))
+        got.wait_for(timeout=120000)
+        with page.expect_download(timeout=60000) as caught:
+            got.click()
+        (FIXTURES / 'photo.jpg').write_bytes(pathlib.Path(caught.value.path()).read_bytes())
+
+        current = tool('Images to PDF')
+        current.get_by_role('button', name='Clear', exact=True).click()
+        current.locator('input[type=file]').set_input_files(str(FIXTURES / 'photo.jpg'))
+        current.locator('img').first.wait_for(timeout=30000)
+        with page.expect_download(timeout=60000) as caught:
+            current.get_by_role('button', name='Save PDF').click()
+        scan = pathlib.Path(caught.value.path()).read_bytes()
+        (FIXTURES / 'scan.pdf').write_bytes(scan)
+
+        current = tool('Compress PDF')
+        current.locator('input[type=file]').set_input_files(str(FIXTURES / 'scan.pdf'))
+        current.get_by_role('combobox', name='Longest side').wait_for(timeout=30000)
+        current.get_by_role('slider', name='Quality').fill('30')
+        current.get_by_role('button', name='Compress', exact=True).click()
+        save = current.get_by_role('button', name='Save PDF')
+        save.wait_for(timeout=120000)
+        with page.expect_download(timeout=60000) as caught:
+            save.click()
+        smaller = pathlib.Path(caught.value.path()).read_bytes()
+        check(len(smaller) < len(scan),
+              f'the PDF came back smaller ({len(scan)} -> {len(smaller)} bytes)')
+        check(len(PdfReader(io.BytesIO(smaller)).pages) == 1,
+              'and still opens with its page intact')
+
+        # A PDF with no pictures in it has nothing to re-encode, and saying so
+        # is the difference between an honest tool and one that looks broken.
+        current.locator('input[type=file]').set_input_files(str(FIXTURES / 'plain.pdf'))
+        current.get_by_role('button', name='Compress', exact=True).click()
+        told = current.get_by_text(re.compile('nothing to re-encode'))
+        told.wait_for(timeout=60000)
+        check(told.count() == 1, 'a text-only PDF is told it has nothing to shrink')
+        check(current.get_by_role('button', name='Save PDF').count() == 0,
+              'and is offered no download, because there is no new file')
+
+        print('== signing a PDF ==')
+        current = tool('Sign PDF')
+        current.locator('input[type=file]').first.set_input_files(str(FIXTURES / 'plain.pdf'))
+        pad = current.get_by_label('Sign here')
+        pad.wait_for(timeout=30000)
+        # Draw a stroke the way a person would, which is the only way the canvas
+        # ever gets any ink: there is no programmatic path into it.
+        box = pad.bounding_box()
+        page.mouse.move(box['x'] + 40, box['y'] + box['height'] / 2)
+        page.mouse.down()
+        for step in range(1, 12):
+            page.mouse.move(box['x'] + 40 + step * (box['width'] - 80) / 11,
+                            box['y'] + box['height'] / 2 + (20 if step % 2 else -20))
+        page.mouse.up()
+        signed = saved(lambda: current.get_by_role('button', name='Sign PDF', exact=True).click())
+        check(len(signed.pages) == 3, f'the signed file still has three pages ({len(signed.pages)})')
+        # Every page of this fixture already carries an empty /XObject dict, so
+        # the question is what is inside it, not whether the key is there.
+        def drawings(page):
+            return sorted(page.get('/Resources', {}).get('/XObject', {}).keys())
+
+        check(len(drawings(signed.pages[2])) == 1,
+              f'the drawing landed on the last page ({drawings(signed.pages[2])})')
+        check(drawings(signed.pages[0]) == [] and drawings(signed.pages[1]) == [],
+              'and on neither of the others, which nobody asked for')
 
         print('== PDF to images ==')
         current = tool('PDF to images')

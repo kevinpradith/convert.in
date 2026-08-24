@@ -18,11 +18,15 @@ import {
   splitPdf,
 } from '../src/core/pdf-pages.ts'
 import { caveat, describeSecurity, explain, protectPdf, unlockPdf } from '../src/core/pdf-security.ts'
+import { compressPdf } from '../src/core/pdf-compress.ts'
+import { signPdf } from '../src/core/pdf-sign.ts'
 import { decodeImage } from '../src/core/images-node.ts'
 import {
   IMAGE_FORMATS,
   defaultQuality,
   encodeImage,
+  resize,
+  resizedTo,
   flatten,
   keepsAlpha,
   sniff,
@@ -648,4 +652,104 @@ test('an impossible request is refused rather than fudged', async () => {
   await assert.rejects(decodeImage(Buffer.from('nothing image about this')), /not an image/)
   // Readable in the browser, and saying so beats "unsupported format".
   await assert.rejects(decodeImage(Buffer.from('GIF89a....', 'ascii')), /browser app/)
+})
+
+/**
+ * Sampling one source pixel per output pixel is the obvious way to scale and
+ * the wrong one: half the rows of a shrinking photo are thrown away outright.
+ * Averaging the covered area is what keeps detail, and these are the two cases
+ * where the difference is visible in three numbers rather than in a picture.
+ */
+test('scaling averages the pixels it covers rather than picking one', () => {
+  const pair = {
+    width: 2,
+    height: 1,
+    data: new Uint8ClampedArray([0, 0, 0, 255, 255, 255, 255, 255]),
+  }
+  const one = resize(pair, { width: 1, height: 1 })
+  assert.equal(one.data[0], 128, 'black beside white is mid grey, not one of the two')
+
+  // Transparent pixels carry coverage but no colour. Averaging the channels
+  // beside the alpha instead drags green into the edge of a cut-out, which is
+  // the dark fringe every naive resizer leaves behind.
+  const cut = { width: 2, height: 1, data: new Uint8ClampedArray([255, 0, 0, 255, 0, 255, 0, 0]) }
+  const blended = resize(cut, { width: 1, height: 1 })
+  assert.deepEqual([...blended.data], [255, 0, 0, 128])
+})
+
+test('a scaled image keeps its proportions unless told not to', () => {
+  const shape = { width: 400, height: 300, data: new Uint8ClampedArray(0) }
+  assert.deepEqual(resizedTo(shape, { width: 200 }), { width: 200, height: 150 })
+  assert.deepEqual(resizedTo(shape, { height: 150 }), { width: 200, height: 150 })
+  // Both sides given means fit inside the box, so nothing is cropped.
+  assert.deepEqual(resizedTo(shape, { width: 100, height: 100 }), { width: 100, height: 75 })
+  assert.deepEqual(resizedTo(shape, { width: 100, height: 100, fit: false }), {
+    width: 100,
+    height: 100,
+  })
+  assert.throws(() => resizedTo(shape, {}), /width, a height, or both/)
+  assert.throws(() => resizedTo(shape, { width: 0 }), /1 or more/)
+  assert.throws(() => resizedTo(shape, { height: NaN }), /1 or more/)
+})
+
+test('compressing re-encodes the pictures and leaves everything else alone', async () => {
+  const pixels = { width: 600, height: 400, data: new Uint8ClampedArray(600 * 400 * 4) }
+  for (let at = 0; at < pixels.data.length; at += 4) {
+    pixels.data[at] = (at / 4) % 256
+    pixels.data[at + 1] = 140
+    pixels.data[at + 2] = 200
+    pixels.data[at + 3] = 255
+  }
+  const scan = await imagesToPdf([await encodeImage(pixels, { format: 'jpeg', quality: 95 })])
+
+  const smaller = await compressPdf(scan, { quality: 40 })
+  assert.equal(smaller.images, 1)
+  assert.equal(smaller.replaced, 1)
+  assert.ok(smaller.after < smaller.before / 2, `expected less than half, got ${smaller.after}`)
+  assert.equal((await PDFDocument.load(smaller.bytes)).getPageCount(), 1)
+
+  // Capping the long side is worth more than any quality setting on a scan.
+  const capped = await compressPdf(scan, { maxSide: 200 })
+  assert.ok(capped.after < smaller.after)
+
+  await assert.rejects(compressPdf(scan, { quality: 0 }), /1 to 100/)
+  await assert.rejects(compressPdf(scan, { maxSide: 0 }), /1 or more/)
+})
+
+/**
+ * A compressor that hands back a bigger file is worse than one that does
+ * nothing, and it is the easy mistake to make: writing the document back out
+ * costs a few bytes even when not one image changed.
+ */
+test('a PDF with nothing to compress comes back untouched, not larger', async () => {
+  const doc = await PDFDocument.create()
+  for (let page = 0; page < 4; page++) doc.addPage([300, 300])
+  const source = await doc.save()
+
+  const report = await compressPdf(source)
+  assert.equal(report.images, 0)
+  assert.equal(report.replaced, 0)
+  assert.ok(report.after <= report.before, `${report.before} went in, ${report.after} came out`)
+  assert.deepEqual([...report.bytes], [...source], 'the original bytes, byte for byte')
+})
+
+test('signing draws on the last page unless told otherwise', async () => {
+  const mark = await encodeImage(
+    { width: 300, height: 100, data: new Uint8ClampedArray(300 * 100 * 4).fill(180) },
+    { format: 'png' },
+  )
+  const doc = await PDFDocument.create()
+  for (let page = 0; page < 3; page++) doc.addPage([595, 842])
+  const source = await doc.save()
+
+  const signed = await signPdf(source, { signature: mark })
+  assert.equal((await PDFDocument.load(signed)).getPageCount(), 3)
+  assert.ok(signed.length > source.length, 'the signature went in')
+
+  await assert.rejects(signPdf(source, { signature: Buffer.from('nope') }), /PNG or a JPEG/)
+  await assert.rejects(signPdf(source, { signature: mark, width: 0 }), /above 0/)
+  await assert.rejects(signPdf(source, { signature: mark, margin: -1 }), /0 or more/)
+  await assert.rejects(signPdf(source, { signature: mark, pages: [9] }), /out of range/)
+  // A signature wider than the page is refused rather than drawn off the edge.
+  await assert.rejects(signPdf(source, { signature: mark, width: 900 }), /does not fit/)
 })
