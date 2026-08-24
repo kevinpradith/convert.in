@@ -9,6 +9,32 @@ still change between minor versions.
 
 ## [Unreleased]
 
+### Added
+
+- **Compress PDF**, as a tool and as `compress`. The JPEG images inside the
+  document are re-encoded, and optionally capped to a longest side, which on a
+  scan is 60 to 90 percent of the file. A PDF that is only text is told it has
+  nothing to shrink rather than shown a hollow "0% smaller", and an image is
+  only replaced when the new one is genuinely smaller, so a file that is already
+  tight comes back byte for byte rather than fractionally larger.
+- **Sign PDF**, as a tool and as `sign`. Draw a signature with a mouse, finger
+  or stylus, or bring a PNG of one, and place it in any corner of any page. The
+  last page is the default, because that is where a contract is signed. Both the
+  tool and the guide say plainly that this draws a picture and is not a
+  cryptographic signature.
+- **Scaling** on the Convert tool and on `convert`, through `--width`,
+  `--height` and `--stretch`. Giving one side lets the other follow the picture;
+  giving both fits it inside that box unless `--stretch` says otherwise. Scaling
+  averages over the area each output pixel covers rather than sampling one, so a
+  reduced photo keeps its detail instead of shimmering, and transparent pixels
+  contribute coverage without dragging their colour into the edges.
+
+### Changed
+
+- `--position` no longer carries one default for every command. `number` still
+  puts a page number at the bottom centre; `sign` puts a signature at the bottom
+  right, which is where a form is signed.
+
 ## [0.1.0] - 2026-08-24
 
 First tagged release. Six tools in a browser app, eleven commands on the command
