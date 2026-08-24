@@ -109,6 +109,74 @@ export function TextInput({ className, ...rest }: InputHTMLAttributes<HTMLInputE
   )
 }
 
+/**
+ * A quality slider. Native <input type=range>, because dragging, arrow keys,
+ * screen readers and the touch target are all already correct in one, and none
+ * of them are free to rebuild.
+ */
+export function Slider({
+  label,
+  value,
+  onChange,
+  min = 1,
+  max = 100,
+}: {
+  label: string
+  value: number
+  onChange: (value: number) => void
+  min?: number
+  max?: number
+}) {
+  return (
+    <span className="flex items-center gap-2">
+      <input
+        type="range"
+        aria-label={label}
+        min={min}
+        max={max}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className={cx(
+          'h-1.5 w-24 cursor-pointer appearance-none rounded-capsule bg-fill sm:w-32',
+          '[&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5',
+          '[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full',
+          '[&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:shadow-thumb',
+          '[&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:border-0',
+          '[&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-accent',
+          'focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink',
+        )}
+      />
+      <span className="text-body w-7 shrink-0 text-right tabular-nums">{value}</span>
+    </span>
+  )
+}
+
+/**
+ * An on/off control. A checkbox rather than a switch: the label is beside it
+ * either way, and a checkbox is the one browsers already announce correctly.
+ */
+export function Toggle({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <label className="text-body flex cursor-pointer items-center gap-1.5 select-none">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="h-3.5 w-3.5 accent-[var(--color-accent)]"
+      />
+      {label}
+    </label>
+  )
+}
+
 /** Native select: five options is past the point a segmented control stays readable. */
 export function Select({ className, ...rest }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
@@ -257,6 +325,15 @@ export const StampIcon = ({ size = 40, stroke = 0.9 }: IconProps) => (
   <Icon size={size} stroke={stroke}>
     <rect x="2.5" y="2.5" width="11" height="11" rx="2" />
     <path d="M5 11 11 5M5.5 5.5h.01M10.5 10.5h.01" />
+  </Icon>
+)
+
+/** The converter's mark: one picture turning into another. */
+export const SwapIcon = ({ size = 40, stroke = 0.9 }: IconProps) => (
+  <Icon size={size} stroke={stroke}>
+    <rect x="1.5" y="3" width="8" height="7" rx="1.8" />
+    <path d="M3 8.5 5 6.5l1.5 1.5" />
+    <path d="M8 13h5.5M11.5 11 13.5 13l-2 2" />
   </Icon>
 )
 

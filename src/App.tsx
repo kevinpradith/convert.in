@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Convert } from './ui/tools/Convert.tsx'
 import { ImagesToPdf } from './ui/tools/ImagesToPdf.tsx'
 import { Organize } from './ui/tools/Organize.tsx'
 import { PdfToImages } from './ui/tools/PdfToImages.tsx'
@@ -19,7 +20,7 @@ import {
 import { cx } from './ui/kit.tsx'
 
 export default function App() {
-  const [active, setActive] = useState<ToolId>('images')
+  const [active, setActive] = useState<ToolId>('convert')
   const [theme, setTheme] = useState<Theme>(loadTheme)
   const [lang, setLang] = useState<Lang>(loadLang)
   const [navOpen, setNavOpen] = useState(false)
@@ -63,6 +64,7 @@ export default function App() {
                       breaks should not take the other four's loaded files
                       down with it. */}
                   <Boundary lang={lang}>
+                    {id === 'convert' && <Convert />}
                     {id === 'images' && <ImagesToPdf />}
                     {id === 'organize' && <Organize />}
                     {id === 'stamp' && <Stamp />}

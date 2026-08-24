@@ -8,14 +8,16 @@ import {
   PagesIcon,
   Segmented,
   StampIcon,
+  SwapIcon,
 } from './kit.tsx'
 import { STRINGS } from './i18n.ts'
 import type { Lang, Theme } from './prefs.ts'
 
-export const TOOL_IDS = ['images', 'organize', 'stamp', 'protect', 'export'] as const
+export const TOOL_IDS = ['convert', 'images', 'organize', 'stamp', 'protect', 'export'] as const
 export type ToolId = (typeof TOOL_IDS)[number]
 
 const TOOL_ICONS: Record<ToolId, typeof ImageIcon> = {
+  convert: SwapIcon,
   images: ImageIcon,
   organize: PagesIcon,
   stamp: StampIcon,
