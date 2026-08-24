@@ -160,6 +160,18 @@ function starts(bytes: Uint8Array, ...signature: number[]): boolean {
   return signature.every((byte, index) => bytes[index] === byte)
 }
 
+function littleEndian32(bytes: Uint8Array, at: number): number {
+  if (at + 4 > bytes.length) return 0
+  return bytes[at]! | (bytes[at + 1]! << 8) | (bytes[at + 2]! << 16) | (bytes[at + 3]! << 24)
+}
+
+/**
+ * Every DIB header length the format has ever defined: the OS/2 original, the
+ * Windows 3 one almost everything writes, its three extensions, and the two
+ * versions that carry a colour profile.
+ */
+const DIB_HEADER_SIZES = new Set([12, 40, 52, 56, 64, 108, 124])
+
 /**
  * Identify a file from its leading bytes rather than its name, because the
  * name is whatever somebody typed. Phones in particular hand out .jpg files
@@ -173,7 +185,10 @@ export function sniff(bytes: Uint8Array): SourceFormat | null {
   if (starts(bytes, 0xff, 0xd8, 0xff)) return 'jpeg'
   if (ascii(bytes, 0, 4) === 'RIFF' && ascii(bytes, 8, 4) === 'WEBP') return 'webp'
   if (ascii(bytes, 0, 3) === 'GIF') return 'gif'
-  if (ascii(bytes, 0, 2) === 'BM') return 'bmp'
+  // "BM" alone is two bytes of anything. The DIB header that follows names its
+  // own length, and the handful of lengths ever written are what tells a bitmap
+  // apart from a text file that happens to start with those letters.
+  if (ascii(bytes, 0, 2) === 'BM' && DIB_HEADER_SIZES.has(littleEndian32(bytes, 14))) return 'bmp'
   if (starts(bytes, 0x49, 0x49, 0x2a, 0x00) || starts(bytes, 0x4d, 0x4d, 0x00, 0x2a)) return 'tiff'
   if (starts(bytes, 0x00, 0x00, 0x01, 0x00)) return 'ico'
   // Both a bare JPEG XL codestream and the ISO container it can be wrapped in.
@@ -186,11 +201,15 @@ export function sniff(bytes: Uint8Array): SourceFormat | null {
     if (['heic', 'heix', 'hevc', 'hevx', 'mif1', 'msf1'].includes(brand)) return 'heic'
   }
   // SVG has no magic number, so this is the shape of the thing rather than a
-  // signature: whitespace, then either the XML declaration or the root tag.
-  const head = ascii(bytes, 0, 200).trimStart()
-  if (head.startsWith('<?xml') || head.startsWith('<svg') || head.startsWith('<!DOCTYPE svg')) {
-    return 'svg'
-  }
+  // signature: whitespace, then the root tag.
+  const head = ascii(bytes, 0, 1000)
+  const opening = head.trimStart()
+  if (opening.startsWith('<svg') || opening.startsWith('<!DOCTYPE svg')) return 'svg'
+  // An XML declaration says only "XML", and every RSS feed starts with one. The
+  // root element is what decides, so it has to actually turn up. The test is a
+  // plain scan rather than a prolog grammar: anchored alternation over a
+  // comment would backtrack, and the window is what bounds the work here.
+  if (opening.startsWith('<?xml') && /<svg[\s/>]/i.test(head)) return 'svg'
   return null
 }
 
