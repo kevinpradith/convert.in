@@ -191,7 +191,7 @@ const id: Strings = {
   remove: 'Hapus',
   tools: {
     convert: { label: 'Konversi gambar', hint: 'PNG, JPEG, WebP, AVIF, JPEG XL' },
-  images: { label: 'Gambar ke PDF', hint: 'Gambar apa saja, per halaman' },
+    images: { label: 'Gambar ke PDF', hint: 'Gambar apa saja, per halaman' },
     organize: { label: 'Tata PDF', hint: 'Gabung, susun, putar, pisah' },
     export: { label: 'PDF ke gambar', hint: 'Halaman jadi gambar' },
     protect: { label: 'Kunci PDF', hint: 'Password, setara Acrobat' },
@@ -333,8 +333,4 @@ export const LangContext = createContext<Lang>('en')
 
 export function useT(): Strings {
   return STRINGS[useContext(LangContext)]
-}
-
-export function useLang(): Lang {
-  return useContext(LangContext)
 }

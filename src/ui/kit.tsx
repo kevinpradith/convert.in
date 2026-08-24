@@ -261,28 +261,6 @@ export function Logo({ className = 'h-6 w-auto' }: { className?: string }) {
   )
 }
 
-/** The app mark: the conversion arrow on its own, in ink. */
-export function Wordmark({ size = 18 }: { size?: number }) {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      width={size}
-      height={size}
-      aria-hidden="true"
-      className="text-ink shrink-0"
-    >
-      <path
-        d="M3 10h13M11.4 5.4 16 10l-4.6 4.6"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.9"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
 export const PlusIcon = () => (
   <Icon>
     <path d="M8 3.5v9M3.5 8h9" />

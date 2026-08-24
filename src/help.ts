@@ -18,7 +18,7 @@ const TAGLINE: Record<Lang, string> = {
   id: ' perkakas gambar dan PDF yang tidak pernah keluar dari mesin ini',
 }
 
-export function banner(lang: Lang): string {
+function banner(lang: Lang): string {
   return `${ART}\n${dim(TAGLINE[lang])}\n`
 }
 
