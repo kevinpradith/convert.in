@@ -92,9 +92,11 @@ OPTIONS
       --height <px>      Scale to this height, width follows        convert
       --stretch          Give both sides exactly, ignoring the shape convert
       --max-side <px>    Shrink images past this many pixels       compress
+      --max-size <size>  Squeeze until it fits, e.g. 500kb, 2mb    compress
       --signature <file> Same as the second positional             sign
       --size <mode>      fit (default), a4, letter                 images
       --orientation <o>  auto (default), portrait, landscape       images
+      --dpi <n>          Pixels per inch a fit page is sized by    images
       --margin <pt>      White border, 0 for images, 28 for number
       --sort <mode>      given (default), natural                  images, merge
       --by <degrees>     Same as the degrees positional            rotate
@@ -147,6 +149,17 @@ MAKING A PDF SMALLER
     compress scan.pdf                         quality 55, sizes untouched
     compress scan.pdf --max-side 1600         cap the long edge as well
     compress scan.pdf --quality 40 --max-side 1200
+
+  --max-size names the outcome instead of the settings, which is what an upload
+  form actually asks for: a visa application wants 500KB, an HR portal 2MB. It
+  tries gentle settings first and only goes harder while the file is still too
+  big, and every attempt starts from the original, so a document that needs four
+  tries is compressed once rather than four times over. A file already under the
+  limit is copied out untouched. If nothing gets it under, the smallest attempt
+  is still written and the shortfall is reported.
+
+    compress passport.pdf --max-size 500kb    the number the form asked for
+    compress filing.pdf --max-size 5mb -o out/
 
   A PDF that is only text comes back the size it went in, and says so. There
   are no images in it to re-encode, and nothing here rewrites content streams
@@ -269,6 +282,7 @@ EXAMPLES
   convert.in images shot-*.png
   convert.in images shot*.png --sort natural
   convert.in images scan-*.jpg -o scan.pdf --size a4 --margin 24
+  convert.in compress passport.pdf --max-size 500kb
   convert.in merge part-1.pdf part-2.pdf -o whole.pdf
   convert.in select scan.pdf 1-3,7
   convert.in rotate scan.pdf 90 --pages 2-4
@@ -280,8 +294,16 @@ EXAMPLES
   convert.in info scan.pdf
 
 NOTES
-  --size fit maps one pixel to one point, so the ratio is exact but a printed
-  page can come out an odd physical size. Use --size a4 when it goes to paper.
+  --size fit takes the page size from the resolution the image claims, so a
+  3000-pixel scan that says 300dpi becomes a 10-inch page rather than a 41-inch
+  one. An image that claims nothing is treated as 96dpi, and --dpi overrides
+  both. Use --size a4 when it goes on paper regardless.
+
+  A JPEG goes into the PDF untouched, which is what keeps images lossless and
+  is also what loses its EXIF orientation tag, so the page is turned instead of
+  the pixels: a photo taken sideways comes out upright, still byte for byte the
+  original. The four orientations that mirror as well as turn are decoded and
+  rewritten, since a page cannot be flipped.
   Watermarks and page numbers draw with the built-in fonts, which cover Latin-1
   only, so text outside it is refused rather than silently dropped.
 
@@ -361,9 +383,11 @@ OPSI
       --height <px>      Skalakan ke tinggi ini, lebar mengikuti     convert
       --stretch          Pakai kedua sisi persis, abaikan bentuknya  convert
       --max-side <px>    Perkecil gambar yang melebihi piksel ini  compress
+      --max-size <size>  Peras sampai muat, misal 500kb, 2mb       compress
       --signature <file> Sama dengan posisi kedua                  sign
       --size <mode>      fit (bawaan), a4, letter                  images
       --orientation <o>  auto (bawaan), portrait, landscape        images
+      --dpi <n>          Piksel per inci penentu ukuran halaman fit images
       --margin <pt>      Bingkai putih, 0 untuk images, 28 untuk number
       --sort <mode>      given (bawaan), natural                   images, merge
       --by <derajat>     Sama dengan posisi derajat                rotate
@@ -418,6 +442,17 @@ MEMPERKECIL PDF
     compress scan.pdf                         quality 55, ukuran tidak diubah
     compress scan.pdf --max-side 1600         batasi juga sisi terpanjang
     compress scan.pdf --quality 40 --max-side 1200
+
+  --max-size menyebut hasilnya, bukan pengaturannya, dan itulah yang sebenarnya
+  diminta formulir unggahan: pengajuan visa minta 500KB, portal HR 2MB. Yang
+  dicoba lebih dulu pengaturan paling ringan, baru diperkeras selama berkasnya
+  masih kebesaran, dan setiap percobaan berangkat dari berkas asli, jadi dokumen
+  yang butuh empat percobaan tetap dikompres sekali. Berkas yang sudah di bawah
+  batas disalin apa adanya. Kalau tidak ada yang berhasil, percobaan terkecil
+  tetap ditulis dan kekurangannya dilaporkan.
+
+    compress paspor.pdf --max-size 500kb      angka yang diminta formulirnya
+    compress berkas.pdf --max-size 5mb -o out/
 
   PDF yang isinya cuma teks kembali sebesar aslinya, dan itu dikatakan apa
   adanya. Tidak ada gambar untuk di-encode ulang, dan tidak ada di sini yang
@@ -539,6 +574,7 @@ CONTOH
   convert.in images shot-*.png
   convert.in images shot*.png --sort natural
   convert.in images scan-*.jpg -o scan.pdf --size a4 --margin 24
+  convert.in compress paspor.pdf --max-size 500kb
   convert.in merge bagian-1.pdf bagian-2.pdf -o utuh.pdf
   convert.in select scan.pdf 1-3,7
   convert.in rotate scan.pdf 90 --pages 2-4
@@ -550,8 +586,16 @@ CONTOH
   convert.in info scan.pdf
 
 CATATAN
-  --size fit memetakan satu piksel ke satu point, jadi rasionya persis tetapi
-  ukuran cetaknya bisa aneh. Untuk dicetak, pakai --size a4.
+  --size fit mengambil ukuran halaman dari kerapatan yang disebut gambarnya,
+  jadi hasil pindaian 3000 piksel yang mengaku 300dpi jadi halaman 10 inci,
+  bukan 41 inci. Gambar yang tidak menyebut apa-apa dianggap 96dpi, dan --dpi
+  menimpa keduanya. Untuk dicetak, --size a4 tetap lebih pasti.
+
+  JPEG masuk ke PDF apa adanya, dan justru itu yang membuatnya tanpa kehilangan
+  sekaligus yang menghilangkan tag orientasi EXIF-nya, jadi yang diputar
+  halamannya, bukan pikselnya: foto yang diambil miring keluar tegak, tetap
+  sama persis byte demi byte. Empat orientasi yang juga mencerminkan gambar
+  di-decode dan ditulis ulang, karena halaman tidak bisa dicerminkan.
   Watermark dan nomor halaman digambar dengan font bawaan yang cuma mencakup
   Latin-1, jadi teks di luar itu ditolak, bukan diam-diam dibuang.
 

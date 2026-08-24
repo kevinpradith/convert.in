@@ -37,9 +37,40 @@ still change between minor versions.
   the CLI works out every output name before writing the first file, so a run
   that would overwrite something, or give two inputs the same name, stops before
   it has done half the job.
+- **A size limit to compress towards**, as `--max-size` on `compress` and as
+  "Fit under" in the tool. An upload form states an outcome, not a quality
+  setting: a visa application wants 500KB and an HR portal 2MB, and every
+  compressor answers with a slider that has to be guessed at and repeated. This
+  starts gentle and only goes harder while the file is still too big, and each
+  attempt starts from the original, so a document that needs four tries is
+  compressed once rather than four times over. A file already under the limit is
+  handed back untouched, and a limit nothing can meet still writes the smallest
+  attempt and says how far short it fell.
+- **`--dpi` on `images`**, and the matching field in the tool, for the page size
+  a `fit` page is worked out from.
+- **Natural order in Images to PDF.** Files arrive sorted the way a person
+  counts, so `shot2.png` comes before `shot10.png` rather than after it.
+  Dragging a tile still overrides it. The CLI already had this as `--sort
+  natural`.
 
 ### Fixed
 
+- **A photo taken sideways no longer becomes a sideways page.** A phone writes
+  the sensor's pixels and a tag saying which way the phone was held. Embedding
+  the JPEG untouched is what keeps `images` lossless, and it is also what lost
+  that tag, so every portrait photo landed on its side. The page is now turned
+  instead of the pixels, which costs nothing and keeps the file byte for byte
+  the original. The four orientations that mirror as well as turn are decoded
+  and rewritten, since a page cannot be flipped.
+- **A `fit` page is now the size the image says it is.** One pixel was mapped to
+  one point, which made a 3000-pixel scan a page 41 inches across. The page is
+  now worked out from the resolution the file claims, read from a PNG's `pHYs`
+  chunk or a JPEG's EXIF and JFIF blocks, so that same scan at 300dpi becomes 10
+  inches. An image that claims nothing is treated as 96dpi, which is what a
+  screen calls an inch, and `--dpi` overrides both.
+- **The page under an image is painted white.** A PDF page has no colour of its
+  own, so a transparent PNG showed whatever the reader put behind it, which in a
+  dark-mode reader is black.
 - **A page stored sideways is now stamped in the corner the reader sees.** A
   page carrying `/Rotate`, which is what a scanner produces when the sheet went
   in the short way, is drawn on in its own unrotated space. `sign`, `number` and

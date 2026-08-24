@@ -173,3 +173,84 @@ export async function compressPdf(
   const bytes = rebuilt.length < file.length ? rebuilt : file
   return { bytes, before: file.length, after: bytes.length, images, replaced, skipped }
 }
+
+/* ------------------------------------------------------------ to a limit --- */
+
+/**
+ * The settings to try, in the order to try them. The first two only re-encode;
+ * past that the pictures start losing pixels as well, because below about 45
+ * the artefacts show up faster than the file shrinks and shrinking the image
+ * itself buys more.
+ */
+const LADDER: readonly CompressOptions[] = [
+  { quality: 75 },
+  { quality: 60 },
+  { quality: 45, maxSide: 2200 },
+  { quality: 35, maxSide: 1700 },
+  { quality: 30, maxSide: 1200 },
+  { quality: 25, maxSide: 900 },
+]
+
+export interface FitReport extends CompressReport {
+  /** False when even the harshest setting could not get under the limit. */
+  fits: boolean
+  /** What it took, so the caller can say what the file cost to get there. */
+  used: CompressOptions
+}
+
+/**
+ * Squeeze a document until it is under a size limit, which is the thing every
+ * upload form asks for and no compressor takes as an instruction: a visa portal
+ * wants 500KB, a court filing wants 5MB, and a slider marked "medium" is a
+ * guess that has to be repeated until it lands.
+ *
+ * Each attempt starts from the original file rather than the last attempt, so a
+ * document that needs four tries is compressed once, not four times over.
+ * A file that is already small enough is handed straight back untouched.
+ *
+ * Where nothing gets it under the limit, the smallest attempt comes back with
+ * `fits: false` rather than an error: a file that is close is still worth
+ * having, and only the caller knows whether close is good enough.
+ */
+export async function compressToFit(
+  file: Uint8Array,
+  maxBytes: number,
+  options: { quality?: number; maxSide?: number } = {},
+): Promise<FitReport> {
+  if (!Number.isFinite(maxBytes) || maxBytes < 1) {
+    throw new Error('the size limit must be a whole number of bytes, 1 or more')
+  }
+  if (file.length <= maxBytes) {
+    return {
+      bytes: file,
+      before: file.length,
+      after: file.length,
+      images: 0,
+      replaced: 0,
+      skipped: 0,
+      fits: true,
+      used: {},
+    }
+  }
+
+  // A ceiling given by the caller applies to every rung, so "no wider than
+  // 1500px, and under 2MB" is one request rather than two.
+  const rungs = LADDER.map((rung) => ({
+    quality: options.quality === undefined ? rung.quality : Math.min(rung.quality!, options.quality),
+    ...(options.maxSide === undefined && rung.maxSide === undefined
+      ? {}
+      : { maxSide: Math.min(options.maxSide ?? Infinity, rung.maxSide ?? Infinity) }),
+  }))
+
+  let best: FitReport | null = null
+  for (const rung of rungs) {
+    const report = await compressPdf(file, rung)
+    const attempt: FitReport = { ...report, fits: report.after <= maxBytes, used: rung }
+    if (attempt.fits) return attempt
+    if (best === null || attempt.after < best.after) best = attempt
+    // Nothing left to shrink: every image was one this cannot read, so the
+    // remaining rungs would do the same work for the same result.
+    if (report.replaced === 0) break
+  }
+  return best!
+}
