@@ -284,7 +284,7 @@ def run():
                 got.click()
             return PdfReader(io.BytesIO(pathlib.Path(download.value.path()).read_bytes()))
 
-        def all_saved(action, expected):
+        def all_saved(action, expected, settle=0):
             """saveAll spaces its downloads out, so they arrive one at a time
             rather than together and cannot be caught by expect_download."""
             caught = []
@@ -302,6 +302,9 @@ def run():
                     if len(caught) >= expected:
                         break
                     page.wait_for_timeout(500)
+                # Keep listening a moment longer, so a save that should not have
+                # happened is counted rather than missed.
+                page.wait_for_timeout(settle)
             finally:
                 page.remove_listener('download', collect)
             return caught
@@ -471,6 +474,21 @@ def run():
               f'and the work narrows to the one that was picked ({run.inner_text()})')
         tile.press(' ')
         check('Convert 2' in run.inner_text(), 'pressing it again puts it back')
+        print('== a double click is still one click ==')
+        # The button disables itself, but a click reaches its handler before
+        # React has re-rendered it, so both halves of a double click got
+        # through. On "Download 2" that was four saves, and it scales with
+        # whatever number the button is showing.
+        run.click()
+        both = current.get_by_role('button', name='Download 2')
+        both.wait_for(timeout=120000)
+
+        def twice():
+            both.dispatch_event('click')
+            both.dispatch_event('click')
+
+        came = all_saved(twice, 2, settle=3000)
+        check(len(came) == 2, f'two files were saved, not four ({len(came)}: {came})')
         # Left loaded on purpose: the compress check clears this tool itself,
         # and its Clear button only exists while something is in it.
 

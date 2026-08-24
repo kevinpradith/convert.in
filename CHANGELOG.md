@@ -94,6 +94,13 @@ still change between minor versions.
   that one". They are now checkboxes that take focus and answer to space.
 - **A failure is announced, not only drawn.** The error bar is the only place a
   tool ever says something went wrong, and it said it silently.
+- **A double click no longer saves everything twice.** A click reaches its
+  handler before React has re-rendered the button that disabled itself, so both
+  halves of an ordinary double click got through. Measured on the built app: one
+  double click on "Download 2" asked the browser to save four files, and it
+  scaled with whatever number the button was showing. Splitting a forty-page PDF
+  was eighty saves. Every handler that hands files over now runs at most once at
+  a time.
 
 ### Changed
 

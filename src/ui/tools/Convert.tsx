@@ -28,7 +28,7 @@ import {
   Toggle,
 } from '../kit.tsx'
 import { useT } from '../i18n.ts'
-import { message, newId, readBytes, save, saveAll, stem } from '../files.ts'
+import { message, newId, readBytes, save, saveAll, stem, useOnce } from '../files.ts'
 
 /**
  * Anything a browser can open. The list is what the file picker offers rather
@@ -48,6 +48,9 @@ interface Picture {
 
 export function Convert() {
   const t = useT()
+  // Two clicks inside one frame both reach the handler, because the button that
+  // disabled itself has not re-rendered yet.
+  const once = useOnce()
   const [pictures, setPictures] = useState<Picture[]>([])
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
   const [format, setFormat] = useState<ImageFormat>('webp')
@@ -142,38 +145,42 @@ export function Convert() {
     const chosen =
       selected.size > 0 ? pictures.filter((picture) => selected.has(picture.id)) : pictures
     if (chosen.length === 0) return
-    setError(null)
-    const done: Record<string, Picture['result']> = {}
-    try {
-      const wanted = sizing()
-      for (const [index, picture] of chosen.entries()) {
-        setBusy(t.progress(index + 1, chosen.length))
-        const decoded = await decodeImage(picture.bytes)
-        const pixels = wanted === undefined ? decoded : resize(decoded, wanted)
-        const bytes = await encodeImage(pixels, { format, quality, lossless })
-        done[picture.id] = {
-          blob: new Blob([bytes as BlobPart], { type: mimeType(format) }),
-          name: `${stem(picture.name)}.${extensionFor(format)}`,
-          size: bytes.length,
+    await once(async () => {
+      setError(null)
+      const done: Record<string, Picture['result']> = {}
+      try {
+        const wanted = sizing()
+        for (const [index, picture] of chosen.entries()) {
+          setBusy(t.progress(index + 1, chosen.length))
+          const decoded = await decodeImage(picture.bytes)
+          const pixels = wanted === undefined ? decoded : resize(decoded, wanted)
+          const bytes = await encodeImage(pixels, { format, quality, lossless })
+          done[picture.id] = {
+            blob: new Blob([bytes as BlobPart], { type: mimeType(format) }),
+            name: `${stem(picture.name)}.${extensionFor(format)}`,
+            size: bytes.length,
+          }
         }
+        setPictures((previous) =>
+          previous.map((picture) =>
+            done[picture.id] ? { ...picture, result: done[picture.id] } : picture,
+          ),
+        )
+      } catch (failure) {
+        setError(message(failure))
+      } finally {
+        setBusy(null)
       }
-      setPictures((previous) =>
-        previous.map((picture) =>
-          done[picture.id] ? { ...picture, result: done[picture.id] } : picture,
-        ),
-      )
-    } catch (failure) {
-      setError(message(failure))
-    } finally {
-      setBusy(null)
-    }
+    })
   }
 
   const results = pictures.flatMap((picture) => (picture.result ? [picture.result] : []))
 
   async function download() {
-    if (results.length === 1) save(results[0]!.blob, results[0]!.name)
-    else await saveAll(results)
+    await once(async () => {
+      if (results.length === 1) save(results[0]!.blob, results[0]!.name)
+      else await saveAll(results)
+    })
   }
 
   const tiles: Tile[] = pictures.map((picture) => ({

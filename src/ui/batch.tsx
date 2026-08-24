@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { humanSize } from '../core/units.ts'
-import { message, newId, readBytes, save, saveAll } from './files.ts'
+import { message, newId, readBytes, save, saveAll, useOnce } from './files.ts'
 import { useT } from './i18n.ts'
 
 /** A finished file, waiting for the Download button. */
@@ -30,6 +30,9 @@ export interface Item {
  */
 export function useBatch() {
   const t = useT()
+  // Two clicks inside one frame both reach here, because the button that
+  // disabled itself has not re-rendered yet.
+  const once = useOnce()
   const [items, setItems] = useState<Item[]>([])
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -85,37 +88,41 @@ export function useBatch() {
     label: string,
   ): Promise<void> {
     if (items.length === 0) return
-    setError(null)
-    const done: Record<string, { result?: Output; note?: string }> = {}
-    try {
-      for (const [index, item] of items.entries()) {
-        setBusy(items.length === 1 ? label : t.progress(index + 1, items.length))
-        done[item.id] = await work(item)
+    await once(async () => {
+      setError(null)
+      const done: Record<string, { result?: Output; note?: string }> = {}
+      try {
+        for (const [index, item] of items.entries()) {
+          setBusy(items.length === 1 ? label : t.progress(index + 1, items.length))
+          done[item.id] = await work(item)
+        }
+      } catch (failure) {
+        setError(message(failure))
+      } finally {
+        setItems((previous) =>
+          previous.map((item) => {
+            const outcome = done[item.id]
+            if (outcome === undefined) return item
+            // Built from the file rather than merged over the old answer. A run
+            // that produces only a note for a file that produced a result last
+            // time has to clear that result, or Download quietly hands back the
+            // bytes from the settings before last.
+            const { result: _old, note: _said, ...base } = item
+            return { ...base, ...outcome }
+          }),
+        )
+        setBusy(null)
       }
-    } catch (failure) {
-      setError(message(failure))
-    } finally {
-      setItems((previous) =>
-        previous.map((item) => {
-          const outcome = done[item.id]
-          if (outcome === undefined) return item
-          // Built from the file rather than merged over the old answer. A run
-          // that produces only a note for a file that produced a result last
-          // time has to clear that result, or Download quietly hands back the
-          // bytes from the settings before last.
-          const { result: _old, note: _said, ...base } = item
-          return { ...base, ...outcome }
-        }),
-      )
-      setBusy(null)
-    }
+    })
   }
 
   const results = items.flatMap((item) => (item.result ? [item.result] : []))
 
   async function download(): Promise<void> {
-    if (results.length === 1) save(results[0]!.blob, results[0]!.name)
-    else await saveAll(results)
+    await once(async () => {
+      if (results.length === 1) save(results[0]!.blob, results[0]!.name)
+      else await saveAll(results)
+    })
   }
 
   return {
