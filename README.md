@@ -15,11 +15,13 @@ npm run dev       # http://localhost:5173
 npm run build     # static files in dist/, host them anywhere or open them locally
 ```
 
-Six tools, all in one window:
+Eight tools, all in one window:
 
 | Tool | What it does |
 | --- | --- |
-| **Convert images** | PNG, JPEG, WebP, AVIF and JPEG XL, in any direction, plus GIF, BMP, TIFF, ICO, HEIC and SVG on the way in. Shows what each file cost or saved. |
+| **Convert images** | PNG, JPEG, WebP, AVIF and JPEG XL, in any direction, plus GIF, BMP, TIFF, ICO, HEIC and SVG on the way in. Scales on the way out. Shows what each file cost or saved. |
+| **Compress PDF** | Re-encodes the pictures inside, which is where nearly all the weight of a scan is. Says so when a file has nothing to shrink. |
+| **Sign PDF** | Draw a signature or bring a PNG of one, and place it on a page. |
 | **Images to PDF** | Any image in, one image per page. Fit-to-image, A4 or Letter, with an optional margin. |
 | **Organize PDF** | Drop any number of PDFs, then reorder, rotate, delete and duplicate pages. Save the result as one file or as one file per page. |
 | **Stamp PDF** | A watermark across the pages, or page numbers on them. Select tiles to stamp only those. |
@@ -37,6 +39,9 @@ ranges are parsed by the same function down to the error messages.
 | What you want | In the window | On the command line |
 | --- | --- | --- |
 | One image format into another | Convert images | `convert` |
+| Scale an image | Convert images, the size boxes | `convert --width` |
+| Make a scanned PDF smaller | Compress PDF | `compress` |
+| Put a signature on a page | Sign PDF | `sign` |
 | Images into one PDF | Images to PDF | `images` |
 | Join documents | Organize, drop several | `merge` |
 | Reorder, delete, extract | Organize, drag and select | `select` |
@@ -469,12 +474,20 @@ They need `playwright` (plus `python3 -m playwright install chromium`) and
 - **No animation.** An animated GIF or WebP converts as its first frame. Keeping the
   frames would mean an animation encoder for every target format, for a case that is
   better served by a video tool.
-- **No resizing.** `convert` changes the format, not the dimensions. Cropping and
-  scaling are a different tool with a different interface, and half a version of
-  them is worse than none.
-- **No compress tool.** Worthwhile PDF compression rebuilds the whole document the way
-  Ghostscript does. What a browser can manage is re-encoding the images inside, which
-  does nothing at all for a text-only PDF.
+- **Scaling, but no cropping.** `convert` will fit a picture inside a width and a
+  height, by averaging over the area each output pixel covers rather than picking
+  one of them. Choosing *which part* of a picture to keep is a different
+  interface and is not here.
+- **PDF compression stops at the pictures.** `compress` re-encodes the JPEGs
+  inside the document, which on a scan is 60 to 90 percent of the file and on a
+  text-only PDF is nothing at all, which it says rather than reporting a hollow
+  "0% smaller". It does not rewrite content streams or subset fonts. Ghostscript
+  and MuPDF do both, and both are AGPL, whose terms would reach the whole of this
+  project; nothing permissively licensed does the same job in a browser.
+- **Signing draws a picture, it does not certify.** `sign` puts an image of a
+  signature on the page, the way signing a printout and scanning it back does. It
+  proves nothing about who signed or whether the document changed afterwards. A
+  cryptographic signature needs a certificate and is a different feature.
 - **Watermarks and page numbers are Latin-1 only.** They draw with the built-in
   Helvetica so nothing has to be shipped or fetched; text outside Latin-1 is
   refused with a message rather than silently dropped.
@@ -489,6 +502,11 @@ They need `playwright` (plus `python3 -m playwright install chromium`) and
   the one thing this project does not have.
 - **No Web Worker** around pdf-lib, so a very large job will freeze the tab while it
   runs. pdf.js already has its own worker, so previews and rasterising are fine.
+- **No OCR.** Tesseract compiles to WebAssembly under Apache-2.0, so the licence
+  fits, but its trained data is fetched from a CDN by default. Anything fetched
+  from a CDN breaks both the `connect-src 'self'` policy and the promise the
+  policy exists to keep, so it would have to be shipped in the bundle the way the
+  pdf.js assets already are, and it is megabytes.
 
 ## Licence
 
