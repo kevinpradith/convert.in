@@ -182,6 +182,17 @@ export function caveat(options: ProtectOptions): Caveat | null {
   return openPassword ? 'liftableByReader' : 'opensToAnyone'
 }
 
+/**
+ * Encrypt a document, with the restrictions the caller asked for.
+ *
+ * Four combinations are refused rather than resolved quietly, because each one
+ * produces a file that does not do what asking for it suggests: no password at
+ * all, the same password for both roles, a password past the 127 bytes R6 uses,
+ * and a level outside the two ladders. What is *not* refused is a set of
+ * restrictions a reader can lift, which is most of them. Call {@link caveat}
+ * first and say so where the choice is being made; this function will write the
+ * file either way.
+ */
 export async function protectPdf(file: Uint8Array, options: ProtectOptions): Promise<Uint8Array> {
   const {
     openPassword,
