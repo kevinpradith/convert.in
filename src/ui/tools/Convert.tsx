@@ -8,13 +8,25 @@ import {
   hasLosslessOption,
   keepsAlpha,
   mimeType,
+  resize,
+  resizedTo,
   type ImageFormat,
 } from '../../core/images.ts'
 import { humanSize, sizeChange } from '../../core/units.ts'
 import { FilePicker } from '../Dropzone.tsx'
 import { PageGrid, type Tile } from '../PageGrid.tsx'
 import { Spacer, Workspace } from '../Workspace.tsx'
-import { Button, DownloadIcon, Field, PlusIcon, Select, Slider, SwapIcon, Toggle } from '../kit.tsx'
+import {
+  Button,
+  DownloadIcon,
+  Field,
+  PlusIcon,
+  Select,
+  Slider,
+  SwapIcon,
+  TextInput,
+  Toggle,
+} from '../kit.tsx'
 import { useT } from '../i18n.ts'
 import { message, newId, readBytes, save, saveAll, stem } from '../files.ts'
 
@@ -42,6 +54,10 @@ export function Convert() {
   const [quality, setQuality] = useState(defaultQuality('webp'))
   const [touchedQuality, setTouchedQuality] = useState(false)
   const [lossless, setLossless] = useState(false)
+  // Empty means "leave it alone", which is why these are strings rather than
+  // numbers: a cleared box is a state a number cannot hold.
+  const [width, setWidth] = useState('')
+  const [height, setHeight] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -107,6 +123,21 @@ export function Convert() {
     forgetResults()
   }
 
+  /**
+   * The caps as the core wants them, or nothing when both boxes are empty.
+   * Built once per run so a bad number is reported before any work starts.
+   */
+  function sizing(): { width?: number; height?: number } | undefined {
+    const wanted = {
+      ...(width.trim() === '' ? {} : { width: Number(width) }),
+      ...(height.trim() === '' ? {} : { height: Number(height) }),
+    }
+    if (wanted.width === undefined && wanted.height === undefined) return undefined
+    // Throws on anything out of range, which run() turns into the error bar.
+    resizedTo({ width: 100, height: 100, data: new Uint8ClampedArray(0) }, wanted)
+    return wanted
+  }
+
   async function run() {
     const chosen =
       selected.size > 0 ? pictures.filter((picture) => selected.has(picture.id)) : pictures
@@ -114,9 +145,11 @@ export function Convert() {
     setError(null)
     const done: Record<string, Picture['result']> = {}
     try {
+      const wanted = sizing()
       for (const [index, picture] of chosen.entries()) {
         setBusy(t.progress(index + 1, chosen.length))
-        const pixels = await decodeImage(picture.bytes)
+        const decoded = await decodeImage(picture.bytes)
+        const pixels = wanted === undefined ? decoded : resize(decoded, wanted)
         const bytes = await encodeImage(pixels, { format, quality, lossless })
         done[picture.id] = {
           blob: new Blob([bytes as BlobPart], { type: mimeType(format) }),
@@ -245,7 +278,38 @@ export function Convert() {
               />
             )}
 
+            <Field label={t.convert.resize}>
+              <TextInput
+                type="number"
+                min="1"
+                aria-label={t.convert.width}
+                placeholder={t.convert.width}
+                value={width}
+                onChange={(event) => {
+                  setWidth(event.target.value)
+                  forgetResults()
+                }}
+                className="w-[74px]"
+              />
+              <span className="text-muted text-caption">×</span>
+              <TextInput
+                type="number"
+                min="1"
+                aria-label={t.convert.height}
+                placeholder={t.convert.height}
+                value={height}
+                onChange={(event) => {
+                  setHeight(event.target.value)
+                  forgetResults()
+                }}
+                className="w-[74px]"
+              />
+            </Field>
+
             <Spacer />
+            {width.trim() !== '' && height.trim() !== '' && (
+              <span className="text-muted text-caption">{t.convert.fits}</span>
+            )}
             {flattens && <span className="text-muted text-caption">{t.convert.flattens}</span>}
             {results.length > 0 && (
               <Button onClick={download}>

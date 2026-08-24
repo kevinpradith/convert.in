@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import { Compress } from './ui/tools/Compress.tsx'
 import { Convert } from './ui/tools/Convert.tsx'
 import { ImagesToPdf } from './ui/tools/ImagesToPdf.tsx'
 import { Organize } from './ui/tools/Organize.tsx'
 import { PdfToImages } from './ui/tools/PdfToImages.tsx'
 import { Protect } from './ui/tools/Protect.tsx'
+import { Sign } from './ui/tools/Sign.tsx'
 import { Stamp } from './ui/tools/Stamp.tsx'
 import { Boundary } from './ui/Boundary.tsx'
 import { Sidebar, ShellContext, TOOL_IDS, type ToolId } from './ui/Sidebar.tsx'
@@ -65,9 +67,11 @@ export default function App() {
                       down with it. */}
                   <Boundary lang={lang}>
                     {id === 'convert' && <Convert />}
+                    {id === 'compress' && <Compress />}
                     {id === 'images' && <ImagesToPdf />}
                     {id === 'organize' && <Organize />}
                     {id === 'stamp' && <Stamp />}
+                    {id === 'sign' && <Sign />}
                     {id === 'protect' && <Protect />}
                     {id === 'export' && <PdfToImages />}
                   </Boundary>
