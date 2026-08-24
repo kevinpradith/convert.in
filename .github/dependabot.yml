@@ -10,6 +10,13 @@ updates:
       dependencies:
         patterns: ['*']
     open-pull-requests-limit: 5
+    ignore:
+      # @types/node is pinned to the oldest Node this supports, so that using an
+      # API newer than package.json's engines field is a typecheck error rather
+      # than something a person on 24 never sees. Bumping it would quietly lift
+      # the floor, so the major is not wanted here.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: github-actions
     directory: /

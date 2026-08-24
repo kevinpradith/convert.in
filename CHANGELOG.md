@@ -104,6 +104,14 @@ still change between minor versions.
 
 ### Changed
 
+- **TypeScript 7**, the native compiler. It checks this project in about 1.8
+  seconds against about 10.3 for 5.9, measured here, and needs no source
+  changes.
+- **`@types/node` moved down to 20, not up to 26.** The project supports Node
+  20.19 and above, and typing against a newer release lets an API that does not
+  exist on the floor pass the typechecker. Moving it down turns the engines
+  field from a claim into something that is checked; everything already passed
+  against it, so the claim was true. Dependabot is told not to offer the major.
 - `--position` no longer carries one default for every command. `number` still
   puts a page number at the bottom centre; `sign` puts a signature at the bottom
   right, which is where a form is signed.
