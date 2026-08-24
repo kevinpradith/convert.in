@@ -1,4 +1,31 @@
+import { useRef } from 'react'
 import { explain } from '../core/pdf-security.ts'
+
+/**
+ * Run something at most once at a time, however many times the button is
+ * pressed.
+ *
+ * A click reaches its handler before React has re-rendered the button that
+ * disabled itself, so two clicks inside one frame, which is what a double click
+ * is, both get through. For anything that hands files over that means being
+ * asked to save the same set twice: measured at four saves from one double
+ * click on "Download 2", and it scales with the count on the button.
+ *
+ * A ref answers now rather than at the next render, which is the whole point of
+ * using one here.
+ */
+export function useOnce(): (job: () => Promise<void>) => Promise<void> {
+  const running = useRef(false)
+  return async (job) => {
+    if (running.current) return
+    running.current = true
+    try {
+      await job()
+    } finally {
+      running.current = false
+    }
+  }
+}
 
 /**
  * Names come from whatever the dropped file was called, which can carry path

@@ -6,7 +6,7 @@ import { RangeSelect } from '../RangeSelect.tsx'
 import { Spacer, Workspace } from '../Workspace.tsx'
 import { Button, DownloadIcon, ExportIcon, Field, PlusIcon, Segmented } from '../kit.tsx'
 import { useT } from '../i18n.ts'
-import { message, newId, numbered, readBytes, saveAll, stem } from '../files.ts'
+import { message, newId, numbered, readBytes, saveAll, stem, useOnce } from '../files.ts'
 
 const ACCEPT = '.pdf'
 
@@ -20,6 +20,9 @@ interface Loaded {
 
 export function PdfToImages() {
   const t = useT()
+  // Two clicks inside one frame both reach the handler, and this one saves a
+  // file per page: a double click on a forty-page export asks for eighty.
+  const once = useOnce()
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
   const [format, setFormat] = useState<Format>('image/png')
@@ -69,30 +72,32 @@ export function PdfToImages() {
 
   async function exportImages() {
     if (!loaded) return
-    setBusy(t.export.rendering)
-    setError(null)
-    try {
-      const chosen =
-        selected.size > 0 ? loaded.pages.filter((page) => selected.has(page.id)) : loaded.pages
-      const images = await pdfToImages(loaded.bytes, {
-        scale: Number(scale),
-        type: format,
-        pages: chosen.map((page) => page.number),
-        onPage: (done, total) => setBusy(t.progress(done, total)),
-      })
-      const extension = format === 'image/png' ? 'png' : 'jpg'
-      const base = stem(loaded.name)
-      await saveAll(
-        images.map((blob, index) => ({
-          blob,
-          name: `${numbered(base, index, images.length)}.${extension}`,
-        })),
-      )
-    } catch (failure) {
-      setError(message(failure))
-    } finally {
-      setBusy(null)
-    }
+    await once(async () => {
+      setBusy(t.export.rendering)
+      setError(null)
+      try {
+        const chosen =
+          selected.size > 0 ? loaded.pages.filter((page) => selected.has(page.id)) : loaded.pages
+        const images = await pdfToImages(loaded.bytes, {
+          scale: Number(scale),
+          type: format,
+          pages: chosen.map((page) => page.number),
+          onPage: (done, total) => setBusy(t.progress(done, total)),
+        })
+        const extension = format === 'image/png' ? 'png' : 'jpg'
+        const base = stem(loaded.name)
+        await saveAll(
+          images.map((blob, index) => ({
+            blob,
+            name: `${numbered(base, index, images.length)}.${extension}`,
+          })),
+        )
+      } catch (failure) {
+        setError(message(failure))
+      } finally {
+        setBusy(null)
+      }
+    })
   }
 
   const tiles: Tile[] = (loaded?.pages ?? []).map((page) => ({

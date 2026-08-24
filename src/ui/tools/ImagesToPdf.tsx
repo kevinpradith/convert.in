@@ -15,7 +15,7 @@ import {
   TrashIcon,
 } from '../kit.tsx'
 import { useT } from '../i18n.ts'
-import { message, newId, readBytes, save, stem, toBlob } from '../files.ts'
+import { message, newId, readBytes, save, stem, toBlob, useOnce } from '../files.ts'
 
 // Anything the browser can read. PDF holds only JPEG and PNG, so the rest are
 // decoded and re-written as PNG on the way in.
@@ -29,6 +29,9 @@ interface Item {
 
 export function ImagesToPdf() {
   const t = useT()
+  // Two clicks inside one frame both reach the handler, because the button that
+  // disabled itself has not re-rendered yet.
+  const once = useOnce()
   const [items, setItems] = useState<Item[]>([])
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
   const [pageSize, setPageSize] = useState<PageSize>('fit')
@@ -65,22 +68,24 @@ export function ImagesToPdf() {
   }
 
   async function exportPdf() {
-    setBusy(true)
-    setError(null)
-    try {
-      const bytes = await Promise.all(items.map((item) => readBytes(item.file)))
-      const pdf = await imagesToPdf(bytes, {
-        pageSize,
-        orientation,
-        marginPt: Number(margin) || 0,
-        decode: decodeImage,
-      })
-      save(toBlob(pdf, 'application/pdf'), `${stem(items[0]!.file.name)}.pdf`)
-    } catch (failure) {
-      setError(message(failure))
-    } finally {
-      setBusy(false)
-    }
+    await once(async () => {
+      setBusy(true)
+      setError(null)
+      try {
+        const bytes = await Promise.all(items.map((item) => readBytes(item.file)))
+        const pdf = await imagesToPdf(bytes, {
+          pageSize,
+          orientation,
+          marginPt: Number(margin) || 0,
+          decode: decodeImage,
+        })
+        save(toBlob(pdf, 'application/pdf'), `${stem(items[0]!.file.name)}.pdf`)
+      } catch (failure) {
+        setError(message(failure))
+      } finally {
+        setBusy(false)
+      }
+    })
   }
 
   const tiles: Tile[] = items.map((item) => ({

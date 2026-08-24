@@ -7,7 +7,7 @@ import { RangeSelect } from '../RangeSelect.tsx'
 import { Spacer, Workspace } from '../Workspace.tsx'
 import { Button, DownloadIcon, PagesIcon, PlusIcon, RotateIcon, TrashIcon } from '../kit.tsx'
 import { useT } from '../i18n.ts'
-import { message, newId, numbered, readBytes, save, saveAll, stem, toBlob } from '../files.ts'
+import { message, newId, numbered, readBytes, save, saveAll, stem, toBlob, useOnce } from '../files.ts'
 
 const ACCEPT = '.pdf'
 
@@ -33,6 +33,10 @@ interface Page {
  */
 export function Organize() {
   const t = useT()
+  // Two clicks inside one frame both reach the handler, and this tool hands
+  // over one file per page: a double click on a forty-page split asks the
+  // browser to save eighty.
+  const once = useOnce()
   const [sources, setSources] = useState<Source[]>([])
   const [pages, setPages] = useState<Page[]>([])
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
@@ -135,35 +139,39 @@ export function Organize() {
   const baseName = sources.length === 1 ? stem(sources[0]!.name) : 'convert.in'
 
   async function saveOne() {
-    setBusy(t.organize.building)
-    setError(null)
-    try {
-      const [pdf] = await build([pages])
-      save(toBlob(pdf!, 'application/pdf'), `${baseName}.pdf`)
-    } catch (failure) {
-      setError(message(failure))
-    } finally {
-      setBusy(null)
-    }
+    await once(async () => {
+      setBusy(t.organize.building)
+      setError(null)
+      try {
+        const [pdf] = await build([pages])
+        save(toBlob(pdf!, 'application/pdf'), `${baseName}.pdf`)
+      } catch (failure) {
+        setError(message(failure))
+      } finally {
+        setBusy(null)
+      }
+    })
   }
 
   async function saveSeparately() {
-    setBusy(t.organize.splitting)
-    setError(null)
-    try {
-      const chosen = selected.size > 0 ? pages.filter((page) => selected.has(page.id)) : pages
-      const parts = await build(chosen.map((page) => [page]))
-      await saveAll(
-        parts.map((pdf, index) => ({
-          blob: toBlob(pdf, 'application/pdf'),
-          name: `${numbered(baseName, index, parts.length)}.pdf`,
-        })),
-      )
-    } catch (failure) {
-      setError(message(failure))
-    } finally {
-      setBusy(null)
-    }
+    await once(async () => {
+      setBusy(t.organize.splitting)
+      setError(null)
+      try {
+        const chosen = selected.size > 0 ? pages.filter((page) => selected.has(page.id)) : pages
+        const parts = await build(chosen.map((page) => [page]))
+        await saveAll(
+          parts.map((pdf, index) => ({
+            blob: toBlob(pdf, 'application/pdf'),
+            name: `${numbered(baseName, index, parts.length)}.pdf`,
+          })),
+        )
+      } catch (failure) {
+        setError(message(failure))
+      } finally {
+        setBusy(null)
+      }
+    })
   }
 
   const tiles: Tile[] = pages.map((page) => ({
