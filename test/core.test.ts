@@ -18,6 +18,15 @@ import {
   splitPdf,
 } from '../src/core/pdf-pages.ts'
 import { caveat, describeSecurity, explain, protectPdf, unlockPdf } from '../src/core/pdf-security.ts'
+import { decodeImage } from '../src/core/images-node.ts'
+import {
+  IMAGE_FORMATS,
+  defaultQuality,
+  encodeImage,
+  flatten,
+  keepsAlpha,
+  sniff,
+} from '../src/core/images.ts'
 import { numberPages, watermarkPdf } from '../src/core/pdf-stamp.ts'
 
 /* ---------- fixtures, built here so the repo carries no binary blobs ---------- */
@@ -118,13 +127,35 @@ test('imagesToPdf: a4 orients to the image and scales it to fit', async () => {
 })
 
 test('imagesToPdf: rejects unknown bytes and bad margins', async () => {
-  await assert.rejects(() => imagesToPdf([new Uint8Array([1, 2, 3, 4])]), /unsupported image/)
+  await assert.rejects(() => imagesToPdf([new Uint8Array([1, 2, 3, 4])]), /not an image/)
   await assert.rejects(() => imagesToPdf([]), /no images given/)
+  // A real image in a format PDF cannot hold, with nothing given to read it.
+  const webp = await encodeImage(await decodeImage(makePng(8, 8)), { format: 'webp' })
+  await assert.rejects(() => imagesToPdf([webp]), /WEBP cannot be put straight into a PDF/)
   await assert.rejects(() => imagesToPdf([makePng(4, 4)], { marginPt: -1 }), /margin/)
   // 'fit' grows the page with the margin, so only a fixed page size can be over-margined.
   await assert.rejects(
     () => imagesToPdf([makePng(4, 4)], { pageSize: 'a4', marginPt: 400 }),
     /larger than the page/,
+  )
+})
+
+/**
+ * PDF holds a JPEG or a PNG and nothing else, so everything else has to become
+ * one first. The decoder is passed in because the browser and Node have
+ * different ones, and the core has no business knowing which it is running in.
+ */
+test('imagesToPdf takes any format once it is handed a decoder', async () => {
+  const webp = await encodeImage(await decodeImage(makePng(40, 20)), { format: 'webp' })
+  const avif = await encodeImage(await decodeImage(makePng(20, 40)), { format: 'avif' })
+  const pdf = await PDFDocument.load(
+    await imagesToPdf([webp, avif, makePng(30, 30)], { decode: decodeImage }),
+  )
+  assert.equal(pdf.getPageCount(), 3)
+  assert.deepEqual(
+    pdf.getPages().map((page) => Math.round(page.getWidth())),
+    [40, 20, 30],
+    'each page still matches the image it came from',
   )
 })
 
@@ -494,4 +525,106 @@ test('caveat reports what a set of restrictions is actually worth', () => {
     caveat({ openPassword: 'reader', permissionsPassword: 'owner', printing: 'low' }),
     'liftableByReader',
   )
+})
+
+/* ------------------------------------------------------------- images --- */
+
+/**
+ * A file's name is whatever somebody typed, so the format has to come out of
+ * the bytes. Phones are the reason: they hand out HEIC photos called .jpg.
+ */
+test('sniff names the format from the bytes, not the extension', () => {
+  assert.equal(sniff(makePng(4, 4)), 'png')
+  assert.equal(sniff(new Uint8Array([0xff, 0xd8, 0xff, 0xe0])), 'jpeg')
+  assert.equal(sniff(Buffer.from('RIFF____WEBPVP8 ', 'ascii')), 'webp')
+  assert.equal(sniff(Buffer.from('GIF89a', 'ascii')), 'gif')
+  assert.equal(sniff(Buffer.from('BM______', 'ascii')), 'bmp')
+  assert.equal(sniff(new Uint8Array([0x49, 0x49, 0x2a, 0x00])), 'tiff')
+  assert.equal(sniff(new Uint8Array([0x00, 0x00, 0x01, 0x00])), 'ico')
+  assert.equal(sniff(new Uint8Array([0xff, 0x0a])), 'jxl')
+
+  // Same box structure, different brand, and only the brand tells them apart.
+  assert.equal(sniff(Buffer.from('\0\0\0 ftypavifavif', 'binary')), 'avif')
+  assert.equal(sniff(Buffer.from('\0\0\0 ftypheicheic', 'binary')), 'heic')
+
+  assert.equal(sniff(Buffer.from('  <svg xmlns="http://www.w3.org/2000/svg"/>', 'ascii')), 'svg')
+  assert.equal(sniff(Buffer.from('not an image at all', 'ascii')), null)
+  assert.equal(sniff(new Uint8Array(0)), null)
+})
+
+/**
+ * JPEG has nowhere to put an alpha channel. Without this the transparent parts
+ * of a PNG land on whatever was underneath them, which in most drawing tools is
+ * black, and the result looks nothing like what the person saw.
+ */
+test('transparency is composited rather than dropped', () => {
+  const pixels = {
+    width: 3,
+    height: 1,
+    data: new Uint8ClampedArray([
+      200, 100, 50, 255, // opaque: untouched
+      200, 100, 50, 0, // clear: all background
+      200, 100, 50, 128, // half: halfway between
+    ]),
+  }
+  const onWhite = flatten(pixels, '#ffffff')
+  assert.deepEqual([...onWhite.data.slice(0, 4)], [200, 100, 50, 255])
+  assert.deepEqual([...onWhite.data.slice(4, 8)], [255, 255, 255, 255])
+  assert.equal(onWhite.data[11], 255, 'everything comes out opaque')
+  // 200 over white at half alpha lands between the two, nearer white.
+  assert.ok(onWhite.data[8]! > 200 && onWhite.data[8]! < 255)
+
+  // The short form of a hex colour means the same as the long one.
+  assert.deepEqual([...flatten(pixels, '#f00').data.slice(4, 8)], [255, 0, 0, 255])
+  assert.deepEqual([...flatten(pixels, '#ff0000').data.slice(4, 8)], [255, 0, 0, 255])
+
+  assert.throws(() => flatten(pixels, 'reddish'), /hex colour/)
+  assert.throws(() => flatten(pixels, '#12345'), /hex colour/)
+
+  // Not a copy-on-write mistake: the source is left alone.
+  assert.equal(pixels.data[7], 0)
+})
+
+/**
+ * The quality scales are not comparable between formats, so the defaults are
+ * deliberately different numbers: they are the settings measured to look alike.
+ * Carrying one format's number over to another would quietly change the file.
+ */
+test('each format defaults to its own quality', () => {
+  assert.equal(defaultQuality('jpeg'), 80)
+  assert.equal(defaultQuality('webp'), 82)
+  assert.equal(defaultQuality('avif'), 64)
+  assert.notEqual(defaultQuality('webp'), defaultQuality('avif'))
+  assert.equal(keepsAlpha('jpeg'), false)
+  for (const format of IMAGE_FORMATS.filter((one) => one !== 'jpeg')) {
+    assert.equal(keepsAlpha(format), true, `${format} keeps alpha`)
+  }
+})
+
+/**
+ * The real round trip, through the same WebAssembly the browser runs. Slow
+ * enough to be worth doing once rather than per format assertion.
+ */
+test('every format written here can be read back', async () => {
+  const source = makePng(24, 16)
+  for (const format of IMAGE_FORMATS) {
+    const encoded = await encodeImage(await decodeImage(source), { format, quality: 70 })
+    assert.equal(sniff(encoded), format, `${format} is written with its own signature`)
+    const back = await decodeImage(encoded)
+    assert.deepEqual([back.width, back.height], [24, 16], `${format} keeps the size`)
+  }
+})
+
+test('an impossible request is refused rather than fudged', async () => {
+  const pixels = await decodeImage(makePng(4, 4))
+  await assert.rejects(
+    encodeImage(pixels, { format: 'jpeg', lossless: true }),
+    /no lossless mode/,
+  )
+  await assert.rejects(encodeImage(pixels, { format: 'webp', quality: 0 }), /1 to 100/)
+  await assert.rejects(encodeImage(pixels, { format: 'webp', quality: 101 }), /1 to 100/)
+  await assert.rejects(encodeImage(pixels, { format: 'webp', quality: NaN }), /1 to 100/)
+  await assert.rejects(decodeImage(Buffer.from('nothing image about this')), /not an image/)
+  // Readable in the browser, and saying so beats "unsupported format".
+  await assert.rejects(decodeImage(Buffer.from('GIF89a....', 'ascii')), /browser app/)
 })

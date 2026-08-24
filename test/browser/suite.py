@@ -12,6 +12,7 @@ the app cannot actually live under gets quietly relaxed later.
 Requires playwright (with "python3 -m playwright install chromium") and pypdf.
 Exits non-zero on the first failing expectation, so it drops straight into CI.
 """
+import base64
 import functools
 import http.server
 import io
@@ -76,9 +77,20 @@ def serve(directory, headers):
 # fixtures the browser needs and the Node suite does not
 
 
-def png(width, height, grey):
-    """A real PNG, built here so the suite needs no image library."""
-    raw = b''.join(b'\x00' + bytes([grey, grey, grey]) * width for _ in range(height))
+def png(width, height, grey, alpha=None):
+    """A real PNG, built here so the suite needs no image library.
+
+    With `alpha` given, the left half of every row is opaque and the right half
+    is fully transparent, which is what makes the JPEG path testable: JPEG has
+    nowhere to put an alpha channel, so those pixels have to land on something.
+    """
+    if alpha is None:
+        raw = b''.join(b'\x00' + bytes([grey, grey, grey]) * width for _ in range(height))
+    else:
+        row = b''.join(
+            bytes([grey, grey, grey, 255 if x < width // 2 else 0]) for x in range(width)
+        )
+        raw = b''.join(b'\x00' + row for _ in range(height))
 
     def chunk(kind, body):
         return (
@@ -90,10 +102,31 @@ def png(width, height, grey):
 
     return (
         b'\x89PNG\r\n\x1a\n'
-        + chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 2, 0, 0, 0))
+        + chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 6 if alpha else 2, 0, 0, 0))
         + chunk(b'IDAT', zlib.compress(raw))
         + chunk(b'IEND', b'')
     )
+
+
+def sideways(jpeg):
+    """The same JPEG with an EXIF orientation tag saying "turn me a quarter".
+
+    Built by hand rather than with an image library, which is also the point:
+    the tag is a few bytes bolted to the front of the file, and every format
+    this app writes to drops it. If the pixels are not turned on the way
+    through, a photo taken sideways converts sideways.
+    """
+    entry = struct.pack('<HHIHH', 0x0112, 3, 1, 6, 0)   # orientation = 6
+    tiff = b'II' + struct.pack('<HI', 42, 8) + struct.pack('<H', 1) + entry + b'\x00' * 4
+    payload = b'Exif\x00\x00' + tiff
+    app1 = b'\xff\xe1' + struct.pack('>H', len(payload) + 2) + payload
+    return jpeg[:2] + app1 + jpeg[2:]
+
+
+# A 1x1 GIF, the shortest valid one there is. GIF matters here because it is a
+# format the browser decodes and the WebAssembly codecs do not, so converting
+# one proves the browser's own decoder is being reached.
+TINY_GIF = base64.b64decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7')
 
 
 def cjk_pdf():
@@ -158,6 +191,8 @@ def main():
     (FIXTURES / 'cjk.pdf').write_bytes(cjk_pdf())
     (FIXTURES / 'grey.png').write_bytes(png(240, 180, 40))
     (FIXTURES / 'pale.png').write_bytes(png(180, 240, 200))
+    (FIXTURES / 'half-clear.png').write_bytes(png(120, 80, 30, alpha=True))
+    (FIXTURES / 'tiny.gif').write_bytes(TINY_GIF)
     (DIST / '__csp-probe.js').write_text(PROBE_JS)
     (DIST / '__csp-probe.html').write_text(PROBE_HTML)
 
@@ -211,6 +246,73 @@ def run():
         check(result['eval'] == 'blocked',
               f"eval is still refused, so the relaxation is wasm-only ({result['eval']})")
 
+        print('== convert images ==')
+        current = tool('Convert images')
+
+        def convert(file, target):
+            """Load one file, pick a format, convert, and return what came down."""
+            clear = current.get_by_role('button', name='Clear', exact=True)
+            if clear.count():
+                clear.click()
+            current.locator('input[type=file]').set_input_files(file)
+            current.locator('img').first.wait_for(timeout=30000)
+            current.get_by_role('combobox', name='To').select_option(target)
+            current.get_by_role('button', name=re.compile(r'^Convert \d')).click()
+            download = current.get_by_role('button', name=re.compile('^Download'))
+            download.wait_for(timeout=120000)
+            with page.expect_download(timeout=60000) as caught:
+                download.click()
+            return pathlib.Path(caught.value.path()).read_bytes()
+
+        source = (FIXTURES / 'grey.png').read_bytes()
+        webp = convert(str(FIXTURES / 'grey.png'), 'webp')
+        check(webp[:4] == b'RIFF' and webp[8:12] == b'WEBP',
+              f'a PNG came back as a real WebP ({webp[:4]!r}...{webp[8:12]!r})')
+        check(len(webp) < len(source),
+              f'and smaller than it went in ({len(source)} -> {len(webp)} bytes)')
+        (FIXTURES / 'converted.webp').write_bytes(webp)
+
+        avif = convert(str(FIXTURES / 'grey.png'), 'avif')
+        check(avif[4:8] == b'ftyp' and avif[8:12] in (b'avif', b'avis'),
+              f'AVIF is written with an AVIF brand ({avif[4:12]!r})')
+
+        jxl = convert(str(FIXTURES / 'grey.png'), 'jxl')
+        check(jxl[:2] == b'\xff\x0a' or jxl[:8] == b'\x00\x00\x00\x0cJXL ',
+              f'JPEG XL is written with a JPEG XL signature ({jxl[:8]!r})')
+
+        print('== a format only the browser can read ==')
+        from_gif = convert(str(FIXTURES / 'tiny.gif'), 'webp')
+        check(from_gif[:4] == b'RIFF' and from_gif[8:12] == b'WEBP',
+              "a GIF converts, which no codec here decodes: the browser's own did it")
+
+        print('== transparency, going to a format that has none ==')
+        flattened = convert(str(FIXTURES / 'half-clear.png'), 'jpeg')
+        check(flattened[:3] == b'\xff\xd8\xff', f'JPEG written ({flattened[:3]!r})')
+        # Read the pixels back through the browser, which is the only decoder
+        # either side of this test has.
+        corner = page.evaluate("""async (bytes) => {
+          const blob = new Blob([new Uint8Array(bytes)], { type: 'image/jpeg' });
+          const bitmap = await createImageBitmap(blob);
+          const canvas = document.createElement('canvas');
+          canvas.width = bitmap.width;
+          canvas.height = bitmap.height;
+          canvas.getContext('2d').drawImage(bitmap, 0, 0);
+          const at = (x) => [...canvas.getContext('2d').getImageData(x, 4, 1, 1).data].slice(0, 3);
+          return { opaque: at(4), wasClear: at(bitmap.width - 4) };
+        }""", list(flattened))
+        check(all(channel > 240 for channel in corner['wasClear']),
+              f"transparent pixels came out white rather than black ({corner['wasClear']})")
+        check(all(channel < 80 for channel in corner['opaque']),
+              f"and the opaque half is still the colour it was ({corner['opaque']})")
+
+        print('== a photo taken sideways ==')
+        landscape = convert(str(FIXTURES / 'grey.png'), 'jpeg')
+        (FIXTURES / 'sideways.jpg').write_bytes(sideways(landscape))
+        turned = convert(str(FIXTURES / 'sideways.jpg'), 'png')
+        width, height = struct.unpack('>II', turned[16:24])
+        check((width, height) == (180, 240),
+              f'the EXIF quarter turn was applied to the pixels ({width}x{height}, was 240x180)')
+
         print('== images to PDF ==')
         current = tool('Images to PDF')
         current.locator('input[type=file]').set_input_files(
@@ -218,6 +320,14 @@ def run():
         current.locator('img').first.wait_for(timeout=30000)
         reader = saved(lambda: current.get_by_role('button', name='Save PDF').click())
         check(len(reader.pages) == 2, f'two images became two pages ({len(reader.pages)})')
+
+        # PDF holds a JPEG or a PNG and nothing else, so a WebP has to be decoded
+        # and re-written on the way in rather than refused at the door.
+        current.get_by_role('button', name='Clear', exact=True).click()
+        current.locator('input[type=file]').set_input_files(str(FIXTURES / 'converted.webp'))
+        current.locator('img').first.wait_for(timeout=30000)
+        reader = saved(lambda: current.get_by_role('button', name='Save PDF').click())
+        check(len(reader.pages) == 1, 'a WebP goes into a PDF as well')
 
         print('== PDF to images ==')
         current = tool('PDF to images')
