@@ -28,18 +28,18 @@ USAGE
 
 COMMANDS
   convert <img...> --to <f>   Between PNG, JPEG, WebP, AVIF and JPEG XL
-  compress <in.pdf>           Re-encode the pictures inside a PDF
-  sign    <in.pdf> <sig.png>  Draw a signature image onto a page
+  compress <pdf...>           Re-encode the pictures inside a PDF
+  sign    <pdf...> <sig.png>  Draw a signature image onto a page
   images  <img...>            JPEG and PNG into one PDF, one image per page
   merge   <pdf...>            Join PDFs in the order given
-  select  <in.pdf> <pages>    Keep those pages in that order: reorder, delete, extract
-  rotate  <in.pdf> [degrees]  Turn pages, 90 by default
+  select  <pdf...> <pages>    Keep those pages in that order: reorder, delete, extract
+  rotate  <pdf...> [degrees]  Turn pages, 90 by default
   split   <in.pdf> [every]    One PDF per chunk of pages, 1 by default
-  protect <in.pdf>            Lock with a password, AES-256, Acrobat X and later
-  unlock  <in.pdf>            Take the password off a locked file
-  watermark <in.pdf> <text>   Stamp text diagonally across the pages
-  number  <in.pdf>            Print page numbers
-  info    <in.pdf>            Pages, file size, dimensions, whether it is locked
+  protect <pdf...>            Lock with a password, AES-256, Acrobat X and later
+  unlock  <pdf...>            Take the password off a locked file
+  watermark <pdf...> <text>   Stamp text diagonally across the pages
+  number  <pdf...>            Print page numbers
+  info    <pdf...>            Pages, file size, dimensions, whether it is locked
 
 OUTPUT
   -o is optional. Without it the result lands beside the input:
@@ -62,8 +62,26 @@ OUTPUT
 
   Nothing is ever overwritten without --force.
 
+MANY FILES AT ONCE
+  Every command that turns one file into one file takes as many as you can name,
+  and there is no limit and no queue, because the work happens here. images and
+  merge already read a pile; split is the one that stays a single document.
+
+    convert.in number *.pdf -o numbered/
+    convert.in protect statements/*.pdf --open-password ...
+    convert.in compress scans/*.pdf --quality 40 -o small/
+
+  With one file, -o is that file. With several it is the folder they go into,
+  and without it they land beside the originals. Every output name is worked out
+  before the first one is written, so a batch that would overwrite something, or
+  give two files the same name, stops before it has done half the job.
+
+  Where a command takes a word after the file, name it with the flag instead and
+  every word is a file: --pages for select, --text for watermark, --by for
+  rotate, --signature for sign.
+
 OPTIONS
-  -o, --out <path>       Output file, or output folder for split and batch convert
+  -o, --out <path>       Output file, or the folder for split and for many files
   -p, --pages <ranges>   1-based: "1-3,7" or "8-". Repeat a page to duplicate it
   -f, --force            Overwrite an existing file, or write into a used folder
       --to <format>      png, jpeg, webp, avif, jxl                  convert
@@ -283,13 +301,13 @@ PERINTAH
   images  <gambar...>          JPEG dan PNG jadi satu PDF, satu gambar per halaman
   merge   <pdf...>             Gabung PDF sesuai urutan yang diberikan
   select  <in.pdf> <halaman>   Ambil halaman itu sesuai urutannya: susun ulang, hapus, petik
-  rotate  <in.pdf> [derajat]   Putar halaman, bawaannya 90
+  rotate  <pdf...> [derajat]   Putar halaman, bawaannya 90
   split   <in.pdf> [tiap]      Satu PDF per kelompok halaman, bawaannya 1
-  protect <in.pdf>             Kunci dengan password, AES-256, Acrobat X and later
-  unlock  <in.pdf>             Lepas password dari berkas yang terkunci
-  watermark <in.pdf> <teks>    Cap teks miring melintasi halaman
-  number  <in.pdf>             Cetak nomor halaman
-  info    <in.pdf>             Jumlah halaman, ukuran, dimensi, status kunci
+  protect <pdf...>             Kunci dengan password, AES-256, Acrobat X and later
+  unlock  <pdf...>             Lepas password dari berkas yang terkunci
+  watermark <pdf...> <teks>    Cap teks miring melintasi halaman
+  number  <pdf...>             Cetak nomor halaman
+  info    <pdf...>             Jumlah halaman, ukuran, dimensi, status kunci
 
 HASIL
   -o boleh dikosongkan. Tanpa itu hasilnya mendarat di sebelah berkas asal:
@@ -312,8 +330,27 @@ HASIL
 
   Tidak ada yang pernah ditimpa tanpa --force.
 
+BANYAK BERKAS SEKALIGUS
+  Semua perintah yang mengubah satu berkas jadi satu berkas menerima sebanyak
+  yang kamu sebut, tanpa batas dan tanpa antrean, karena kerjanya di sini. images
+  dan merge memang sudah membaca banyak; split yang tetap satu dokumen.
+
+    convert.in number *.pdf -o numbered/
+    convert.in protect statements/*.pdf --open-password ...
+    convert.in compress scans/*.pdf --quality 40 -o small/
+
+  Kalau berkasnya satu, -o adalah berkas hasil. Kalau banyak, -o adalah folder
+  tujuannya, dan tanpa -o hasilnya mendarat di sebelah berkas asal. Semua nama
+  hasil dihitung sebelum berkas pertama ditulis, jadi kumpulan yang akan menimpa
+  sesuatu, atau memberi dua berkas nama yang sama, berhenti sebelum separuh
+  pekerjaannya terlanjur jalan.
+
+  Untuk perintah yang minta satu kata setelah berkas, sebut lewat flag supaya
+  semua kata dihitung sebagai berkas: --pages untuk select, --text untuk
+  watermark, --by untuk rotate, --signature untuk sign.
+
 OPSI
-  -o, --out <path>       Berkas hasil, atau folder hasil untuk split dan convert massal
+  -o, --out <path>       Berkas hasil, atau folder untuk split dan untuk banyak berkas
   -p, --pages <rentang>  Mulai dari 1: "1-3,7" atau "8-". Ulangi nomor untuk menggandakan
   -f, --force            Timpa berkas yang sudah ada, atau tulis ke folder yang terpakai
       --to <format>      png, jpeg, webp, avif, jxl                   convert
