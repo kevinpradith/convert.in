@@ -1,4 +1,5 @@
 import { PDFDocument } from '@cantoo/pdf-lib'
+import { encodeImage, sniff, type Pixels } from './images.ts'
 
 export type PageSize = 'fit' | 'a4' | 'letter'
 export type Orientation = 'auto' | 'portrait' | 'landscape'
@@ -9,6 +10,12 @@ export interface ImagesToPdfOptions {
   orientation?: Orientation
   /** White border around the image, in PDF points (72pt = 1 inch). */
   marginPt?: number
+  /**
+   * How to read a format PDF cannot hold. Supplied by whichever side is
+   * calling, since the browser and Node decode by different means. Left out,
+   * only JPEG and PNG go in.
+   */
+  decode?: (bytes: Uint8Array) => Promise<Pixels>
 }
 
 /** Page dimensions in PDF points. */
@@ -24,9 +31,31 @@ export type ImageKind = 'jpg' | 'png'
  * mislabelled .png that is really a JPEG still embeds correctly.
  */
 export function sniffImage(bytes: Uint8Array): ImageKind {
-  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'jpg'
-  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return 'png'
+  const format = sniff(bytes)
+  if (format === 'jpeg') return 'jpg'
+  if (format === 'png') return 'png'
   throw new Error('unsupported image: expected JPEG or PNG')
+}
+
+/**
+ * PDF can carry a JPEG or a PNG and nothing else, so anything else has to
+ * become one first. Handed a decoder, this turns a WebP, an AVIF or a phone's
+ * HEIC into a lossless PNG on the way in; without one it says what it was
+ * given rather than "unsupported image".
+ */
+async function embeddable(
+  bytes: Uint8Array,
+  decode?: (bytes: Uint8Array) => Promise<Pixels>,
+): Promise<Uint8Array> {
+  const format = sniff(bytes)
+  if (format === 'jpeg' || format === 'png') return bytes
+  if (format === null) throw new Error('this file is not an image')
+  if (decode === undefined) {
+    throw new Error(`${format.toUpperCase()} cannot be put straight into a PDF here`)
+  }
+  // PNG rather than JPEG: this is a one-way trip into a document, and a
+  // re-compression the person never asked for is not one to make for them.
+  return encodeImage(await decode(bytes), { format: 'png' })
 }
 
 function wantsLandscape(orientation: Orientation, imageIsLandscape: boolean): boolean {
@@ -61,12 +90,13 @@ export async function imagesToPdf(
   images: Uint8Array[],
   options: ImagesToPdfOptions = {},
 ): Promise<Uint8Array> {
-  const { pageSize = 'fit', orientation = 'auto', marginPt = 0 } = options
+  const { pageSize = 'fit', orientation = 'auto', marginPt = 0, decode } = options
   if (images.length === 0) throw new Error('no images given')
   if (!Number.isFinite(marginPt) || marginPt < 0) throw new Error('margin must be a number >= 0')
 
   const pdf = await PDFDocument.create()
-  for (const bytes of images) {
+  for (const source of images) {
+    const bytes = await embeddable(source, decode)
     const image = sniffImage(bytes) === 'jpg' ? await pdf.embedJpg(bytes) : await pdf.embedPng(bytes)
     const [pageWidth, pageHeight] = pageDimensions(
       pageSize,

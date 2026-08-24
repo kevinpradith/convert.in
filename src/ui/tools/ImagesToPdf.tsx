@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { imagesToPdf, type Orientation, type PageSize } from '../../core/images-to-pdf.ts'
+import { decodeImage } from '../../core/images-browser.ts'
 import { FilePicker } from '../Dropzone.tsx'
 import { PageGrid, reorder, type Tile } from '../PageGrid.tsx'
 import { Spacer, Workspace } from '../Workspace.tsx'
@@ -16,7 +17,9 @@ import {
 import { useT } from '../i18n.ts'
 import { message, newId, readBytes, save, stem, toBlob } from '../files.ts'
 
-const ACCEPT = '.jpg,.jpeg,.png'
+// Anything the browser can read. PDF holds only JPEG and PNG, so the rest are
+// decoded and re-written as PNG on the way in.
+const ACCEPT = '.png,.jpg,.jpeg,.webp,.avif,.jxl,.gif,.bmp,.tif,.tiff,.ico,.heic,.heif,.svg'
 
 interface Item {
   id: string
@@ -70,6 +73,7 @@ export function ImagesToPdf() {
         pageSize,
         orientation,
         marginPt: Number(margin) || 0,
+        decode: decodeImage,
       })
       save(toBlob(pdf, 'application/pdf'), `${stem(items[0]!.file.name)}.pdf`)
     } catch (failure) {
