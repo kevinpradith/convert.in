@@ -5,7 +5,6 @@ import { readFileSync } from 'node:fs'
 const styled = process.stdout.isTTY === true && process.env['NO_COLOR'] === undefined
 
 export const dim = (text: string) => (styled ? `\x1b[2m${text}\x1b[0m` : text)
-export const bold = (text: string) => (styled ? `\x1b[1m${text}\x1b[0m` : text)
 
 /**
  * True when this is a WSL shell, where Windows paths need translating.
