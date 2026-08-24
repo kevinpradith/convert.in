@@ -96,7 +96,16 @@ export function useBatch() {
       setError(message(failure))
     } finally {
       setItems((previous) =>
-        previous.map((item) => (done[item.id] ? { ...item, ...done[item.id] } : item)),
+        previous.map((item) => {
+          const outcome = done[item.id]
+          if (outcome === undefined) return item
+          // Built from the file rather than merged over the old answer. A run
+          // that produces only a note for a file that produced a result last
+          // time has to clear that result, or Download quietly hands back the
+          // bytes from the settings before last.
+          const { result: _old, note: _said, ...base } = item
+          return { ...base, ...outcome }
+        }),
       )
       setBusy(null)
     }

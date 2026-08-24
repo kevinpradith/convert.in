@@ -11,8 +11,10 @@ function safeName(name: string): string {
     .replace(/[/\\]/g, '-')
     // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u001f\u007f]/g, '')
-    .replace(/^\.+/, '')
+    // Trimmed before the leading dots are taken off, not after: " .bashrc"
+    // survived the other order, because the dot was no longer at the front.
     .trim()
+    .replace(/^\.+/, '')
   return cleaned === '' ? 'convert.in.pdf' : cleaned.slice(0, 200)
 }
 
