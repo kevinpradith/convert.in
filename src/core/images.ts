@@ -135,31 +135,38 @@ export async function decodeWithCodec(bytes: Uint8Array, format: ImageFormat): P
   try {
     return await runCodec(bytes, format)
   } catch (failure) {
-    throw asError(failure, `this ${format.toUpperCase()} could not be read here`)
+    throw unreadable(format, failure)
   }
 }
 
 /**
- * The codecs are Emscripten builds, and an abort inside one throws an
- * `ExitStatus` object rather than an Error. It carries a message, but nothing
- * downstream was looking for one on a non-Error, so a CMYK JPEG reached both
- * the terminal and the browser as the words "[object Object]".
+ * What a codec says when it gives up is not written for anybody, and the three
+ * kinds here fail in three different unhelpful ways. The Emscripten builds
+ * abort by throwing an object that is not an Error at all, which arrived as the
+ * words "[object Object]". The Rust ones panic with "`unwrap_throw` failed" on
+ * a truncated file, or trap with "unreachable" on one whose declared size the
+ * decoder cannot allocate. libwebp manages "Decoding error".
  *
- * Its own message says only "Program terminated with exit(1)", which names
- * nothing a person can act on, so the caller's description is used instead and
- * the original is kept as the cause.
+ * None of the four names the file or says what to do, and none is worth trying
+ * to tell apart, so the answer is written here and the original kept as the
+ * cause for whoever opens a console.
+ *
+ * A PNG claiming 30000x30000 lands in the same place: measured at 147ms and
+ * 9 MB, because the decoder refuses the allocation rather than attempting it,
+ * so there is nothing to guard against ahead of time.
  */
-function asError(failure: unknown, description: string): Error {
-  if (failure instanceof Error) return failure
-  const aborted =
-    typeof failure === 'object' &&
-    failure !== null &&
-    typeof (failure as { message?: unknown }).message === 'string'
-  if (!aborted) return new Error(description, { cause: failure })
+function unreadable(format: ImageFormat, cause: unknown): Error {
+  // Only for JPEG, and only as one possibility among several: a plainly damaged
+  // file reaches here too, and naming a cause it does not have sends people
+  // looking in the wrong place.
+  const print =
+    format === 'jpeg'
+      ? ' A CMYK JPEG, which is what a print workflow produces, is one this cannot read at all.'
+      : ''
   return new Error(
-    `${description}: the decoder gave up on it. Colour layouts outside plain RGB and greyscale, ` +
-      'CMYK in particular, are the usual reason.',
-    { cause: failure },
+    `this ${format.toUpperCase()} could not be read: it is damaged, cut short, or in a variant ` +
+      `the decoder here does not handle.${print}`,
+    { cause },
   )
 }
 
@@ -482,9 +489,12 @@ export async function encodeImage(
   try {
     return await runEncoder(source, format, quality, lossless)
   } catch (failure) {
-    // Same story as decoding: an abort inside the WebAssembly is not an Error
-    // and would otherwise reach a person as "[object Object]".
-    throw asError(failure, `this image could not be written as ${format.toUpperCase()}`)
+    // Same story as decoding: whatever the WebAssembly says on the way out is
+    // not addressed to anyone.
+    throw new Error(
+      `this image could not be written as ${format.toUpperCase()}: the encoder gave up on it.`,
+      { cause: failure },
+    )
   }
 }
 

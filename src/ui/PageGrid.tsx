@@ -49,7 +49,25 @@ export function PageGrid({
             }}
             onDragEnd={() => setDragId(null)}
             onClick={() => onToggle(tile.id)}
-            className={cx('group cursor-pointer select-none', dragId === tile.id && 'opacity-40')}
+            // A tile is a selection toggle, and it was reachable only by mouse:
+            // there was no way at all to pick out pages from a keyboard. The
+            // range box covers whole spans, but not "these three".
+            role="checkbox"
+            aria-checked={isSelected}
+            aria-label={tile.caption}
+            tabIndex={0}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter' && event.key !== ' ') return
+              // Space scrolls the page otherwise, which moves the grid out from
+              // under whatever was about to be picked next.
+              event.preventDefault()
+              onToggle(tile.id)
+            }}
+            className={cx(
+              'group cursor-pointer select-none rounded-tile',
+              'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+              dragId === tile.id && 'opacity-40',
+            )}
           >
             <div
               className={cx(

@@ -447,6 +447,33 @@ def run():
         check((width, height) == (60, 45),
               f'the height followed the width rather than being stretched ({width}x{height})')
 
+        print('== picking pages without a mouse ==')
+        # Tiles carried a click handler and nothing else, so choosing which
+        # images to work on was a mouse-only action. The range box covers whole
+        # spans but not "this one and that one".
+        current = tool('Convert images')
+        current.get_by_role('button', name='Clear', exact=True).click()
+        current.locator('input[type=file]').set_input_files(
+            [str(FIXTURES / 'grey.png'), str(FIXTURES / 'pale.png')])
+        current.locator('img').first.wait_for(timeout=30000)
+        run = current.get_by_role('button', name=re.compile(r'^Convert \d'))
+        check('Convert 2' in run.inner_text(),
+              f'both images are in hand to begin with ({run.inner_text()})')
+
+        tile = current.get_by_role('checkbox', name=re.compile('grey'))
+        tile.focus()
+        check(tile.evaluate('node => node === document.activeElement'),
+              'a tile can hold focus at all')
+        tile.press(' ')
+        check(tile.get_attribute('aria-checked') == 'true',
+              'space picks it out, and says so to anything listening')
+        check('Convert 1' in run.inner_text(),
+              f'and the work narrows to the one that was picked ({run.inner_text()})')
+        tile.press(' ')
+        check('Convert 2' in run.inner_text(), 'pressing it again puts it back')
+        # Left loaded on purpose: the compress check clears this tool itself,
+        # and its Clear button only exists while something is in it.
+
         print('== images to PDF ==')
         current = tool('Images to PDF')
         current.locator('input[type=file]').set_input_files(

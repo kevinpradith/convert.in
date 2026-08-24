@@ -101,7 +101,13 @@ export function Workspace({
       {(footer || error) && (
         <div className="glass-strong border-line shrink-0 border-t px-3 py-3 sm:px-4">
           {error && (
-            <p className="bg-fill text-ink text-footnote mb-2 rounded-inner px-2.5 py-1.5">
+            // Announced, not just drawn. A failure that only appears as text is
+            // a failure a screen reader never mentions, and this bar is the
+            // only place a tool ever says something went wrong.
+            <p
+              role="alert"
+              className="bg-fill text-ink text-footnote mb-2 rounded-inner px-2.5 py-1.5"
+            >
               {error}
             </p>
           )}

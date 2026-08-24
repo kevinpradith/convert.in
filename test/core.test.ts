@@ -874,3 +874,32 @@ test('a codec that aborts says what happened rather than [object Object]', () =>
   assert.equal(explain({}), 'something went wrong that did not say what it was')
   assert.equal(explain('plain string'), 'plain string')
 })
+
+test('a picture the codecs cannot read says so in words', async () => {
+  const real = makePng(4, 4)
+  // Right signature, nothing behind it. The Rust decoder panics on this with
+  // "`unwrap_throw` failed", which used to be printed as it stands.
+  const liar = Buffer.concat([Buffer.from(real.subarray(0, 8)), Buffer.alloc(200, 0x41)])
+  await assert.rejects(decodeImage(liar), /this PNG could not be read/)
+
+  // Cut in half, which is what an interrupted download leaves behind.
+  await assert.rejects(decodeImage(real.subarray(0, real.length >> 1)), /this PNG could not be read/)
+
+  // A header claiming 30000x30000 with almost nothing behind it. The decoder
+  // refuses the allocation and traps with the single word "unreachable".
+  const header = Buffer.alloc(13)
+  header.writeUInt32BE(30_000, 0)
+  header.writeUInt32BE(30_000, 4)
+  header[8] = 8
+  header[9] = 2
+  const bomb = Buffer.concat([
+    Buffer.from(real.subarray(0, 8)),
+    pngChunk('IHDR', header),
+    pngChunk('IDAT', deflateSync(Buffer.alloc(1000))),
+    pngChunk('IEND', Buffer.alloc(0)),
+  ])
+  await assert.rejects(decodeImage(bomb), /this PNG could not be read/)
+
+  // The real one still reads, so the catch has not swallowed the working path.
+  assert.equal((await decodeImage(real)).width, 4)
+})
