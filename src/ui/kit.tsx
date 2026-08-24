@@ -175,6 +175,24 @@ interface IconProps {
   stroke?: number
 }
 
+/** The app logo matching the light/dark mode preference. */
+export function Logo({ className = 'h-6 w-auto' }: { className?: string }) {
+  return (
+    <span className="inline-flex items-center">
+      <img
+        src="./images/logo/light-mode/logo-while-lightmode.webp"
+        alt="convert.in"
+        className={cx('theme-logo-light object-contain', className)}
+      />
+      <img
+        src="./images/logo/dark-mode/logo-while-darkmode.webp"
+        alt="convert.in"
+        className={cx('theme-logo-dark object-contain', className)}
+      />
+    </span>
+  )
+}
+
 /** The app mark: the conversion arrow on its own, in ink. */
 export function Wordmark({ size = 18 }: { size?: number }) {
   return (
