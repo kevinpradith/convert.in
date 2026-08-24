@@ -27,6 +27,14 @@ interface Item {
   url: string
 }
 
+/**
+ * "shot2.png" belongs before "shot10.png". A file picker hands them over in
+ * whatever order it feels like, and a plain sort puts 10 first because "1" is
+ * less than "2", which is how a holiday album ends up shuffled. Dragging a tile
+ * still overrides this.
+ */
+const collate = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }).compare
+
 export function ImagesToPdf() {
   const t = useT()
   // Two clicks inside one frame both reach the handler, because the button that
@@ -37,14 +45,16 @@ export function ImagesToPdf() {
   const [pageSize, setPageSize] = useState<PageSize>('fit')
   const [orientation, setOrientation] = useState<Orientation>('auto')
   const [margin, setMargin] = useState('0')
+  const [dpi, setDpi] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   function add(files: File[]) {
     setError(null)
+    const sorted = [...files].sort((a, b) => collate(a.name, b.name))
     setItems((previous) => [
       ...previous,
-      ...files.map((file) => ({ id: newId(), file, url: URL.createObjectURL(file) })),
+      ...sorted.map((file) => ({ id: newId(), file, url: URL.createObjectURL(file) })),
     ])
   }
 
@@ -77,6 +87,7 @@ export function ImagesToPdf() {
           pageSize,
           orientation,
           marginPt: Number(margin) || 0,
+          ...(Number(dpi) > 0 ? { dpi: Number(dpi) } : {}),
           decode: decodeImage,
         })
         save(toBlob(pdf, 'application/pdf'), `${stem(items[0]!.file.name)}.pdf`)
@@ -168,6 +179,21 @@ export function ImagesToPdf() {
                 className="w-[68px]"
               />
             </Field>
+            {/* Only 'fit' takes its size from the image; a4 and letter are the
+                size they are whatever the resolution says. */}
+            {pageSize === 'fit' && (
+              <Field label={t.images.dpi}>
+                <TextInput
+                  type="number"
+                  min="1"
+                  placeholder={t.images.dpiAuto}
+                  aria-label={t.images.dpiLabel}
+                  value={dpi}
+                  onChange={(event) => setDpi(event.target.value)}
+                  className="w-[128px]"
+                />
+              </Field>
+            )}
             <Button variant="primary" className="ml-auto" onClick={exportPdf} disabled={busy}>
               <DownloadIcon />
               {busy ? t.images.building : t.images.save}
