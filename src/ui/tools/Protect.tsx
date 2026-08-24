@@ -8,84 +8,96 @@ import {
   type PrintingLevel,
   type Security,
 } from '../../core/pdf-security.ts'
+import { humanSize } from '../../core/units.ts'
+import { FileList, useBatch, type Item } from '../batch.tsx'
 import { FilePicker } from '../Dropzone.tsx'
 import { Spacer, Workspace } from '../Workspace.tsx'
-import { Button, Field, LockIcon, PlusIcon, Segmented, Select, TextInput } from '../kit.tsx'
+import {
+  Button,
+  DownloadIcon,
+  Field,
+  LockIcon,
+  PlusIcon,
+  Segmented,
+  Select,
+  TextInput,
+} from '../kit.tsx'
 import { useT } from '../i18n.ts'
-import { message, readBytes, save, stem, toBlob } from '../files.ts'
+import { stem, toBlob } from '../files.ts'
 
 const ACCEPT = '.pdf'
 
-interface Loaded {
-  name: string
-  bytes: Uint8Array
-  security: Security
-}
-
 export function Protect() {
   const t = useT()
-  const [loaded, setLoaded] = useState<Loaded | null>(null)
+  const batch = useBatch()
+  /** What each loaded file already carries, read once as it arrives. */
+  const [locks, setLocks] = useState<Record<string, Security>>({})
   const [openPassword, setOpenPassword] = useState('')
   const [permissionsPassword, setPermissionsPassword] = useState('')
   const [password, setPassword] = useState('')
   const [printing, setPrinting] = useState<PrintingLevel>('high')
   const [changes, setChanges] = useState<ChangesLevel>('any')
   const [copying, setCopying] = useState(true)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   /** Passwords live only in this component's state; nothing is ever persisted. */
-  function forget() {
+  function forgetSecrets() {
     setOpenPassword('')
     setPermissionsPassword('')
     setPassword('')
   }
 
   function clear() {
-    setLoaded(null)
-    setError(null)
-    forget()
+    batch.clear()
+    setLocks({})
+    forgetSecrets()
   }
 
   async function open(files: File[]) {
-    const file = files[0]
-    if (!file) return
-    clear()
-    setBusy(true)
-    try {
-      const bytes = await readBytes(file)
-      setLoaded({ name: file.name, bytes, security: await describeSecurity(bytes) })
-    } catch (failure) {
-      setError(message(failure))
-    } finally {
-      setBusy(false)
+    const added = await batch.add(files)
+    const found: Record<string, Security> = {}
+    for (const item of added) {
+      try {
+        found[item.id] = await describeSecurity(item.bytes)
+      } catch {
+        // A file that cannot even be inspected is left unmarked; the run itself
+        // will say what is wrong with it in words.
+      }
     }
+    setLocks((previous) => ({ ...previous, ...found }))
   }
 
-  async function run(work: () => Promise<Uint8Array>, suffix: string) {
-    if (!loaded) return
-    setBusy(true)
-    setError(null)
-    try {
-      const pdf = await work()
-      save(toBlob(pdf, 'application/pdf'), `${stem(loaded.name)}-${suffix}.pdf`)
-      forget()
-    } catch (failure) {
-      setError(message(failure))
-    } finally {
-      setBusy(false)
-    }
+  async function run(work: (item: Item) => Promise<Uint8Array>, suffix: string) {
+    await batch.run(async (item) => {
+      const bytes = await work(item)
+      return {
+        result: {
+          blob: toBlob(bytes, 'application/pdf'),
+          name: `${stem(item.name)}-${suffix}.pdf`,
+          size: bytes.length,
+        },
+        note: `${t.batch.done} · ${humanSize(bytes.length)}`,
+      }
+    }, t.protect.working)
+    // The bytes are made by now, so the secrets that made them can go.
+    forgetSecrets()
   }
 
-  const locked = loaded?.security.needsPassword === true
+  const loaded = batch.items.length > 0
+  const needsPassword = batch.items.filter((item) => locks[item.id]?.needsPassword === true)
+  const locked = loaded && needsPassword.length === batch.items.length
+  // Locking and unlocking are opposite operations, and a pile holding both
+  // cannot be one button.
+  const mixed = needsPassword.length > 0 && needsPassword.length < batch.items.length
+  const anyRestricted = batch.items.some((item) => locks[item.id]?.encrypted === true)
   const limitation = caveat({ openPassword, printing, changes, copying })
 
   return (
     <Workspace
       title={t.tools.protect.label}
       accept={ACCEPT}
-      onFiles={open}
-      error={error}
+      onFiles={(files) => void open(files)}
+      error={batch.error}
+      busy={batch.busy}
       empty={
         loaded
           ? undefined
@@ -94,14 +106,22 @@ export function Protect() {
       toolbar={
         loaded ? (
           <>
-            <FilePicker accept={ACCEPT} onFiles={open}>
+            <FilePicker accept={ACCEPT} onFiles={(files) => void open(files)}>
               <Button>
                 <PlusIcon />
-                {t.export.open}
+                {t.batch.add}
               </Button>
             </FilePicker>
-            <span className="text-muted text-body hidden truncate sm:inline">{loaded.name}</span>
+            <span className="text-muted text-body hidden truncate sm:inline">
+              {t.batch.count(batch.items.length)}
+            </span>
             <Spacer />
+            {batch.results.length > 0 && (
+              <Button onClick={() => void batch.download()}>
+                <DownloadIcon />
+                {t.batch.download(batch.results.length)}
+              </Button>
+            )}
             <Button variant="ghost" onClick={clear}>
               {t.clear}
             </Button>
@@ -112,14 +132,16 @@ export function Protect() {
       {loaded && (
         <div className="mx-auto flex max-w-[560px] flex-col gap-5 p-5 sm:p-8">
           <p className="bg-fill text-body rounded-card px-3 py-2 leading-relaxed">
-            {locked
-              ? t.protect.lockedNotice
-              : loaded.security.encrypted
-                ? t.protect.restrictedNotice
-                : t.protect.cipher}
+            {mixed
+              ? t.batch.mixedLocks
+              : locked
+                ? t.protect.lockedNotice
+                : anyRestricted
+                  ? t.protect.restrictedNotice
+                  : t.protect.cipher}
           </p>
 
-          {locked ? (
+          {!mixed && locked && (
             <>
               <label className="flex flex-col gap-1.5">
                 <span className="text-caption text-muted font-medium tracking-wide uppercase">
@@ -135,13 +157,15 @@ export function Protect() {
               <Button
                 variant="primary"
                 className="self-start"
-                disabled={busy || password === ''}
-                onClick={() => run(() => unlockPdf(loaded.bytes, password), 'unlocked')}
+                disabled={batch.busy !== null || password === ''}
+                onClick={() => void run((item) => unlockPdf(item.bytes, password), 'unlocked')}
               >
-                {busy ? t.protect.working : t.protect.unlock}
+                {batch.busy ?? t.protect.unlock}
               </Button>
             </>
-          ) : (
+          )}
+
+          {!mixed && !locked && (
             <>
               <label className="flex flex-col gap-1.5">
                 <span className="text-caption text-muted font-medium tracking-wide uppercase">
@@ -221,26 +245,33 @@ export function Protect() {
               <Button
                 variant="primary"
                 className="self-start"
-                disabled={busy || (openPassword === '' && permissionsPassword === '')}
+                disabled={
+                  batch.busy !== null || (openPassword === '' && permissionsPassword === '')
+                }
                 onClick={() =>
-                  run(
-                    () =>
-                      protectPdf(loaded.bytes, {
+                  void run(
+                    (item) =>
+                      protectPdf(item.bytes, {
                         openPassword: openPassword || undefined,
                         permissionsPassword: permissionsPassword || undefined,
                         printing,
                         changes,
                         copying,
-                        currentPassword: loaded.security.encrypted ? '' : undefined,
+                        // A file that is already encrypted has to be opened
+                        // before it can be locked again, and one that opens
+                        // without a prompt opens with an empty password.
+                        currentPassword: locks[item.id]?.encrypted === true ? '' : undefined,
                       }),
                     'protected',
                   )
                 }
               >
-                {busy ? t.protect.working : t.protect.lock}
+                {batch.busy ?? t.protect.lock}
               </Button>
             </>
           )}
+
+          <FileList items={batch.items} onRemove={batch.remove} className="" />
         </div>
       )}
     </Workspace>

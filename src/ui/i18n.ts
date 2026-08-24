@@ -28,6 +28,17 @@ const en = {
   selectAll: 'Select all',
   deselectAll: 'Deselect all',
   remove: 'Remove',
+  /** Shared by every tool that takes a pile of files rather than one. */
+  batch: {
+    add: 'Add PDFs',
+    count: (n: number) => `${n} PDF${n === 1 ? '' : 's'}`,
+    download: (n: number) => (n === 1 ? 'Download' : `Download ${n}`),
+    done: 'Done',
+    everyPage: 'Every page of every file. Open one file on its own to choose pages.',
+    lastPageEach: 'The last page of each file. Open one file on its own to choose a page.',
+    mixedLocks:
+      'Some of these are locked and some are not, and the two need opposite things done to them. Open one kind at a time.',
+  },
   tools: {
     convert: { label: 'Convert images', hint: 'PNG, JPEG, WebP, AVIF, JPEG XL' },
     compress: { label: 'Compress PDF', hint: 'Re-encode the pictures inside' },
@@ -65,9 +76,9 @@ const en = {
     fits: 'Fitted inside the box, so nothing is cropped.',
   },
   compress: {
-    emptyTitle: 'Drop a PDF here',
+    emptyTitle: 'Drop PDFs here',
     emptyHint:
-      'The pictures inside are re-encoded, which is where nearly all the weight of a scan is. A PDF that is only text has nothing to shrink and comes back untouched.',
+      'The pictures inside are re-encoded, which is where nearly all the weight of a scan is. A PDF that is only text has nothing to shrink and comes back untouched. Drop as many as you like: there is no queue and no limit, because the work happens in this browser.',
     quality: 'Quality',
     maxSide: 'Longest side',
     unlimited: 'Leave as is',
@@ -82,7 +93,7 @@ const en = {
     hint: 'Capping the longest side is worth more than quality on anything scanned above 300 dpi.',
   },
   sign: {
-    emptyTitle: 'Drop a PDF here',
+    emptyTitle: 'Drop PDFs here',
     emptyHint:
       'Draw your signature, or bring a PNG of one, and place it on a page. Nothing is uploaded, which is the point: a signature is the last thing to hand to a stranger\u2019s server.',
     notCrypto:
@@ -142,9 +153,9 @@ const en = {
     splitting: 'Splitting…',
   },
   protect: {
-    emptyTitle: 'Drop a PDF here',
+    emptyTitle: 'Drop PDFs here',
     emptyHint:
-      'Lock it with a password, or hand over a locked one and take the password off. Encryption is AES-256, the setting Acrobat calls "Acrobat X and later".',
+      'Lock them with a password, or hand over locked ones and take the password off. One password covers the whole pile. Encryption is AES-256, the setting Acrobat calls "Acrobat X and later".',
     lockedNotice: 'This file is locked. Give its password to open it up.',
     restrictedNotice: 'This file is encrypted but opens without a prompt: only its permissions are locked.',
     openPassword: 'Open password',
@@ -175,9 +186,9 @@ const en = {
     cipher: 'AES-256 · Acrobat X and later',
   },
   stamp: {
-    emptyTitle: 'Drop a PDF here',
+    emptyTitle: 'Drop PDFs here',
     emptyHint:
-      'Stamp a watermark across the pages, or print page numbers on them. Select pages first to stamp only those.',
+      'Stamp a watermark across the pages, or print page numbers on them. One file on its own lets you pick the pages; a pile of them all get stamped through.',
     watermark: 'Watermark',
     numbers: 'Page numbers',
     text: 'Text',
@@ -233,6 +244,16 @@ const id: Strings = {
   selectAll: 'Pilih semua',
   deselectAll: 'Batal pilih',
   remove: 'Hapus',
+  batch: {
+    add: 'Tambah PDF',
+    count: (n: number) => `${n} PDF`,
+    download: (n: number) => (n === 1 ? 'Unduh' : `Unduh ${n}`),
+    done: 'Selesai',
+    everyPage: 'Semua halaman di semua berkas. Buka satu berkas saja untuk memilih halaman.',
+    lastPageEach: 'Halaman terakhir tiap berkas. Buka satu berkas saja untuk memilih halaman.',
+    mixedLocks:
+      'Sebagian terkunci dan sebagian tidak, dan keduanya butuh perlakuan yang berlawanan. Buka satu jenis dulu.',
+  },
   tools: {
     convert: { label: 'Konversi gambar', hint: 'PNG, JPEG, WebP, AVIF, JPEG XL' },
     compress: { label: 'Kompres PDF', hint: 'Encode ulang gambar di dalamnya' },
@@ -272,7 +293,7 @@ const id: Strings = {
   compress: {
     emptyTitle: 'Taruh PDF di sini',
     emptyHint:
-      'Gambar di dalamnya di-encode ulang, dan di situlah hampir semua bobot sebuah hasil pindaian berada. PDF yang isinya cuma teks tidak punya yang bisa diperkecil dan kembali apa adanya.',
+      'Gambar di dalamnya di-encode ulang, dan di situlah hampir semua bobot sebuah hasil pindaian berada. PDF yang isinya cuma teks tidak punya yang bisa diperkecil dan kembali apa adanya. Taruh sebanyak yang kamu mau: tidak ada antrean dan tidak ada batas, karena kerjanya di browser ini.',
     quality: 'Kualitas',
     maxSide: 'Sisi terpanjang',
     unlimited: 'Biarkan apa adanya',
@@ -288,7 +309,7 @@ const id: Strings = {
   sign: {
     emptyTitle: 'Taruh PDF di sini',
     emptyHint:
-      'Gambar tanda tanganmu, atau bawa PNG-nya, lalu tempatkan di halaman. Tidak ada yang diunggah, dan justru itu intinya: tanda tangan adalah hal terakhir yang pantas diserahkan ke server orang lain.',
+      'Gambar tanda tanganmu, atau bawa PNG-nya, lalu tempatkan di halaman. Satu tanda tangan berlaku untuk semua berkas yang kamu taruh. Tidak ada yang diunggah, dan justru itu intinya: tanda tangan adalah hal terakhir yang pantas diserahkan ke server orang lain.',
     notCrypto:
       'Ini menggambar tanda tangan, seperti menandatangani hasil cetak lalu memindainya. Bukan tanda tangan kriptografis dan tidak membuktikan siapa yang menandatangani.',
     draw: 'Gambar',
@@ -346,9 +367,9 @@ const id: Strings = {
     splitting: 'Memisah…',
   },
   protect: {
-    emptyTitle: 'Taruh satu PDF di sini',
+    emptyTitle: 'Taruh PDF di sini',
     emptyHint:
-      'Kunci dengan password, atau serahkan yang sudah terkunci lalu lepas passwordnya. Enkripsinya AES-256, setelan yang Acrobat sebut "Acrobat X and later".',
+      'Kunci dengan password, atau serahkan yang sudah terkunci lalu lepas passwordnya. Satu password berlaku untuk seluruh tumpukan. Enkripsinya AES-256, setelan yang Acrobat sebut "Acrobat X and later".',
     lockedNotice: 'Berkas ini terkunci. Masukkan passwordnya untuk membuka.',
     restrictedNotice: 'Berkas ini terenkripsi tapi terbuka tanpa diminta password: yang dikunci cuma izinnya.',
     openPassword: 'Password buka',
@@ -379,9 +400,9 @@ const id: Strings = {
     cipher: 'AES-256 · Acrobat X and later',
   },
   stamp: {
-    emptyTitle: 'Taruh satu PDF di sini',
+    emptyTitle: 'Taruh PDF di sini',
     emptyHint:
-      'Bubuhkan watermark melintasi halaman, atau cetak nomor halaman. Pilih halamannya dulu kalau cuma sebagian yang mau dicap.',
+      'Bubuhkan watermark melintasi halaman, atau cetak nomor halaman. Satu berkas saja bisa dipilih halamannya; setumpuk berkas dicap seluruhnya.',
     watermark: 'Watermark',
     numbers: 'Nomor halaman',
     text: 'Teks',

@@ -3,6 +3,8 @@ import { signPdf } from '../../core/pdf-sign.ts'
 import { CORNERS, type Corner } from '../../core/pdf-stamp.ts'
 import { pageCount } from '../../core/pdf-pages.ts'
 import { canvasToBlob } from '../../core/pdf-to-images.ts'
+import { humanSize } from '../../core/units.ts'
+import { FileList, useBatch } from '../batch.tsx'
 import { FilePicker } from '../Dropzone.tsx'
 import { Spacer, Workspace } from '../Workspace.tsx'
 import {
@@ -16,7 +18,7 @@ import {
   Slider,
 } from '../kit.tsx'
 import { useT } from '../i18n.ts'
-import { message, readBytes, save, stem, toBlob } from '../files.ts'
+import { message, readBytes, stem, toBlob } from '../files.ts'
 
 const ACCEPT = '.pdf'
 const SIGNATURE_ACCEPT = '.png,.jpg,.jpeg'
@@ -29,42 +31,45 @@ const SIGNATURE_ACCEPT = '.png,.jpg,.jpeg'
 const PAD_WIDTH = 900
 const PAD_HEIGHT = 300
 
-interface Loaded {
-  name: string
-  bytes: Uint8Array
-  pages: number
-}
-
 type Source = 'draw' | 'image'
 
 export function Sign() {
   const t = useT()
-  const [loaded, setLoaded] = useState<Loaded | null>(null)
+  const batch = useBatch()
   const [source, setSource] = useState<Source>('draw')
   const [drawn, setDrawn] = useState(false)
   const [uploaded, setUploaded] = useState<{ bytes: Uint8Array; url: string } | null>(null)
   const [position, setPosition] = useState<Corner>('bottom-right')
   const [width, setWidth] = useState(150)
   const [page, setPage] = useState('')
-  const [busy, setBusy] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  /**
+   * Pages of the one document, so a page can be picked. Zero once a second file
+   * arrives: page 3 of one contract is not page 3 of the next, and the honest
+   * offer across a pile is the last page of each.
+   */
+  const [pages, setPages] = useState(0)
   const pad = useRef<HTMLCanvasElement>(null)
   const drawing = useRef(false)
 
   async function open(files: File[]) {
-    const file = files[0]
-    if (!file) return
-    setError(null)
-    setBusy(t.sign.working)
-    try {
-      const bytes = await readBytes(file)
-      setLoaded({ name: file.name, bytes, pages: await pageCount(bytes) })
-      setPage('')
-    } catch (failure) {
-      setError(message(failure))
-    } finally {
-      setBusy(null)
+    const added = await batch.add(files)
+    const total = batch.items.length + added.length
+    setPage('')
+    if (total === 1 && added[0]) {
+      try {
+        setPages(await pageCount(added[0].bytes))
+      } catch (failure) {
+        batch.setError(message(failure))
+      }
+    } else {
+      setPages(0)
     }
+  }
+
+  function clear() {
+    batch.clear()
+    setPages(0)
+    setPage('')
   }
 
   function context(): CanvasRenderingContext2D | null {
@@ -123,13 +128,13 @@ export function Sign() {
   function useImage(files: File[]) {
     const file = files[0]
     if (!file) return
-    setError(null)
+    batch.setError(null)
     void (async () => {
       try {
         if (uploaded) URL.revokeObjectURL(uploaded.url)
         setUploaded({ bytes: await readBytes(file), url: URL.createObjectURL(file) })
       } catch (failure) {
-        setError(message(failure))
+        batch.setError(message(failure))
       }
     })()
   }
@@ -145,50 +150,52 @@ export function Sign() {
   }
 
   async function run() {
-    if (!loaded) return
-    setError(null)
     const mark = await signature()
     if (mark === null) {
-      setError(t.sign.needSignature)
+      batch.setError(t.sign.needSignature)
       return
     }
-    setBusy(t.sign.working)
-    try {
-      const signed = await signPdf(loaded.bytes, {
+    await batch.run(async (item) => {
+      const signed = await signPdf(item.bytes, {
         signature: mark,
         position,
         width,
         ...(page === '' ? {} : { pages: [Number(page) - 1] }),
       })
-      save(toBlob(signed, 'application/pdf'), `${stem(loaded.name)}-signed.pdf`)
-    } catch (failure) {
-      setError(message(failure))
-    } finally {
-      setBusy(null)
-    }
+      return {
+        result: {
+          blob: toBlob(signed, 'application/pdf'),
+          name: `${stem(item.name)}-signed.pdf`,
+          size: signed.length,
+        },
+        note: `${t.batch.done} · ${humanSize(signed.length)}`,
+      }
+    }, t.sign.working)
   }
+
+  const loaded = batch.items.length > 0
 
   return (
     <Workspace
       title={t.tools.sign.label}
       accept={ACCEPT}
-      onFiles={open}
-      error={error}
-      busy={busy}
+      onFiles={(files) => void open(files)}
+      error={batch.error}
+      busy={batch.busy}
       empty={
         loaded ? undefined : { icon: <SignIcon />, title: t.sign.emptyTitle, hint: t.sign.emptyHint }
       }
       toolbar={
         loaded ? (
           <>
-            <FilePicker accept={ACCEPT} onFiles={open}>
+            <FilePicker accept={ACCEPT} onFiles={(files) => void open(files)}>
               <Button>
                 <PlusIcon />
-                {t.export.open}
+                {t.batch.add}
               </Button>
             </FilePicker>
             <span className="text-muted text-body hidden truncate sm:inline">
-              {loaded.name} · {t.export.pages(loaded.pages)}
+              {t.batch.count(batch.items.length)}
             </span>
             <Spacer />
             <Segmented
@@ -200,6 +207,9 @@ export function Sign() {
                 { value: 'image', label: t.sign.upload },
               ]}
             />
+            <Button variant="ghost" onClick={clear}>
+              {t.clear}
+            </Button>
           </>
         ) : undefined
       }
@@ -219,27 +229,36 @@ export function Sign() {
                 ))}
               </Select>
             </Field>
-            <Field label={t.sign.onPage}>
-              <Select
-                aria-label={t.sign.onPage}
-                value={page}
-                onChange={(event) => setPage(event.target.value)}
-              >
-                <option value="">{t.sign.lastPage}</option>
-                {Array.from({ length: loaded.pages }, (_, i) => (
-                  <option key={i} value={i + 1}>
-                    {t.export.pageLabel(i + 1)}
-                  </option>
-                ))}
-              </Select>
-            </Field>
+            {pages > 0 ? (
+              <Field label={t.sign.onPage}>
+                <Select
+                  aria-label={t.sign.onPage}
+                  value={page}
+                  onChange={(event) => setPage(event.target.value)}
+                >
+                  <option value="">{t.sign.lastPage}</option>
+                  {Array.from({ length: pages }, (_, i) => (
+                    <option key={i} value={i + 1}>
+                      {t.export.pageLabel(i + 1)}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            ) : (
+              <span className="text-muted text-caption">{t.batch.lastPageEach}</span>
+            )}
             <Field label={t.sign.width}>
               <Slider label={t.sign.width} value={width} onChange={setWidth} min={40} max={400} />
             </Field>
             <Spacer />
-            <Button variant="primary" onClick={run} disabled={busy !== null}>
-              <DownloadIcon />
-              {busy ?? t.sign.run}
+            {batch.results.length > 0 && (
+              <Button onClick={() => void batch.download()}>
+                <DownloadIcon />
+                {t.batch.download(batch.results.length)}
+              </Button>
+            )}
+            <Button variant="primary" onClick={() => void run()} disabled={batch.busy !== null}>
+              {batch.busy ?? t.sign.run}
             </Button>
           </>
         ) : undefined
@@ -291,6 +310,8 @@ export function Sign() {
               )}
             </div>
           )}
+
+          <FileList items={batch.items} onRemove={batch.remove} className="" />
         </div>
       )}
     </Workspace>
