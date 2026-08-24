@@ -42,8 +42,14 @@ npm run build
 npm run test:browser
 ```
 
-Both suites need `playwright` and `pypdf`; the browser one also needs
-`python3 -m playwright install chromium` once.
+Both suites need `playwright` and `pypdf`, and the encryption one needs pypdf's
+crypto extra, since every fixture it reads back is AES-256 and pypdf leaves that
+dependency optional:
+
+```sh
+pip install playwright 'pypdf[crypto]'
+python3 -m playwright install chromium   # once, for the browser suite
+```
 
 ## Adding a dependency
 
