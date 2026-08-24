@@ -4,10 +4,10 @@ import {
   ExportIcon,
   ImageIcon,
   LockIcon,
+  Logo,
   PagesIcon,
   Segmented,
   StampIcon,
-  Wordmark,
 } from './kit.tsx'
 import { STRINGS } from './i18n.ts'
 import type { Lang, Theme } from './prefs.ts'
@@ -48,9 +48,8 @@ export function Sidebar({
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
-      <div className="flex h-bar shrink-0 items-center gap-2.5 px-4">
-        <Wordmark />
-        <span className="text-headline font-semibold tracking-[-0.02em]">convert.in</span>
+      <div className="flex h-bar shrink-0 items-center px-4">
+        <Logo className="h-6 w-auto" />
       </div>
 
       <nav className="flex flex-col gap-1 px-2.5">

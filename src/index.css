@@ -161,6 +161,35 @@
   box-shadow: inset 0 1px 0 0 var(--c-specular);
 }
 
+.theme-logo-light {
+  display: block;
+}
+.theme-logo-dark {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .theme-logo-light {
+    display: none;
+  }
+  :root:not([data-theme='light']) .theme-logo-dark {
+    display: block;
+  }
+}
+
+:root[data-theme='dark'] .theme-logo-light {
+  display: none;
+}
+:root[data-theme='dark'] .theme-logo-dark {
+  display: block;
+}
+:root[data-theme='light'] .theme-logo-light {
+  display: block;
+}
+:root[data-theme='light'] .theme-logo-dark {
+  display: none;
+}
+
 html,
 body,
 #root {
