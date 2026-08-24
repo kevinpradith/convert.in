@@ -20,16 +20,35 @@ Eight tools, all in one window:
 | Tool | What it does |
 | --- | --- |
 | **Convert images** | PNG, JPEG, WebP, AVIF and JPEG XL, in any direction, plus GIF, BMP, TIFF, ICO, HEIC and SVG on the way in. Scales on the way out. Shows what each file cost or saved. |
-| **Compress PDF** | Re-encodes the pictures inside, which is where nearly all the weight of a scan is. Says so when a file has nothing to shrink. |
-| **Sign PDF** | Draw a signature or bring a PNG of one, and place it on a page. |
+| **Compress PDF** | Re-encodes the pictures inside, which is where nearly all the weight of a scan is. Says so when a file has nothing to shrink. Takes a pile. |
+| **Sign PDF** | Draw a signature or bring a PNG of one, and place it on a page. One signature covers however many files you drop. |
 | **Images to PDF** | Any image in, one image per page. Fit-to-image, A4 or Letter, with an optional margin. |
 | **Organize PDF** | Drop any number of PDFs, then reorder, rotate, delete and duplicate pages. Save the result as one file or as one file per page. |
-| **Stamp PDF** | A watermark across the pages, or page numbers on them. Select tiles to stamp only those. |
-| **Protect PDF** | Lock with a password, or hand it a locked file and take the password off. |
+| **Stamp PDF** | A watermark across the pages, or page numbers on them. One file lets you select tiles; a pile gets stamped through. |
+| **Protect PDF** | Lock with a password, or hand it locked files and take the password off. One password covers the pile. |
 | **PDF to images** | Rasterise pages to PNG or JPEG at 72, 144 or 288 dpi. |
 
 Drop files anywhere in the window, drag tiles to reorder, click a tile to select
 it, or type a range like `1-3,7` into the Pages box in the toolbar.
+
+### No file limits, because there is nobody to bill for them
+
+Every tool that turns one file into one file takes as many as you can give it,
+in the window and on the command line alike, and every command except `split`
+does the same:
+
+```sh
+convert.in compress scans/*.pdf --quality 40 -o small/
+convert.in protect statements/*.pdf --open-password ...
+convert.in number *.pdf -o numbered/
+```
+
+Nothing is queued, metered or counted, because nothing is being paid for: the
+work happens on the machine you are sitting at. In the window the button counts
+what it is about to do, and Download hands back every result at once. On the
+command line, every output name is worked out before the first file is written,
+so a run that would overwrite something, or land two inputs on the same name,
+stops before it has done half the job.
 
 ### Web and CLI, side by side
 
@@ -495,6 +514,13 @@ They need `playwright` (plus `python3 -m playwright install chromium`) and
   built on page copying, which carries a form's widgets but not the AcroForm
   that gives them names and values. Both the CLI and the web app say so before
   doing it. Rotate, watermark, number and protect leave forms intact.
+- **Splitting takes one document.** Everything else runs over a whole list, but
+  `split` turns one PDF into a folder of them, and a list of those would be a
+  folder of folders with no obvious names. Run it once per file.
+- **Page numbers cannot be picked across a pile.** Page 3 of one document is not
+  page 3 of the next, so the page grid and the page picker appear for a single
+  file and a pile is stamped or signed all the way through. The CLI takes the
+  same line: `--pages` is read against each document's own length.
 - **A permissions-protected file has to be unlocked first** before the other
   tools touch it. pdf-lib will not open an encrypted document without being
   handed a password, even the empty one a reader would use.

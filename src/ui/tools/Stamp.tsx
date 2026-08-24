@@ -1,27 +1,35 @@
 import { useState } from 'react'
 import { closeDoc, loadDoc, renderThumbnail } from '../../core/pdf-to-images.ts'
 import { numberPages, watermarkPdf, type Corner } from '../../core/pdf-stamp.ts'
+import { humanSize } from '../../core/units.ts'
+import { FileList, useBatch } from '../batch.tsx'
 import { FilePicker } from '../Dropzone.tsx'
 import { PageGrid, type Tile } from '../PageGrid.tsx'
 import { RangeSelect } from '../RangeSelect.tsx'
 import { Spacer, Workspace } from '../Workspace.tsx'
 import { Button, DownloadIcon, Field, PlusIcon, Segmented, Select, StampIcon, TextInput } from '../kit.tsx'
 import { useT } from '../i18n.ts'
-import { message, newId, readBytes, save, stem, toBlob } from '../files.ts'
+import { message, newId, stem, toBlob } from '../files.ts'
 
 const ACCEPT = '.pdf'
 
 type Mode = 'watermark' | 'numbers'
 
-interface Loaded {
-  name: string
-  bytes: Uint8Array
-  pages: { id: string; index: number; url: string }[]
+interface Thumbnail {
+  id: string
+  index: number
+  url: string
 }
 
 export function Stamp() {
   const t = useT()
-  const [loaded, setLoaded] = useState<Loaded | null>(null)
+  const batch = useBatch()
+  /**
+   * Previews of the one document, so pages can be picked out. Empty once a
+   * second file arrives: page 3 of one file is not page 3 of the next, and
+   * rendering every page of a folder costs more than it tells anyone.
+   */
+  const [thumbnails, setThumbnails] = useState<Thumbnail[]>([])
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
   const [mode, setMode] = useState<Mode>('watermark')
   const [text, setText] = useState('DRAFT')
@@ -32,42 +40,40 @@ export function Stamp() {
   const [format, setFormat] = useState('{n}')
   const [textSize, setTextSize] = useState('')
   const [margin, setMargin] = useState('28')
-  const [busy, setBusy] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
 
-  function clear() {
-    for (const page of loaded?.pages ?? []) URL.revokeObjectURL(page.url)
-    setLoaded(null)
+  function forgetThumbnails() {
+    for (const page of thumbnails) URL.revokeObjectURL(page.url)
+    setThumbnails([])
     setSelected(new Set())
   }
 
+  function clear() {
+    batch.clear()
+    forgetThumbnails()
+  }
+
   async function open(files: File[]) {
-    const file = files[0]
-    if (!file) return
-    clear()
-    setError(null)
-    setBusy(t.stamp.working)
+    const added = await batch.add(files)
+    const total = batch.items.length + added.length
+    forgetThumbnails()
+    if (total !== 1 || !added[0]) return
+    batch.setBusy(t.stamp.working)
     try {
-      const bytes = await readBytes(file)
-      const doc = await loadDoc(bytes)
+      const doc = await loadDoc(added[0].bytes)
       try {
-        const pages = []
+        const rendered: Thumbnail[] = []
         for (let number = 1; number <= doc.numPages; number++) {
-          setBusy(t.progress(number, doc.numPages))
-          pages.push({
-            id: newId(),
-            index: number - 1,
-            url: await renderThumbnail(doc, number),
-          })
+          batch.setBusy(t.progress(number, doc.numPages))
+          rendered.push({ id: newId(), index: number - 1, url: await renderThumbnail(doc, number) })
         }
-        setLoaded({ name: file.name, bytes, pages })
+        setThumbnails(rendered)
       } finally {
         await closeDoc(doc)
       }
     } catch (failure) {
-      setError(message(failure))
+      batch.setError(message(failure))
     } finally {
-      setBusy(null)
+      batch.setBusy(null)
     }
   }
 
@@ -80,26 +86,24 @@ export function Stamp() {
   }
 
   async function apply() {
-    if (!loaded) return
-    setBusy(t.stamp.working)
-    setError(null)
-    try {
-      // No selection means the whole document, which is what the core call
-      // already understands as "pages omitted".
-      const pages =
-        selected.size === 0
-          ? undefined
-          : loaded.pages.filter((page) => selected.has(page.id)).map((page) => page.index)
+    // No selection means the whole document, which is what the core call
+    // already understands as "pages omitted". Across several files there is no
+    // selection to make, so every page of each is what gets stamped.
+    const pages =
+      selected.size === 0
+        ? undefined
+        : thumbnails.filter((page) => selected.has(page.id)).map((page) => page.index)
+    await batch.run(async (item) => {
       const pdf =
         mode === 'watermark'
-          ? await watermarkPdf(loaded.bytes, {
+          ? await watermarkPdf(item.bytes, {
               text,
               opacity: Number(opacity),
               angleDegrees: Number(angle),
               size: textSize.trim() === '' ? undefined : Number(textSize),
               pages,
             })
-          : await numberPages(loaded.bytes, {
+          : await numberPages(item.bytes, {
               position,
               start: Number(start),
               format,
@@ -107,15 +111,19 @@ export function Stamp() {
               margin: Number(margin),
               pages,
             })
-      save(toBlob(pdf, 'application/pdf'), `${stem(loaded.name)}-stamped.pdf`)
-    } catch (failure) {
-      setError(message(failure))
-    } finally {
-      setBusy(null)
-    }
+      return {
+        result: {
+          blob: toBlob(pdf, 'application/pdf'),
+          name: `${stem(item.name)}-stamped.pdf`,
+          size: pdf.length,
+        },
+        note: `${t.batch.done} · ${humanSize(pdf.length)}`,
+      }
+    }, t.stamp.working)
   }
 
-  const tiles: Tile[] = (loaded?.pages ?? []).map((page) => ({
+  const loaded = batch.items.length > 0
+  const tiles: Tile[] = thumbnails.map((page) => ({
     id: page.id,
     url: page.url,
     caption: t.export.pageLabel(page.index + 1),
@@ -125,9 +133,9 @@ export function Stamp() {
     <Workspace
       title={t.tools.stamp.label}
       accept={ACCEPT}
-      onFiles={open}
-      error={error}
-      busy={busy}
+      onFiles={(files) => void open(files)}
+      error={batch.error}
+      busy={batch.busy}
       empty={
         loaded
           ? undefined
@@ -136,22 +144,24 @@ export function Stamp() {
       toolbar={
         loaded ? (
           <>
-            <FilePicker accept={ACCEPT} onFiles={open}>
+            <FilePicker accept={ACCEPT} onFiles={(files) => void open(files)}>
               <Button>
                 <PlusIcon />
-                {t.export.open}
+                {t.batch.add}
               </Button>
             </FilePicker>
             <span className="text-muted text-body hidden truncate sm:inline">
-              {loaded.name} · {t.export.pages(loaded.pages.length)}
+              {t.batch.count(batch.items.length)}
             </span>
             <Spacer />
-            <RangeSelect
-              total={loaded.pages.length}
-              onSelect={(indices) =>
-                setSelected(new Set(indices.map((index) => loaded.pages[index]!.id)))
-              }
-            />
+            {thumbnails.length > 0 && (
+              <RangeSelect
+                total={thumbnails.length}
+                onSelect={(indices) =>
+                  setSelected(new Set(indices.map((index) => thumbnails[index]!.id)))
+                }
+              />
+            )}
             <Segmented
               label={t.tools.stamp.label}
               value={mode}
@@ -272,9 +282,15 @@ export function Stamp() {
                 </Field>
               </>
             )}
-            <Button variant="primary" className="ml-auto" onClick={apply} disabled={busy !== null}>
-              <DownloadIcon />
-              {busy ?? t.stamp.save}
+            <Spacer />
+            {batch.results.length > 0 && (
+              <Button onClick={() => void batch.download()}>
+                <DownloadIcon />
+                {t.batch.download(batch.results.length)}
+              </Button>
+            )}
+            <Button variant="primary" onClick={() => void apply()} disabled={batch.busy !== null}>
+              {batch.busy ?? t.stamp.save}
             </Button>
           </>
         ) : undefined
@@ -282,9 +298,17 @@ export function Stamp() {
     >
       <>
         <p className="text-muted text-footnote px-5 pt-4">
-          {selected.size === 0 ? t.stamp.allPages : t.stamp.somePages(selected.size)}
+          {thumbnails.length === 0
+            ? t.batch.everyPage
+            : selected.size === 0
+              ? t.stamp.allPages
+              : t.stamp.somePages(selected.size)}
         </p>
-        <PageGrid tiles={tiles} selected={selected} onToggle={toggle} />
+        {thumbnails.length > 0 ? (
+          <PageGrid tiles={tiles} selected={selected} onToggle={toggle} />
+        ) : (
+          <FileList items={batch.items} onRemove={batch.remove} />
+        )}
       </>
     </Workspace>
   )

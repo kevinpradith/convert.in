@@ -265,6 +265,39 @@ def run():
                 action()
             return PdfReader(io.BytesIO(pathlib.Path(download.value.path()).read_bytes()))
 
+        def produced(scope, run):
+            """Make the file, then take it. The tools that accept a pile do the
+            work first and offer the download after, because one click that
+            both works and saves has nowhere to say it made twenty."""
+            scope.get_by_role('button', name=run, exact=True).click()
+            got = scope.get_by_role('button', name=re.compile('^Download'))
+            got.wait_for(timeout=180000)
+            with page.expect_download(timeout=60000) as download:
+                got.click()
+            return PdfReader(io.BytesIO(pathlib.Path(download.value.path()).read_bytes()))
+
+        def all_saved(action, expected):
+            """saveAll spaces its downloads out, so they arrive one at a time
+            rather than together and cannot be caught by expect_download."""
+            caught = []
+
+            # A plain function, and the same one both times: Playwright tags the
+            # handler it is given, which a built-in method has nowhere to keep,
+            # and remove_listener matches on identity.
+            def collect(download):
+                caught.append(download)
+
+            page.on('download', collect)
+            try:
+                action()
+                for _ in range(60):
+                    if len(caught) >= expected:
+                        break
+                    page.wait_for_timeout(500)
+            finally:
+                page.remove_listener('download', collect)
+            return caught
+
         print('== the CSP allows WebAssembly and still refuses eval ==')
         probe = browser.new_page()
         probe.goto(BASE + '__csp-probe.html', wait_until='networkidle')
@@ -454,7 +487,7 @@ def run():
         current.get_by_role('combobox', name='Longest side').wait_for(timeout=30000)
         current.get_by_role('slider', name='Quality').fill('30')
         current.get_by_role('button', name='Compress', exact=True).click()
-        save = current.get_by_role('button', name='Save PDF')
+        save = current.get_by_role('button', name=re.compile('^Download'))
         save.wait_for(timeout=120000)
         with page.expect_download(timeout=60000) as caught:
             save.click()
@@ -466,13 +499,29 @@ def run():
 
         # A PDF with no pictures in it has nothing to re-encode, and saying so
         # is the difference between an honest tool and one that looks broken.
+        current.get_by_role('button', name='Clear', exact=True).click()
         current.locator('input[type=file]').set_input_files(str(FIXTURES / 'plain.pdf'))
         current.get_by_role('button', name='Compress', exact=True).click()
         told = current.get_by_text(re.compile('nothing to re-encode'))
         told.wait_for(timeout=60000)
         check(told.count() == 1, 'a text-only PDF is told it has nothing to shrink')
-        check(current.get_by_role('button', name='Save PDF').count() == 0,
+        check(current.get_by_role('button', name=re.compile('^Download')).count() == 0,
               'and is offered no download, because there is no new file')
+
+        # The whole point of taking a pile: two go in, two come out, and the
+        # button says which of the two it is rather than quietly doing one.
+        (FIXTURES / 'scan-copy.pdf').write_bytes(scan)
+        current.get_by_role('button', name='Clear', exact=True).click()
+        current.locator('input[type=file]').set_input_files(
+            [str(FIXTURES / 'scan.pdf'), str(FIXTURES / 'scan-copy.pdf')])
+        current.get_by_role('button', name='Compress', exact=True).click()
+        pair = current.get_by_role('button', name='Download 2')
+        pair.wait_for(timeout=180000)
+        came = all_saved(pair.click, 2)
+        check(len(came) == 2, f'both files came down from one click ({len(came)})')
+        check(sorted(d.suggested_filename for d in came)
+              == ['scan-compressed.pdf', 'scan-copy-compressed.pdf'],
+              f'each keeps its own name ({sorted(d.suggested_filename for d in came)})')
 
         print('== signing a PDF ==')
         current = tool('Sign PDF')
@@ -488,7 +537,7 @@ def run():
             page.mouse.move(box['x'] + 40 + step * (box['width'] - 80) / 11,
                             box['y'] + box['height'] / 2 + (20 if step % 2 else -20))
         page.mouse.up()
-        signed = saved(lambda: current.get_by_role('button', name='Sign PDF', exact=True).click())
+        signed = produced(current, 'Sign PDF')
         check(len(signed.pages) == 3, f'the signed file still has three pages ({len(signed.pages)})')
         # Every page of this fixture already carries an empty /XObject dict, so
         # the question is what is inside it, not whether the key is there.
@@ -542,9 +591,27 @@ def run():
         current.locator('input[type=file]').set_input_files(str(FIXTURES / 'plain.pdf'))
         current.locator('img').first.wait_for(timeout=30000)
         current.get_by_role('textbox', name='Text', exact=True).fill('CONFIDENTIAL')
-        reader = saved(lambda: current.get_by_role('button', name='Save PDF').click())
+        reader = produced(current, 'Save PDF')
         check(len(reader.pages) == 3, f'the stamped file still has three pages ({len(reader.pages)})')
         check('CONFIDENTIAL' in reader.pages[0].extract_text(), 'the watermark text is on the page')
+
+        # Two at once has no page grid to pick from, so every page of each is
+        # stamped and the tool says as much instead of rendering fifty previews
+        # nobody is going to click.
+        current.get_by_role('button', name='Clear', exact=True).click()
+        # Not both.pdf: that one is encrypted, and a locked file is a different
+        # complaint than the one this check is about.
+        current.locator('input[type=file]').set_input_files(
+            [str(FIXTURES / 'plain.pdf'), str(FIXTURES / 'scan.pdf')])
+        told = current.get_by_text(re.compile('Every page of every file'))
+        told.wait_for(timeout=30000)
+        check(current.locator('img').count() == 0,
+              f'no thumbnails were rendered for the pile ({current.locator("img").count()})')
+        current.get_by_role('button', name='Save PDF', exact=True).click()
+        pair = current.get_by_role('button', name='Download 2')
+        pair.wait_for(timeout=180000)
+        came = all_saved(pair.click, 2)
+        check(len(came) == 2, f'both stamped files came down ({len(came)})')
 
         print('== protect ==')
         current = tool('Protect PDF')
@@ -563,7 +630,7 @@ def run():
         current.locator('input[type=password]').first.fill('browser-pw')
         check(current.get_by_text('can take these restrictions off').is_visible(),
               'once an open password is set, the note says the reader can still lift them')
-        reader = saved(lambda: current.get_by_role('button', name='Lock PDF').click())
+        reader = produced(current, 'Lock PDF')
         check(reader.is_encrypted, 'the saved file is encrypted')
         # With no permissions password the open password is also the owner
         # password, so pypdf reporting OWNER here is the correct reading.

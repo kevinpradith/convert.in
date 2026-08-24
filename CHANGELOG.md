@@ -29,11 +29,30 @@ still change between minor versions.
   reduced photo keeps its detail instead of shimmering, and transparent pixels
   contribute coverage without dragging their colour into the edges.
 
+- **No file limits anywhere.** Every tool and command that turns one file into
+  one file now runs over a whole list: Compress, Sign, Stamp and Protect in the
+  window, and `compress`, `sign`, `select`, `rotate`, `protect`, `unlock`,
+  `watermark`, `number` and `info` on the command line. One password locks a
+  folder of statements, one drawn signature covers a folder of contracts, and
+  the CLI works out every output name before writing the first file, so a run
+  that would overwrite something, or give two inputs the same name, stops before
+  it has done half the job.
+
 ### Changed
 
 - `--position` no longer carries one default for every command. `number` still
   puts a page number at the bottom centre; `sign` puts a signature at the bottom
   right, which is where a form is signed.
+- Where a command reads a word after the file name, the matching flag now says
+  it once instead so that every positional can be a file: `--pages` for
+  `select`, `--text` for `watermark`, `--by` for `rotate` and `--signature` for
+  `sign`. The trailing word still works when there is one file.
+- Compress, Sign, Stamp and Protect now make the file and then offer the
+  download, rather than doing both on one click. A single click that also saves
+  has nowhere to say it produced twenty.
+- `unlock` asks for a password at the first file that needs one and keeps it for
+  the rest, and leaves an unencrypted file in a list alone with a warning
+  instead of failing the whole run.
 
 ## [0.1.0] - 2026-08-24
 
