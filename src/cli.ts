@@ -4,8 +4,20 @@ import { basename, dirname, extname, join } from 'node:path'
 
 import { guide, type Lang } from './help.ts'
 import { askSecret } from './prompt.ts'
-import { dim, humanSize, isWsl } from './term.ts'
+import { dim, isWsl } from './term.ts'
+import { humanSize, sizeChange } from './core/units.ts'
 import { imagesToPdf, type Orientation, type PageSize } from './core/images-to-pdf.ts'
+import { decodeImage } from './core/images-node.ts'
+import {
+  IMAGE_FORMATS,
+  defaultQuality,
+  encodeImage,
+  extensionFor,
+  isImageFormat,
+  keepsAlpha,
+  sniff,
+  type ImageFormat,
+} from './core/images.ts'
 import {
   chunkPages,
   describe,
@@ -31,6 +43,7 @@ import {
 import { numberPages, watermarkPdf, type Corner, CORNERS } from './core/pdf-stamp.ts'
 
 const COMMANDS = [
+  'convert',
   'images',
   'merge',
   'select',
@@ -209,6 +222,13 @@ function warnInlineSecret(...given: (string | undefined)[]): void {
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`
 
+function sizeDelta(before: number, after: number): string {
+  const change = sizeChange(before, after)
+  if (change === 0) return 'the same size'
+  return change > 0 ? `${change}% smaller` : `${-change}% larger`
+}
+
+
 /** Levenshtein distance, so a typed command can be matched to the nearest real one. */
 function distance(a: string, b: string): number {
   let row = Array.from({ length: b.length + 1 }, (_, i) => i)
@@ -252,6 +272,10 @@ async function main(): Promise<void> {
       start: { type: 'string', default: '1' },
       format: { type: 'string', default: '{n}' },
       'text-size': { type: 'string' },
+      to: { type: 'string' },
+      quality: { type: 'string' },
+      lossless: { type: 'boolean', default: false },
+      background: { type: 'string', default: '#ffffff' },
       help: { type: 'boolean', short: 'h', default: false },
       version: { type: 'boolean', short: 'v', default: false },
     },
@@ -275,6 +299,82 @@ async function main(): Promise<void> {
   const force = values.force
 
   switch (command) {
+    case 'convert': {
+      const files = requireInputs(rest, 'images')
+      // "convert shot.png webp" reads better than spelling out the flag, so the
+      // last positional is taken as the target when it names a format.
+      const trailing = rest.at(-1)
+      const named = trailing !== undefined && isImageFormat(trailing.toLowerCase()) ? files.pop() : undefined
+      if (files.length === 0) fail('no images given. Run "convert.in --help" for examples.')
+      const target = values.to ?? named
+      if (target === undefined) {
+        fail(`which format? e.g. convert.in convert photo.png --to webp\n  one of: ${IMAGE_FORMATS.join(', ')}`)
+      }
+      const format = oneOf<ImageFormat>(target.toLowerCase(), IMAGE_FORMATS, 'to')
+      const quality = values.quality === undefined ? undefined : number(values.quality, 'quality')
+      // Checked here as well as in the encoder, so a batch of forty files says
+      // so before it writes the first one.
+      if (quality !== undefined && (quality < 1 || quality > 100)) {
+        fail('--quality must be a number from 1 to 100')
+      }
+      if (values.lossless && format === 'jpeg') {
+        fail('--lossless does not apply to JPEG, which has no lossless mode. Try png, webp, avif or jxl.')
+      }
+      // Only the formats without an alpha channel have anything to put behind
+      // a transparent pixel, so a background asked for anywhere else is a
+      // misunderstanding worth naming rather than quietly dropping.
+      if (values.background !== '#ffffff' && keepsAlpha(format)) {
+        warn(`${format.toUpperCase()} keeps transparency, so --background does nothing here.`)
+      }
+
+      // Several inputs need somewhere to put several outputs. One input keeps
+      // -o meaning the file it has always meant.
+      const many = files.length > 1
+      const outDir = many
+        ? await outputDir(values.out, dirname(files[0]!), true)
+        : undefined
+      const written: string[] = []
+      for (const input of files) {
+        const source = await read(input)
+        // Re-encoding a lossy format at the same format throws away detail for
+        // nothing. PNG to PNG is worth doing, because it comes out optimised.
+        if (sniff(source) === format && !values.lossless && format !== 'png') {
+          warn(
+            `${basename(input)} is already ${format.toUpperCase()}, and encoding it again ` +
+              'loses a little more detail.',
+          )
+        }
+        const out = many
+          ? join(outDir!, `${stem(input)}.${extensionFor(format)}`)
+          : await outputFile(values.out, beside(input, `${stem(input)}.${extensionFor(format)}`), force)
+        if (out === input) fail(`${input} is both the input and the output. Pass -o to write somewhere else.`)
+        if (many && !force && (await exists(out))) {
+          fail(`${out} already exists. Add --force to overwrite it.`)
+        }
+        const pixels = await decodeImage(source)
+        const bytes = await encodeImage(pixels, {
+          format,
+          quality,
+          lossless: values.lossless,
+          background: values.background,
+        })
+        await writeFile(out, bytes)
+        written.push(out)
+        if (many) {
+          console.log(
+            `✓ ${out}  ${dim(`${pixels.width}x${pixels.height} · ${humanSize(bytes.length)}, ${sizeDelta(source.length, bytes.length)}`)}`,
+          )
+        } else {
+          const setting =
+            values.lossless || format === 'png'
+              ? 'lossless'
+              : `quality ${quality ?? defaultQuality(format)}`
+          await report(out, `${format.toUpperCase()}, ${setting}, ${sizeDelta(source.length, bytes.length)}`)
+        }
+      }
+      return
+    }
+
     case 'images': {
       const files = ordered(requireInputs(rest, 'images'), values.sort)
       const out = await outputFile(values.out, beside(files[0]!, `${commonName(files)}.pdf`), force)
@@ -286,6 +386,7 @@ async function main(): Promise<void> {
           'orientation',
         ),
         marginPt: number(values.margin ?? '0', 'margin'),
+        decode: decodeImage,
       })
       await writeFile(out, pdf)
       return report(out, plural(files.length, 'page'))

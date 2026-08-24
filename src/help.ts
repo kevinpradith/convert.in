@@ -27,6 +27,7 @@ USAGE
   convert.in <command> [options]
 
 COMMANDS
+  convert <img...> --to <f>   Between PNG, JPEG, WebP, AVIF and JPEG XL
   images  <img...>            JPEG and PNG into one PDF, one image per page
   merge   <pdf...>            Join PDFs in the order given
   select  <in.pdf> <pages>    Keep those pages in that order: reorder, delete, extract
@@ -41,6 +42,8 @@ COMMANDS
 OUTPUT
   -o is optional. Without it the result lands beside the input:
 
+    convert shot.png --to webp  ->  shot.webp
+    convert *.png --to avif     ->  beside each file, or -o into one folder
     images  shot.png       ->  shot.pdf
     images  shot1-12.png   ->  shot.pdf        named after what they share
     merge   a.pdf b.pdf    ->  a-merged.pdf
@@ -55,9 +58,13 @@ OUTPUT
   Nothing is ever overwritten without --force.
 
 OPTIONS
-  -o, --out <path>       Output file, or output folder for split
+  -o, --out <path>       Output file, or output folder for split and batch convert
   -p, --pages <ranges>   1-based: "1-3,7" or "8-". Repeat a page to duplicate it
   -f, --force            Overwrite an existing file, or write into a used folder
+      --to <format>      png, jpeg, webp, avif, jxl                  convert
+      --quality <1-100>  Per-format default, see FORMATS              convert
+      --lossless         Throw nothing away: png, webp, avif, jxl     convert
+      --background <hex> Behind transparency in JPEG, default #ffffff convert
       --size <mode>      fit (default), a4, letter                 images
       --orientation <o>  auto (default), portrait, landscape       images
       --margin <pt>      White border, 0 for images, 28 for number
@@ -83,6 +90,7 @@ THE WEB APP
   Every command here has a tool in the window, and both sit on the same code
   underneath, so the two cannot drift apart. Start it with: npm run dev
 
+    convert                       Convert images
     images                        Images to PDF
     merge, select, rotate, split  Organize PDF
     watermark, number             Stamp PDF
@@ -95,6 +103,41 @@ THE WEB APP
   Two flags have no browser equivalent, on purpose. --force is meaningless there,
   since a download never overwrites anything. --sort natural is unnecessary,
   since you drag the tiles into the order you want.
+
+FORMATS
+  convert reads PNG, JPEG, WebP, AVIF and JPEG XL, and writes the same five.
+  The browser app additionally reads GIF, BMP, TIFF, ICO, HEIC and SVG, because
+  the only decoders for those are the ones a browser already has.
+
+  The codecs are the ones Squoosh settled on after measuring: MozJPEG, libwebp,
+  libavif, libjxl and Oxipng, as WebAssembly. The same builds run in the browser
+  app, so a file converted there and here comes out identical.
+
+  Quality is 1 to 100 and the scales are not comparable between formats, so the
+  defaults are not the same number. They are the settings measured to look
+  alike, taking JPEG 80 as the reference:
+
+    jpeg 80     the long-standing web default
+    webp 82     matched to JPEG 80 by DSSIM
+    avif 64     the same, and still a much smaller file
+    jxl  75     libjxl's own default, on the libjpeg scale
+    png         always lossless, then run through Oxipng
+
+  Three things happen on the way through, and all three are the point:
+
+  Metadata is dropped. Converting decodes to pixels and encodes again, so EXIF,
+  GPS coordinates, camera serial numbers, editing history and colour profiles
+  are all left behind. That is a feature here, not an oversight: a photo posted
+  from a phone otherwise carries where it was taken.
+
+  A sideways photo is turned the right way up. JPEG records the camera angle in
+  a tag rather than in the pixels, and no other format carries that tag, so the
+  rotation is applied to the pixels instead.
+
+  Transparency is flattened for JPEG, which has no alpha channel, onto
+  --background. Every other format keeps it.
+
+  Animation is not kept. An animated GIF or WebP converts as its first frame.
 
 SECURITY
   Passwords are asked for rather than taken as arguments, because a password in
@@ -150,6 +193,14 @@ PATHS
   backslashes before this ever sees them: 'C:\\Users\\me\\a.png'
 
 EXAMPLES
+  convert.in convert photo.png --to webp
+  convert.in convert *.heic --to jpeg --quality 90 -o converted/
+  convert.in convert logo.png --to webp --lossless
+  convert.in convert shot.png --to jpeg --background '#000000'
+  convert.in convert photo.png --to webp
+  convert.in convert *.heic --to jpeg --quality 90 -o converted/
+  convert.in convert logo.png --to webp --lossless
+  convert.in convert shot.png --to jpeg --background '#000000'
   convert.in images shot-*.png
   convert.in images shot*.png --sort natural
   convert.in images scan-*.jpg -o scan.pdf --size a4 --margin 24
@@ -179,6 +230,7 @@ CARA PAKAI
   convert.in <perintah> [opsi]
 
 PERINTAH
+  convert <gambar...> --to <f> Antara PNG, JPEG, WebP, AVIF dan JPEG XL
   images  <gambar...>          JPEG dan PNG jadi satu PDF, satu gambar per halaman
   merge   <pdf...>             Gabung PDF sesuai urutan yang diberikan
   select  <in.pdf> <halaman>   Ambil halaman itu sesuai urutannya: susun ulang, hapus, petik
@@ -193,6 +245,8 @@ PERINTAH
 HASIL
   -o boleh dikosongkan. Tanpa itu hasilnya mendarat di sebelah berkas asal:
 
+    convert shot.png --to webp  ->  shot.webp
+    convert *.png --to avif     ->  di sebelah tiap berkas, atau -o ke satu folder
     images  shot.png       ->  shot.pdf
     images  shot1-12.png   ->  shot.pdf        dinamai dari bagian yang sama
     merge   a.pdf b.pdf    ->  a-merged.pdf
@@ -207,9 +261,13 @@ HASIL
   Tidak ada yang pernah ditimpa tanpa --force.
 
 OPSI
-  -o, --out <path>       Berkas hasil, atau folder hasil untuk split
+  -o, --out <path>       Berkas hasil, atau folder hasil untuk split dan convert massal
   -p, --pages <rentang>  Mulai dari 1: "1-3,7" atau "8-". Ulangi nomor untuk menggandakan
   -f, --force            Timpa berkas yang sudah ada, atau tulis ke folder yang terpakai
+      --to <format>      png, jpeg, webp, avif, jxl                   convert
+      --quality <1-100>  Bawaan beda per format, lihat FORMAT          convert
+      --lossless         Tidak membuang apa pun: png, webp, avif, jxl  convert
+      --background <hex> Di balik transparansi JPEG, bawaan #ffffff    convert
       --size <mode>      fit (bawaan), a4, letter                  images
       --orientation <o>  auto (bawaan), portrait, landscape        images
       --margin <pt>      Bingkai putih, 0 untuk images, 28 untuk number
@@ -236,6 +294,7 @@ APLIKASI WEB
   kode yang sama, jadi tidak bisa melenceng satu sama lain. Jalankan dengan:
   npm run dev
 
+    convert                       Konversi gambar
     images                        Gambar ke PDF
     merge, select, rotate, split  Tata PDF
     watermark, number             Cap PDF
@@ -248,6 +307,41 @@ APLIKASI WEB
   Dua flag memang tidak punya padanan di peramban. --force tidak ada artinya di
   sana, karena unduhan tidak pernah menimpa apa pun. --sort natural juga tidak
   perlu, karena di sana lu menyeret kotaknya sendiri ke urutan yang lu mau.
+
+FORMAT
+  convert membaca PNG, JPEG, WebP, AVIF dan JPEG XL, dan menulis kelima-limanya.
+  Aplikasi webnya membaca lebih banyak lagi: GIF, BMP, TIFF, ICO, HEIC dan SVG,
+  karena satu-satunya decoder untuk itu memang yang sudah ada di peramban.
+
+  Codec-nya yang dipilih Squoosh setelah diukur: MozJPEG, libwebp, libavif,
+  libjxl dan Oxipng, dalam bentuk WebAssembly. Build yang sama dipakai aplikasi
+  webnya, jadi berkas yang dikonversi di sana dan di sini hasilnya sama persis.
+
+  Kualitasnya 1 sampai 100, dan skalanya tidak bisa dibandingkan antar format,
+  jadi bawaannya sengaja beda angka. Itu setelan yang terukur terlihat setara,
+  dengan JPEG 80 sebagai patokannya:
+
+    jpeg 80     bawaan web yang sudah lama dipakai
+    webp 82     disetarakan dengan JPEG 80 lewat DSSIM
+    avif 64     setara juga, dan berkasnya tetap jauh lebih kecil
+    jxl  75     bawaan libjxl sendiri, di skala yang sama dengan libjpeg
+    png         selalu lossless, lalu dilewatkan Oxipng
+
+  Ada tiga hal yang terjadi di tengah jalan, dan ketiganya memang tujuannya:
+
+  Metadata dibuang. Konversi membongkar berkasnya jadi piksel lalu menyusunnya
+  ulang, jadi EXIF, koordinat GPS, nomor seri kamera, riwayat penyuntingan dan
+  profil warna semuanya ditinggal. Itu fitur, bukan kelalaian: foto yang dikirim
+  dari ponsel kalau tidak begitu membawa lokasi tempat foto itu diambil.
+
+  Foto yang miring diluruskan. JPEG menyimpan sudut kameranya di sebuah tag,
+  bukan di pikselnya, dan tidak ada format lain yang membawa tag itu, jadi
+  putarannya diterapkan ke pikselnya.
+
+  Transparansi diratakan untuk JPEG, yang memang tidak punya kanal alpha, ke
+  atas --background. Format lain menyimpannya.
+
+  Animasi tidak ikut. GIF atau WebP beranimasi dikonversi sebagai frame pertama.
 
 KEAMANAN
   Password ditanyakan, bukan diambil dari argumen, karena password di argv
