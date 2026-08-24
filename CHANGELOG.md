@@ -81,6 +81,19 @@ still change between minor versions.
   against the wrong components.
 - **A saved file named " .bashrc" no longer keeps its leading dot.** The name
   was trimmed after the dots were stripped rather than before.
+- **A picture the codecs cannot read says so in words.** A truncated PNG
+  reported "`unwrap_throw` failed", one whose header claims a size the decoder
+  will not allocate reported "unreachable", and libwebp managed "Decoding
+  error". None of the three named the file or said what to do about it. The
+  bomb case was measured rather than assumed: 147ms and 9 MB, because the
+  decoder refuses the allocation instead of attempting it, so there is nothing
+  to guard against ahead of time and only the wording needed fixing.
+- **Pages and images can be picked out from a keyboard.** The tiles carried a
+  click handler and nothing else, so choosing which of them to work on was a
+  mouse-only action; the range box covers whole spans but not "this one and
+  that one". They are now checkboxes that take focus and answer to space.
+- **A failure is announced, not only drawn.** The error bar is the only place a
+  tool ever says something went wrong, and it said it silently.
 
 ### Changed
 
