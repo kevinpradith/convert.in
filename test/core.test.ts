@@ -18,7 +18,7 @@ import {
   splitPdf,
 } from '../src/core/pdf-pages.ts'
 import { caveat, describeSecurity, explain, protectPdf, unlockPdf } from '../src/core/pdf-security.ts'
-import { compressPdf } from '../src/core/pdf-compress.ts'
+import { compressPdf, compressToFit } from '../src/core/pdf-compress.ts'
 import { signPdf } from '../src/core/pdf-sign.ts'
 import { decodeImage } from '../src/core/images-node.ts'
 import {
@@ -59,6 +59,50 @@ function makePng(width: number, height: number): Uint8Array {
     pngChunk('IHDR', header),
     pngChunk('IDAT', deflateSync(raw)),
     pngChunk('IEND', Buffer.alloc(0)),
+  ])
+}
+
+/** The same PNG, with a pHYs chunk claiming a resolution. */
+function withResolution(png: Uint8Array, dpi: number): Uint8Array {
+  const data = Buffer.alloc(9)
+  const perMetre = Math.round(dpi / 0.0254)
+  data.writeUInt32BE(perMetre, 0)
+  data.writeUInt32BE(perMetre, 4)
+  data[8] = 1 // unit: metres
+  // Straight after the 8-byte signature and the 25-byte IHDR chunk.
+  return Buffer.concat([
+    Buffer.from(png.subarray(0, 33)),
+    pngChunk('pHYs', data),
+    Buffer.from(png.subarray(33)),
+  ])
+}
+
+/**
+ * A JPEG with an EXIF block holding an orientation tag. Written by hand rather
+ * than with a library, so the test knows exactly what the bytes say.
+ */
+function withOrientation(jpeg: Uint8Array, orientation: number): Uint8Array {
+  const tiff: number[] = []
+  const put16 = (value: number) => tiff.push(value & 0xff, (value >> 8) & 0xff)
+  const put32 = (value: number) =>
+    tiff.push(value & 0xff, (value >> 8) & 0xff, (value >> 16) & 0xff, (value >> 24) & 0xff)
+  tiff.push(0x49, 0x49) // little-endian
+  put16(42)
+  put32(8) // the first directory starts straight after this header
+  put16(1) // one entry
+  put16(0x0112) // Orientation
+  put16(3) // SHORT
+  put32(1)
+  put16(orientation)
+  put16(0)
+  put32(0) // no second directory
+  const payload = [0x45, 0x78, 0x69, 0x66, 0, 0, ...tiff] // "Exif\0\0"
+  const segment = [0xff, 0xe1, ((payload.length + 2) >> 8) & 0xff, (payload.length + 2) & 0xff]
+  return Buffer.concat([
+    Buffer.from(jpeg.subarray(0, 2)), // SOI
+    Buffer.from(segment),
+    Buffer.from(payload),
+    Buffer.from(jpeg.subarray(2)),
   ])
 }
 
@@ -104,16 +148,74 @@ test('chunkPages splits into consecutive groups and keeps the short tail', () =>
 
 /* ---------- imagesToPdf ---------- */
 
+/**
+ * A page in points, not pixels. An image that says nothing about its own
+ * resolution is treated as 96dpi, so 40 pixels is 30 points.
+ */
 test('imagesToPdf: fit gives every page its own image size', async () => {
   const pdf = await PDFDocument.load(await imagesToPdf([makePng(40, 20), makePng(10, 60)]))
   assert.equal(pdf.getPageCount(), 2)
-  assert.deepEqual(pdf.getPage(0).getSize(), { width: 40, height: 20 })
-  assert.deepEqual(pdf.getPage(1).getSize(), { width: 10, height: 60 })
+  assert.deepEqual(pdf.getPage(0).getSize(), { width: 30, height: 15 })
+  assert.deepEqual(pdf.getPage(1).getSize(), { width: 7.5, height: 45 })
 })
 
 test('imagesToPdf: margin grows the page, not the image', async () => {
   const pdf = await PDFDocument.load(await imagesToPdf([makePng(40, 20)], { marginPt: 5 }))
-  assert.deepEqual(pdf.getPage(0).getSize(), { width: 50, height: 30 })
+  assert.deepEqual(pdf.getPage(0).getSize(), { width: 40, height: 25 })
+})
+
+/**
+ * The complaint this answers: a 3000-pixel scan becomes a page three and a half
+ * feet wide, because the converter treated one pixel as one point. The file
+ * says what it is; nothing was reading it.
+ */
+test('imagesToPdf: a page is the size the image says it is', async () => {
+  const at300 = await PDFDocument.load(
+    await imagesToPdf([withResolution(makePng(3000, 2000), 300)]),
+  )
+  assert.deepEqual(at300.getPage(0).getSize(), { width: 720, height: 480 }, '10 inches by 7')
+
+  // And an explicit dpi overrides whatever the file claims.
+  const forced = await PDFDocument.load(
+    await imagesToPdf([withResolution(makePng(3000, 2000), 300)], { dpi: 150 }),
+  )
+  assert.equal(forced.getPage(0).getWidth(), 1440, '20 inches at half the resolution')
+
+  await assert.rejects(() => imagesToPdf([makePng(4, 4)], { dpi: 0 }), /dpi/)
+})
+
+/**
+ * A phone writes the sensor's pixels and a tag saying which way the phone was
+ * held. Embedding the bytes untouched is what keeps this lossless, and it is
+ * also what loses the tag, so the page turns instead of the pixels.
+ */
+test('imagesToPdf: a photo taken sideways is not a sideways page', async () => {
+  const jpeg = await encodeImage(await decodeImage(makePng(400, 200)), { format: 'jpeg' })
+  const upright = await PDFDocument.load(await imagesToPdf([jpeg]))
+  assert.deepEqual(upright.getPage(0).getSize(), { width: 300, height: 150 })
+
+  for (const orientation of [6, 8]) {
+    const pdf = await PDFDocument.load(await imagesToPdf([withOrientation(jpeg, orientation)]))
+    assert.deepEqual(
+      pdf.getPage(0).getSize(),
+      { width: 150, height: 300 },
+      `orientation ${orientation} is a quarter turn, so the page stands up`,
+    )
+  }
+  // 3 is a half turn, which leaves the shape alone.
+  const halfTurn = await PDFDocument.load(await imagesToPdf([withOrientation(jpeg, 3)]))
+  assert.deepEqual(halfTurn.getPage(0).getSize(), { width: 300, height: 150 })
+})
+
+/**
+ * A PDF page has no colour of its own. Left unpainted, a transparent PNG shows
+ * whatever the reader puts behind it, which in a dark-mode reader is black.
+ */
+test('imagesToPdf: the page is painted white before the picture goes on it', async () => {
+  const pdf = await imagesToPdf([makePng(40, 20)])
+  const drawn = await operatorsOf(pdf)
+  assert.match(drawn, /1 1 1 rg/, 'a white fill')
+  assert.ok(drawn.indexOf('rg') < drawn.indexOf('Do'), 'painted before the image, not over it')
 })
 
 test('imagesToPdf: a4 orients to the image and scales it to fit', async () => {
@@ -158,7 +260,7 @@ test('imagesToPdf takes any format once it is handed a decoder', async () => {
   assert.equal(pdf.getPageCount(), 3)
   assert.deepEqual(
     pdf.getPages().map((page) => Math.round(page.getWidth())),
-    [40, 20, 30],
+    [30, 15, 23],
     'each page still matches the image it came from',
   )
 })
@@ -714,6 +816,52 @@ test('compressing re-encodes the pictures and leaves everything else alone', asy
 
   await assert.rejects(compressPdf(scan, { quality: 0 }), /1 to 100/)
   await assert.rejects(compressPdf(scan, { maxSide: 0 }), /1 or more/)
+})
+
+/**
+ * The complaint this answers: a portal wants the file under 500KB and every
+ * compressor offers "low, medium, high" instead, so the settings get guessed at
+ * until one of them lands.
+ */
+test('compressing to a limit keeps trying until the file is under it', async () => {
+  // Noise, because a smooth gradient compresses so well that the first rung
+  // would meet any limit and the ladder would never be exercised.
+  const pixels = { width: 900, height: 700, data: new Uint8ClampedArray(900 * 700 * 4) }
+  let state = 7
+  for (let at = 0; at < pixels.data.length; at += 4) {
+    state = (state * 1103515245 + 12345) & 0x7fffffff
+    pixels.data[at] = state & 0xff
+    pixels.data[at + 1] = (state >> 8) & 0xff
+    pixels.data[at + 2] = (state >> 16) & 0xff
+    pixels.data[at + 3] = 255
+  }
+  const scan = await imagesToPdf([await encodeImage(pixels, { format: 'jpeg', quality: 95 })])
+  assert.ok(scan.length > 300_000, `expected a big fixture, got ${scan.length}`)
+
+  const fitted = await compressToFit(scan, 90_000)
+  assert.ok(fitted.fits, 'it should have got under the limit')
+  assert.ok(fitted.after <= 90_000, `${fitted.after} is over the limit`)
+
+  // A gentler limit should stop earlier on the ladder, so it keeps more detail.
+  const gentle = await compressToFit(scan, 250_000)
+  assert.ok(gentle.fits)
+  assert.ok(
+    gentle.used.quality! > fitted.used.quality!,
+    'a limit that is easy to meet should not reach for the harshest setting',
+  )
+
+  // Already small enough: handed straight back, byte for byte.
+  const untouched = await compressToFit(scan, scan.length + 1)
+  assert.equal(untouched.bytes, scan, 'the original, not a re-encode of it')
+  assert.equal(untouched.replaced, 0)
+
+  // A limit nothing can meet reports the closest it got rather than throwing,
+  // because a file that is nearly small enough is still worth having.
+  const impossible = await compressToFit(scan, 1000)
+  assert.equal(impossible.fits, false)
+  assert.ok(impossible.after < scan.length, 'it still shrank what it could')
+
+  await assert.rejects(compressToFit(scan, 0), /1 or more/)
 })
 
 /**

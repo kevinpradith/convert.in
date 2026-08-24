@@ -20,9 +20,9 @@ Eight tools, all in one window:
 | Tool | What it does |
 | --- | --- |
 | **Convert images** | PNG, JPEG, WebP, AVIF and JPEG XL, in any direction, plus GIF, BMP, TIFF, ICO, HEIC and SVG on the way in. Scales on the way out. Shows what each file cost or saved. |
-| **Compress PDF** | Re-encodes the pictures inside, which is where nearly all the weight of a scan is. Says so when a file has nothing to shrink. Takes a pile. |
+| **Compress PDF** | Re-encodes the pictures inside, which is where nearly all the weight of a scan is. Give it the limit the upload form asked for and it works out its own settings. Says so when a file has nothing to shrink. Takes a pile. |
 | **Sign PDF** | Draw a signature or bring a PNG of one, and place it on a page. One signature covers however many files you drop. |
-| **Images to PDF** | Any image in, one image per page. Fit-to-image, A4 or Letter, with an optional margin. |
+| **Images to PDF** | Any image in, one image per page, in the order a person would count them. Pages are sized by the resolution the image claims, and a photo taken sideways comes out upright. Fit-to-image, A4 or Letter, with an optional margin. |
 | **Organize PDF** | Drop any number of PDFs, then reorder, rotate, delete and duplicate pages. Save the result as one file or as one file per page. |
 | **Stamp PDF** | A watermark across the pages, or page numbers on them. One file lets you select tiles; a pile gets stamped through. |
 | **Protect PDF** | Lock with a password, or hand it locked files and take the password off. One password covers the pile. |
@@ -237,6 +237,7 @@ convert.in convert *.heic --to jpeg -o out/
 convert.in convert logo.png --to webp --lossless
 convert.in images shot-*.png       # -> shot.pdf, beside the first input
 convert.in images scan-*.jpg -o scan.pdf --size a4 --margin 24
+convert.in compress passport.pdf --max-size 500kb
 convert.in merge part-1.pdf part-2.pdf -o whole.pdf
 convert.in select scan.pdf 1-3,7   # -> scan-selected.pdf
 convert.in rotate scan.pdf 90 --pages 2-4

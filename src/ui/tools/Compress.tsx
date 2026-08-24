@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { compressPdf } from '../../core/pdf-compress.ts'
+import { compressPdf, compressToFit } from '../../core/pdf-compress.ts'
 import { humanSize, sizeChange } from '../../core/units.ts'
 import { FileList, useBatch } from '../batch.tsx'
 import { FilePicker } from '../Dropzone.tsx'
@@ -13,11 +13,19 @@ const ACCEPT = '.pdf'
 /** Caps offered rather than a free number: these are the sizes worth printing at. */
 const LONGEST_SIDES = ['', '2400', '1600', '1200', '800']
 
+/**
+ * The limits upload forms actually ask for. A visa application wants 100 to
+ * 500KB, an HR portal 2MB, a court filing 5MB; nobody is ever told to hit
+ * 1.37MB, so a free number field would be a worse question than a list.
+ */
+const TARGETS = [0, 100_000, 200_000, 500_000, 1_000_000, 2_000_000, 5_000_000, 10_000_000]
+
 export function Compress() {
   const t = useT()
   const batch = useBatch()
   const [quality, setQuality] = useState(55)
   const [maxSide, setMaxSide] = useState('')
+  const [target, setTarget] = useState(0)
 
   /** A result describes the settings that produced it, so a change discards it. */
   function retune(change: () => void) {
@@ -27,10 +35,16 @@ export function Compress() {
 
   async function run() {
     await batch.run(async (item) => {
-      const result = await compressPdf(item.bytes, {
-        quality,
-        ...(maxSide === '' ? {} : { maxSide: Number(maxSide) }),
-      })
+      // A file already under the limit is copied out rather than re-encoded:
+      // meeting a limit it already meets would only cost it quality.
+      if (target > 0 && item.bytes.length <= target) {
+        return { note: t.compress.alreadyUnder(humanSize(target)) }
+      }
+      const settings = { quality, ...(maxSide === '' ? {} : { maxSide: Number(maxSide) }) }
+      const result =
+        target > 0
+          ? await compressToFit(item.bytes, target, {})
+          : { ...(await compressPdf(item.bytes, settings)), fits: true }
       // Why nothing happened, in the words that name the reason rather than
       // leaving a result of "0% smaller" to be read as a broken tool.
       if (result.replaced === 0) {
@@ -44,7 +58,11 @@ export function Compress() {
         },
         note:
           `${humanSize(result.before)} → ${humanSize(result.after)} · ` +
-          t.compress.result(sizeChange(result.before, result.after), result.replaced),
+          t.compress.result(sizeChange(result.before, result.after), result.replaced) +
+          // A limit nothing could meet is worth saying: the file is still
+          // offered, but sending it somewhere that will bounce it is worse
+          // than being told now.
+          (result.fits ? '' : ` · ${t.compress.tooBig(humanSize(result.after), humanSize(target))}`),
       }
     }, t.compress.working)
   }
@@ -85,26 +103,45 @@ export function Compress() {
       footer={
         loaded ? (
           <>
-            <Field label={t.compress.quality}>
-              <Slider
-                label={t.compress.quality}
-                value={quality}
-                onChange={(next) => retune(() => setQuality(next))}
-              />
-            </Field>
-            <Field label={t.compress.maxSide}>
+            <Field label={t.compress.target}>
               <Select
-                aria-label={t.compress.maxSide}
-                value={maxSide}
-                onChange={(event) => retune(() => setMaxSide(event.target.value))}
+                aria-label={t.compress.target}
+                value={String(target)}
+                onChange={(event) => retune(() => setTarget(Number(event.target.value)))}
               >
-                {LONGEST_SIDES.map((side) => (
-                  <option key={side} value={side}>
-                    {side === '' ? t.compress.unlimited : `${side} px`}
+                {TARGETS.map((size) => (
+                  <option key={size} value={size}>
+                    {size === 0 ? t.compress.noTarget : humanSize(size)}
                   </option>
                 ))}
               </Select>
             </Field>
+            {/* A limit picks its own settings, so offering these as well would
+                be two answers to one question. */}
+            {target === 0 && (
+              <>
+                <Field label={t.compress.quality}>
+                  <Slider
+                    label={t.compress.quality}
+                    value={quality}
+                    onChange={(next) => retune(() => setQuality(next))}
+                  />
+                </Field>
+                <Field label={t.compress.maxSide}>
+                  <Select
+                    aria-label={t.compress.maxSide}
+                    value={maxSide}
+                    onChange={(event) => retune(() => setMaxSide(event.target.value))}
+                  >
+                    {LONGEST_SIDES.map((side) => (
+                      <option key={side} value={side}>
+                        {side === '' ? t.compress.unlimited : `${side} px`}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              </>
+            )}
             <Spacer />
             {batch.results.length > 0 && (
               <Button onClick={() => void batch.download()}>
@@ -121,7 +158,9 @@ export function Compress() {
     >
       {loaded && (
         <>
-          <p className="text-muted text-footnote px-5 pt-4 sm:px-8">{t.compress.hint}</p>
+          <p className="text-muted text-footnote px-5 pt-4 sm:px-8">
+            {target === 0 ? t.compress.hint : t.compress.targetHint}
+          </p>
           <FileList items={batch.items} onRemove={batch.remove} />
         </>
       )}

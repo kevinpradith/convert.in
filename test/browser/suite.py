@@ -222,7 +222,13 @@ def main():
     (FIXTURES / 'half-clear.png').write_bytes(png(120, 80, 30, alpha=True))
     (FIXTURES / 'tiny.gif').write_bytes(TINY_GIF)
     (FIXTURES / 'hostile.svg').write_bytes(HOSTILE_SVG)
-    (FIXTURES / 'noisy.png').write_bytes(png(400, 300, 0, noisy=True))
+    # Big enough that the PDF built from it lands over the smallest size limit
+    # the compressor offers, which is what gives that ladder somewhere to go.
+    (FIXTURES / 'noisy.png').write_bytes(png(700, 500, 0, noisy=True))
+    # Two names a plain sort puts the wrong way round, at two widths, so the
+    # page order can be read back off the finished PDF.
+    (FIXTURES / 'shot2.png').write_bytes(png(40, 20, 90))
+    (FIXTURES / 'shot10.png').write_bytes(png(80, 20, 90))
     (DIST / '__csp-probe.js').write_text(PROBE_JS)
     (DIST / '__csp-probe.html').write_text(PROBE_HTML)
 
@@ -500,6 +506,17 @@ def run():
         reader = saved(lambda: current.get_by_role('button', name='Save PDF').click())
         check(len(reader.pages) == 2, f'two images became two pages ({len(reader.pages)})')
 
+        # "shot2" belongs before "shot10". Handed over the other way round, and
+        # sorted the way a plain sort would, the album comes out shuffled.
+        current.get_by_role('button', name='Clear', exact=True).click()
+        current.locator('input[type=file]').set_input_files(
+            [str(FIXTURES / 'shot10.png'), str(FIXTURES / 'shot2.png')])
+        current.locator('img').first.wait_for(timeout=30000)
+        reader = saved(lambda: current.get_by_role('button', name='Save PDF').click())
+        widths = [round(float(page.mediabox.width)) for page in reader.pages]
+        # 40px and 80px, at the 96dpi an image that claims nothing is given.
+        check(widths == [30, 60], f'shot2 came before shot10 ({widths})')
+
         # PDF holds a JPEG or a PNG and nothing else, so a WebP has to be decoded
         # and re-written on the way in rather than refused at the door.
         current.get_by_role('button', name='Clear', exact=True).click()
@@ -549,6 +566,29 @@ def run():
               f'the PDF came back smaller ({len(scan)} -> {len(smaller)} bytes)')
         check(len(PdfReader(io.BytesIO(smaller)).pages) == 1,
               'and still opens with its page intact')
+
+        # Naming the outcome instead of the settings, which is what an upload
+        # form asks for. The largest offered limit the file is still over, so
+        # the ladder has somewhere to go.
+        limit = max(size for size in (200_000, 500_000, 1_000_000) if size < len(scan))
+        current.get_by_role('button', name='Clear', exact=True).click()
+        current.locator('input[type=file]').set_input_files(str(FIXTURES / 'scan.pdf'))
+        current.get_by_role('combobox', name='Fit under').wait_for(timeout=30000)
+        current.get_by_role('combobox', name='Fit under').select_option(str(limit))
+        check(current.get_by_role('slider', name='Quality').count() == 0,
+              'a limit picks its own settings, so the sliders step aside')
+        current.get_by_role('button', name='Compress', exact=True).click()
+        save = current.get_by_role('button', name=re.compile('^Download'))
+        save.wait_for(timeout=180000)
+        with page.expect_download(timeout=60000) as caught:
+            save.click()
+        fitted = pathlib.Path(caught.value.path()).read_bytes()
+        check(len(fitted) <= limit,
+              f'the PDF got under the {limit}-byte limit ({len(fitted)})')
+        check(len(PdfReader(io.BytesIO(fitted)).pages) == 1, 'and still opens')
+        # Put the limit back: a tool keeps its settings across a Clear, and the
+        # checks below are about what the plain settings say.
+        current.get_by_role('combobox', name='Fit under').select_option('0')
 
         # A PDF with no pictures in it has nothing to re-encode, and saying so
         # is the difference between an honest tool and one that looks broken.

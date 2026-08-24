@@ -20,7 +20,7 @@ import {
   sniff,
   type ImageFormat,
 } from './core/images.ts'
-import { compressPdf } from './core/pdf-compress.ts'
+import { compressPdf, compressToFit } from './core/pdf-compress.ts'
 import { signPdf } from './core/pdf-sign.ts'
 import {
   chunkPages,
@@ -206,6 +206,20 @@ function number(value: string, flag: string): number {
 }
 
 /**
+ * "500kb", "2MB", "1.5 mb" or a plain count of bytes. Upload forms state their
+ * limit in whichever of those they feel like, and retyping it as a byte count
+ * is arithmetic nobody should be asked to do at the command line.
+ */
+function bytes(value: string, flag: string): number {
+  const match = /^\s*([\d.]+)\s*(b|kb|mb|k|m)?\s*$/i.exec(value)
+  if (match === null) fail(`--${flag} must be a size like 500kb or 2mb, got "${value}"`)
+  const scale = { b: 1, k: 1024, kb: 1024, m: 1024 * 1024, mb: 1024 * 1024 }
+  const amount = Number(match![1]) * scale[(match![2] ?? 'b').toLowerCase() as keyof typeof scale]
+  if (!Number.isFinite(amount) || amount < 1) fail(`--${flag} must be at least one byte`)
+  return Math.floor(amount)
+}
+
+/**
  * Page copying carries a form's widgets but not the form itself. Silently
  * breaking someone's fillable PDF is worse than a line of warning.
  */
@@ -287,6 +301,7 @@ async function main(): Promise<void> {
       size: { type: 'string', default: 'fit' },
       orientation: { type: 'string', default: 'auto' },
       margin: { type: 'string' },
+      dpi: { type: 'string' },
       by: { type: 'string', default: '90' },
       every: { type: 'string', default: '1' },
       sort: { type: 'string', default: 'given' },
@@ -311,6 +326,7 @@ async function main(): Promise<void> {
       height: { type: 'string' },
       stretch: { type: 'boolean', default: false },
       'max-side': { type: 'string' },
+      'max-size': { type: 'string' },
       signature: { type: 'string' },
       help: { type: 'boolean', short: 'h', default: false },
       version: { type: 'boolean', short: 'v', default: false },
@@ -485,12 +501,37 @@ async function main(): Promise<void> {
           ? {}
           : { maxSide: number(values['max-side'], 'max-side') }),
       }
+      const limit =
+        values['max-size'] === undefined ? undefined : bytes(values['max-size'], 'max-size')
       return each(files, (input) => `${stem(input)}-compressed.pdf`, async (file, input) => {
-        const result = await compressPdf(file, settings)
+        // A file already under the limit is one to leave alone. Re-encoding it
+        // to meet a limit it already meets would only cost it quality.
+        if (limit !== undefined && file.length <= limit) {
+          warn(
+            named(files, input) +
+              `already ${humanSize(file.length)}, under the ${humanSize(limit)} limit, ` +
+              'so it was copied rather than re-encoded.',
+          )
+          return { bytes: file, detail: 'left as it was' }
+        }
+        const result =
+          limit === undefined
+            ? { ...(await compressPdf(file, settings)), fits: true, used: settings }
+            : await compressToFit(file, limit, settings)
+        // A limit nothing could meet is worth saying out loud: the file is
+        // written either way, but sending it somewhere that will bounce it is
+        // worse than being told now.
+        if (!result.fits) {
+          warn(
+            named(files, input) +
+              `this is ${humanSize(result.after)} at the hardest setting here, and the limit is ` +
+              `${humanSize(limit!)}.\n            Splitting the document is the next thing to try.`,
+          )
+        }
         // Saying why nothing happened is the whole difference between a tool that
         // looks broken and one that has told you your file is already as small as
         // it goes.
-        if (result.replaced === 0) {
+        if (result.replaced === 0 && result.fits) {
           warn(
             named(files, input) +
               (result.images === 0
@@ -504,6 +545,8 @@ async function main(): Promise<void> {
           detail: [
             `${plural(result.replaced, 'image')} re-encoded`,
             result.skipped > 0 ? `${result.skipped} left alone` : '',
+            result.used.quality === undefined ? '' : `quality ${result.used.quality}`,
+            result.used.maxSide === undefined ? '' : `${result.used.maxSide}px wide at most`,
             sizeDelta(result.before, result.after),
           ]
             .filter(Boolean)
@@ -552,6 +595,7 @@ async function main(): Promise<void> {
           'orientation',
         ),
         marginPt: number(values.margin ?? '0', 'margin'),
+        ...(values.dpi === undefined ? {} : { dpi: number(values.dpi, 'dpi') }),
         decode: decodeImage,
       })
       await writeFile(out, pdf)
