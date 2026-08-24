@@ -19,6 +19,21 @@ npm test
 npm run build
 ```
 
+## Two choices about the toolchain
+
+`@types/node` is held at the **oldest** Node this project supports rather than
+the newest one you are likely to be running. `package.json` says
+`"engines": { "node": ">=20.19" }`, and typing against a newer release would let
+an API that does not exist on 20 pass the typechecker and fail for whoever is
+actually on it. Dependabot is told not to offer the major, because taking it
+would lift the floor without anybody deciding to. If you need something newer,
+raise the engines floor deliberately and move both together.
+
+`typescript` is on 7, the native compiler. It typechecks this project in about
+1.8 seconds against about 10.3 for 5.9, measured on this repository, and it
+ships as platform binaries picked by `npm install`, so a fresh clone gets the
+one for its own machine.
+
 If you touch anything under `src/core/`, the browser is not the only consumer:
 the CLI imports the same modules. `npm run cli -- --help` is the quickest way to
 check you have not broken it.
