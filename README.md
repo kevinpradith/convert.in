@@ -1,5 +1,9 @@
 # convert.in
 
+[![CI](https://github.com/kevinpradith/convert.in/actions/workflows/ci.yml/badge.svg)](https://github.com/kevinpradith/convert.in/actions/workflows/ci.yml)
+[![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
+[![Node](https://img.shields.io/badge/node-%3E%3D20.19-brightgreen.svg)](package.json)
+
 Local image and PDF tools. The web app does all of its work inside the browser and
 the CLI does all of its work on your machine, so no file is ever uploaded anywhere.
 
@@ -11,7 +15,7 @@ npm run dev       # http://localhost:5173
 npm run build     # static files in dist/, host them anywhere or open them locally
 ```
 
-Five tools, all in one window:
+Six tools, all in one window:
 
 | Tool | What it does |
 | --- | --- |
@@ -516,3 +520,16 @@ IP agreement may give them a claim on it regardless of the licence file.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the terms contributions are accepted
 under.
+
+## Project
+
+| | |
+| --- | --- |
+| What changed, and when | [CHANGELOG.md](CHANGELOG.md) |
+| Reporting a vulnerability | [SECURITY.md](SECURITY.md) |
+| Running the checks before a pull request | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| How people are expected to behave here | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
+
+Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Below
+1.0.0 the CLI flags and the `src/core` exports may still change between minor
+versions; the changelog says when they do.
