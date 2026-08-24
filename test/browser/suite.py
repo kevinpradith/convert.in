@@ -128,6 +128,21 @@ def sideways(jpeg):
 # one proves the browser's own decoder is being reached.
 TINY_GIF = base64.b64decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7')
 
+# SVG is the one format where the file is markup rather than pixels, so it is the
+# one place a document could try to become code. Three ways in: a script element,
+# an event handler attribute, and an external reference. An <img> runs none of
+# them by specification, which is exactly why the decoder uses one, and this
+# fixture is what keeps that true if anyone ever reaches for innerHTML or
+# <object> to fix an unrelated bug.
+HOSTILE_SVG = (
+    '<?xml version="1.0"?>'
+    '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40">'
+    '<script>window.__ran = true</script>'
+    '<rect width="40" height="40" fill="green" onload="window.__ran = true"/>'
+    '<image href="http://example.invalid/beacon.png" width="1" height="1"/>'
+    '</svg>'
+).encode()
+
 
 def cjk_pdf():
     """CJK text behind a named Adobe CMap, the one thing that makes pdf.js go
@@ -193,6 +208,7 @@ def main():
     (FIXTURES / 'pale.png').write_bytes(png(180, 240, 200))
     (FIXTURES / 'half-clear.png').write_bytes(png(120, 80, 30, alpha=True))
     (FIXTURES / 'tiny.gif').write_bytes(TINY_GIF)
+    (FIXTURES / 'hostile.svg').write_bytes(HOSTILE_SVG)
     (DIST / '__csp-probe.js').write_text(PROBE_JS)
     (DIST / '__csp-probe.html').write_text(PROBE_HTML)
 
@@ -312,6 +328,14 @@ def run():
         width, height = struct.unpack('>II', turned[16:24])
         check((width, height) == (180, 240),
               f'the EXIF quarter turn was applied to the pixels ({width}x{height}, was 240x180)')
+
+        print('== an SVG is data, not code ==')
+        page.evaluate('delete window.__ran')
+        hostile = convert(str(FIXTURES / 'hostile.svg'), 'png')
+        check(hostile[:8] == b'\x89PNG\r\n\x1a\n',
+              f'the SVG rasterised to a PNG ({hostile[:4]!r})')
+        check(page.evaluate('window.__ran === undefined'),
+              'neither its script element nor its onload attribute ran')
 
         print('== a result belongs to the settings that made it ==')
         # Convert once, then move a setting. The finished file is encoded at the
