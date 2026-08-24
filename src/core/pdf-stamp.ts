@@ -102,6 +102,13 @@ export interface NumberOptions {
   pages?: number[]
 }
 
+/**
+ * Print a running number on each page, in one corner.
+ *
+ * `{total}` in the format counts the pages being numbered rather than the pages
+ * in the document, so numbering a selection reads "3 of 5" and not "3 of 40".
+ * That is the count a person reading the printed selection can verify.
+ */
 export async function numberPages(
   file: Uint8Array,
   options: NumberOptions = {},
