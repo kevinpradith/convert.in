@@ -62,7 +62,9 @@ jobs:
 
       - run: npm ci
 
-      - run: pip install playwright pypdf
+      # pypdf reads an AES-encrypted file only with the crypto extra, and
+      # every fixture this audits is AES-256.
+      - run: pip install playwright 'pypdf[crypto]'
 
       - run: python -m playwright install --with-deps chromium
 
