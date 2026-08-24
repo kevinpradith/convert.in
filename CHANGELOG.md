@@ -38,6 +38,50 @@ still change between minor versions.
   that would overwrite something, or give two inputs the same name, stops before
   it has done half the job.
 
+### Fixed
+
+- **A page stored sideways is now stamped in the corner the reader sees.** A
+  page carrying `/Rotate`, which is what a scanner produces when the sheet went
+  in the short way, is drawn on in its own unrotated space. `sign`, `number` and
+  `watermark` all worked out their corner from the stored box, so a signature
+  asked for bottom right landed bottom left and ran up the side of the page, and
+  a 45 degree watermark leaned the other way. All three now place their content
+  on the page as it is displayed. `sign` also measures against the page the
+  reader sees, so a wide signature on a turned portrait page is no longer
+  refused for not fitting a width that is not the one it is going onto.
+- **`unlock --force` no longer leaves the decrypted file readable by everyone.**
+  It asks for `0600`, but `writeFile` applies a mode only to a file it creates,
+  so overwriting an existing file silently kept that file's old permissions. The
+  mode is now set after the write as well.
+- **A codec that gives up says so instead of `[object Object]`.** The
+  WebAssembly codecs abort by throwing an object rather than an `Error`, so a
+  CMYK JPEG, which is what comes out of a print workflow, reached both the
+  terminal and the browser as those two words. Aborts are now turned into real
+  errors naming the likely reason, and anything else thrown with a message is
+  read rather than stringified.
+- **A width typed into the size boxes cannot ask for more pixels than exist.**
+  There was no ceiling, so a large enough number reached the allocator and came
+  back as "Array buffer allocation failed" in a terminal, or a hung tab in a
+  browser. The pair of sides is now checked against the same limit a browser
+  canvas has.
+- **Rasterising a very large page says so rather than writing blank images.**
+  Past a canvas's size limit a browser hands back transparent black instead of
+  failing, so a poster-sized page at 288 dpi exported as empty files.
+- **A PDF whose page tree points back at itself** is reported as damaged
+  instead of as "Maximum call stack size exceeded".
+- **A run over several files checks all of them before writing any.** A typo in
+  the fortieth filename used to be found after thirty-nine files had been
+  written.
+- **`watermark a.pdf b.pdf` is refused instead of stamping "b.pdf" across
+  a.pdf.** When the trailing word also names a file that exists, there is no way
+  to tell the text from an input, so it asks for `--text`.
+- **Images carrying a colour-key `/Mask` are left alone by `compress`.** The
+  ranges are counted in the image's own colour space, and everything comes back
+  out as RGB, so a mask written for a greyscale scan would have been read
+  against the wrong components.
+- **A saved file named " .bashrc" no longer keeps its leading dot.** The name
+  was trimmed after the dots were stripped rather than before.
+
 ### Changed
 
 - `--position` no longer carries one default for every command. `number` still

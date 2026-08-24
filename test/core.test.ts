@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { deflateSync, crc32 } from 'node:zlib'
+import { deflateSync, inflateSync, crc32 } from 'node:zlib'
 import { PDFDocument } from '@cantoo/pdf-lib'
 
 import { imagesToPdf, sniffImage } from '../src/core/images-to-pdf.ts'
@@ -752,4 +752,125 @@ test('signing draws on the last page unless told otherwise', async () => {
   await assert.rejects(signPdf(source, { signature: mark, pages: [9] }), /out of range/)
   // A signature wider than the page is refused rather than drawn off the edge.
   await assert.rejects(signPdf(source, { signature: mark, width: 900 }), /does not fit/)
+})
+
+/**
+ * The transform the PDF spec gives for /Rotate, written out here rather than
+ * imported, so that the placement code and the check are two derivations of the
+ * same rule instead of one repeated twice.
+ */
+function asDisplayed(
+  turn: number,
+  boxWidth: number,
+  boxHeight: number,
+  x: number,
+  y: number,
+): { u: number; v: number; width: number; height: number } {
+  const sideways = turn === 90 || turn === 270
+  const size = { width: sideways ? boxHeight : boxWidth, height: sideways ? boxWidth : boxHeight }
+  if (turn === 90) return { u: y, v: boxWidth - x, ...size }
+  if (turn === 180) return { u: boxWidth - x, v: boxHeight - y, ...size }
+  if (turn === 270) return { u: boxHeight - y, v: x, ...size }
+  return { u: x, v: y, ...size }
+}
+
+/** Every content stream in the document, inflated, as one string of operators. */
+async function operatorsOf(pdf: Uint8Array): Promise<string> {
+  const loaded = await PDFDocument.load(pdf)
+  const parts: string[] = []
+  for (const [, object] of loaded.context.enumerateIndirectObjects()) {
+    const raw = object as { getContents?: () => Uint8Array }
+    if (typeof raw.getContents !== 'function') continue
+    const bytes = Buffer.from(raw.getContents())
+    // pdf-lib deflates what it writes, so the operators are not in the file as
+    // text. Anything that will not inflate was never a content stream.
+    try {
+      parts.push(inflateSync(bytes).toString('latin1'))
+    } catch {
+      parts.push(bytes.toString('latin1'))
+    }
+  }
+  return parts.join('\n')
+}
+
+/**
+ * The point the first `Tm` or `cm` puts its content at. Both operators end with
+ * the two numbers of the translation, and the first one in the stream is the
+ * placement; the ones after it are the rotation and the scale.
+ */
+function drawnAt(operators: string, operator: 'Tm' | 'cm'): { x: number; y: number } {
+  const found = operators.match(new RegExp(`(-?[\\d.]+) (-?[\\d.]+) ${operator}`))
+  assert.ok(found, `no ${operator} operator in the output`)
+  return { x: Number(found[1]), y: Number(found[2]) }
+}
+
+test('a page stored sideways is stamped in the corner the reader sees', async () => {
+  const margin = 28
+  for (const turn of [0, 90, 180, 270]) {
+    const doc = await PDFDocument.create()
+    doc.addPage([400, 600]).setRotation({ type: 'degrees', angle: turn } as never)
+    const source = await doc.save()
+
+    const numbered = await numberPages(source, {
+      position: 'bottom-right',
+      margin,
+      size: 10,
+      format: '7',
+    })
+    const { x, y } = drawnAt(await operatorsOf(numbered), 'Tm')
+    const seen = asDisplayed(turn, 400, 600, x, y)
+
+    // The label is a single digit, so it starts a hair in from the right margin
+    // and sits exactly one margin up from the bottom, whichever way the page is
+    // stored. Before this, all four rotations drew at the same point.
+    assert.ok(
+      seen.u > seen.width - margin - 12 && seen.u < seen.width - margin,
+      `turned ${turn}: the number is against the right edge, at ${seen.u.toFixed(1)} of ${seen.width}`,
+    )
+    assert.ok(
+      Math.abs(seen.v - margin) < 0.01,
+      `turned ${turn}: the number is one margin up from the bottom, at ${seen.v.toFixed(1)}`,
+    )
+  }
+})
+
+test('a signature is measured against the page as it is looked at', async () => {
+  const mark = await encodeImage(
+    { width: 300, height: 100, data: new Uint8ClampedArray(300 * 100 * 4).fill(180) },
+    { format: 'png' },
+  )
+  const turned = await PDFDocument.create()
+  // 400 wide in the file, 600 wide once the reader turns it.
+  turned.addPage([400, 600]).setRotation({ type: 'degrees', angle: 90 } as never)
+  const sideways = await turned.save()
+
+  // 500pt of signature does not fit across 400pt of stored page but fits the
+  // 600pt the reader is looking at, and the reader is the one signing it.
+  const signed = await signPdf(sideways, { signature: mark, width: 500, margin: 20 })
+  const { x, y } = drawnAt(await operatorsOf(signed), 'cm')
+  const seen = asDisplayed(90, 400, 600, x, y)
+  assert.equal(seen.width, 600)
+  assert.ok(Math.abs(seen.u - (600 - 20 - 500)) < 0.01, `across at ${seen.u}`)
+  assert.ok(Math.abs(seen.v - 20) < 0.01, `up at ${seen.v}`)
+
+  // Wider than the page it is looked at is still refused.
+  await assert.rejects(signPdf(sideways, { signature: mark, width: 700 }), /does not fit/)
+})
+
+test('an image cannot be asked for more pixels than anything can hold', () => {
+  const pixels = { width: 100, height: 100, data: new Uint8ClampedArray(100 * 100 * 4) }
+  // One side given, the other follows, and it is the pair that has to fit.
+  assert.throws(() => resizedTo(pixels, { width: 200_000 }), /as large as this goes/)
+  assert.throws(() => resize(pixels, { width: 40_000, height: 40_000 }), /as large as this goes/)
+  // Just inside is still allowed, so the limit is a limit and not a refusal.
+  assert.deepEqual(resizedTo(pixels, { width: 16_000 }), { width: 16_000, height: 16_000 })
+})
+
+test('a codec that aborts says what happened rather than [object Object]', () => {
+  // What an Emscripten build throws: a message, but not an Error, which every
+  // reader of `.message` used to miss and print as the words object Object.
+  const aborted = { name: 'ExitStatus', message: 'Program terminated with exit(1)', status: 1 }
+  assert.equal(explain(aborted), 'Program terminated with exit(1)')
+  assert.equal(explain({}), 'something went wrong that did not say what it was')
+  assert.equal(explain('plain string'), 'plain string')
 })
