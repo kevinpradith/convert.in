@@ -266,6 +266,127 @@ export function flatten(pixels: Pixels, background: string): Pixels {
   return { data: out, width: pixels.width, height: pixels.height }
 }
 
+export interface ResizeOptions {
+  /** Cap on the result's width. Omit to let the height decide it. */
+  width?: number
+  /** Cap on the result's height. Omit to let the width decide it. */
+  height?: number
+  /**
+   * Give both and the image is fitted inside the box rather than filled to it,
+   * so nothing is cropped and the aspect ratio is kept. Off, both are treated
+   * as exact and the picture stretches.
+   */
+  fit?: boolean
+}
+
+/** What the requested caps work out to for this particular image. */
+export function resizedTo(
+  pixels: Pixels,
+  options: ResizeOptions,
+): { width: number; height: number } {
+  const { width, height, fit = true } = options
+  if (width === undefined && height === undefined) {
+    throw new Error('give a width, a height, or both')
+  }
+  for (const side of [width, height]) {
+    if (side !== undefined && (!Number.isFinite(side) || side < 1)) {
+      throw new Error('width and height must be whole numbers of pixels, 1 or more')
+    }
+  }
+  const ratio = pixels.width / pixels.height
+  if (width !== undefined && height !== undefined) {
+    if (!fit) return { width: Math.round(width), height: Math.round(height) }
+    // Fit inside the box: the tighter of the two constraints wins, which is the
+    // smaller scale factor.
+    const scale = Math.min(width / pixels.width, height / pixels.height)
+    return { width: Math.max(1, Math.round(pixels.width * scale)), height: Math.max(1, Math.round(pixels.height * scale)) }
+  }
+  if (width !== undefined) {
+    return { width: Math.round(width), height: Math.max(1, Math.round(width / ratio)) }
+  }
+  return { width: Math.max(1, Math.round(height! * ratio)), height: Math.round(height!) }
+}
+
+/**
+ * Scale an image, by averaging over the area each output pixel covers.
+ *
+ * Sampling one input pixel per output pixel is the obvious way and the wrong
+ * one: shrinking a photo that way throws away most of the rows outright, so
+ * fine detail turns into a shimmer of whatever happened to land on the grid.
+ * Averaging the whole covered area is what a box filter does, it is what every
+ * image library reaches for when reducing, and on a magnified image it lands on
+ * bilinear on its own, because a covered area smaller than one pixel is just a
+ * weighted blend of its neighbours.
+ *
+ * Alpha is weighted along with the colours rather than averaged beside them.
+ * Averaging it separately drags the colour of fully transparent pixels into the
+ * edges of a cut-out, which shows up as a dark fringe.
+ */
+export function resize(pixels: Pixels, options: ResizeOptions): Pixels {
+  const { width, height } = resizedTo(pixels, options)
+  if (width === pixels.width && height === pixels.height) return pixels
+
+  const out = new Uint8ClampedArray(width * height * 4)
+  const scaleX = pixels.width / width
+  const scaleY = pixels.height / height
+
+  for (let y = 0; y < height; y++) {
+    // The rows of the source this output row covers, as a half-open span, with
+    // at least one row taken so a magnified image still reads something.
+    const topEdge = y * scaleY
+    const bottomEdge = topEdge + scaleY
+    const firstRow = Math.floor(topEdge)
+    const lastRow = Math.min(pixels.height - 1, Math.max(firstRow, Math.ceil(bottomEdge) - 1))
+
+    for (let x = 0; x < width; x++) {
+      const leftEdge = x * scaleX
+      const rightEdge = leftEdge + scaleX
+      const firstColumn = Math.floor(leftEdge)
+      const lastColumn = Math.min(pixels.width - 1, Math.max(firstColumn, Math.ceil(rightEdge) - 1))
+
+      let red = 0
+      let green = 0
+      let blue = 0
+      let alpha = 0
+      let covered = 0
+
+      for (let row = firstRow; row <= lastRow; row++) {
+        // How much of this source row falls inside the output pixel, so an
+        // edge row that is only half covered counts half.
+        const rowWeight = Math.min(row + 1, bottomEdge) - Math.max(row, topEdge)
+        if (rowWeight <= 0) continue
+        for (let column = firstColumn; column <= lastColumn; column++) {
+          const columnWeight = Math.min(column + 1, rightEdge) - Math.max(column, leftEdge)
+          if (columnWeight <= 0) continue
+          const weight = rowWeight * columnWeight
+          const at = (row * pixels.width + column) * 4
+          // Premultiplied, so a transparent pixel contributes its area but not
+          // its colour.
+          const pixelAlpha = pixels.data[at + 3]! / 255
+          const weighted = weight * pixelAlpha
+          red += pixels.data[at]! * weighted
+          green += pixels.data[at + 1]! * weighted
+          blue += pixels.data[at + 2]! * weighted
+          alpha += weight * pixels.data[at + 3]!
+          covered += weight
+        }
+      }
+
+      const to = (y * width + x) * 4
+      if (covered === 0) continue
+      const meanAlpha = alpha / covered
+      // Undo the premultiply. A fully transparent patch has no colour to
+      // recover, so it stays at zero rather than dividing by it.
+      const solid = meanAlpha === 0 ? 0 : covered * (meanAlpha / 255)
+      out[to] = solid === 0 ? 0 : red / solid
+      out[to + 1] = solid === 0 ? 0 : green / solid
+      out[to + 2] = solid === 0 ? 0 : blue / solid
+      out[to + 3] = meanAlpha
+    }
+  }
+  return { data: out, width, height }
+}
+
 function clampQuality(quality: number): number {
   if (!Number.isFinite(quality) || quality < 1 || quality > 100) {
     throw new Error('quality must be a number from 1 to 100')
