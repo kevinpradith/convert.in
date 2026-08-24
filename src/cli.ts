@@ -1,5 +1,5 @@
 import { parseArgs } from 'node:util'
-import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, join } from 'node:path'
 
 import { guide, type Lang } from './help.ts'
@@ -347,6 +347,12 @@ async function main(): Promise<void> {
     name: (input: string) => string,
     work: (file: Uint8Array, input: string) => Promise<Produced | null>,
   ): Promise<void> {
+    // Every input is checked before any output directory is made, so a typo in
+    // the fortieth filename is found before the first file is written rather
+    // than after thirty-nine of them are.
+    for (const input of inputs) {
+      if (!(await exists(input))) fail(`${input} does not exist.`)
+    }
     const many = inputs.length > 1
     const outDir = many ? await outputDir(values.out, dirname(inputs[0]!), true) : undefined
     const targets: string[] = []
@@ -374,6 +380,11 @@ async function main(): Promise<void> {
       if (produced === null) continue
       const target = targets[index]!
       await writeFile(target, produced.bytes, produced.mode === undefined ? {} : { mode: produced.mode })
+      // writeFile's mode only applies to a file it creates, so overwriting an
+      // existing one with --force kept whatever permissions that file already
+      // had. For the one command that deliberately narrows them, that silently
+      // handed a decrypted document to every account on the machine.
+      if (produced.mode !== undefined) await chmod(target, produced.mode)
       console.log(`✓ ${target}  ${dim(`${produced.detail} · ${humanSize(produced.bytes.length)}`)}`)
     }
   }
@@ -701,6 +712,14 @@ async function main(): Promise<void> {
     case 'watermark': {
       const text = values.text ?? trailingArgument(rest)
       if (text === undefined) fail('what should it say? e.g. convert.in watermark in.pdf "DRAFT"')
+      // Any word can be a watermark, including a filename, so a whole PDF
+      // quietly becoming the stamp is a real way to lose a batch.
+      if (values.text === undefined && (await exists(localPath(text)))) {
+        fail(
+          `"${text}" is both the last word and a file that exists, so it is not clear whether it\n` +
+            '  is the text or another input. Pass the text as --text to say which.',
+        )
+      }
       const files = requireInputs(values.text === undefined ? rest.slice(0, -1) : rest, 'PDFs')
       const settings = {
         text,
