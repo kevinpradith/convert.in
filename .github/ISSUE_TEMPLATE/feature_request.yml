@@ -1,0 +1,35 @@
+name: Feature request
+description: Something the tools should do and do not.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Two things are deliberately absent and are unlikely to be accepted:
+        anything that uploads a file, and anything that requires a server. The
+        privacy claim is tested rather than promised, and both would break it.
+
+        The **Deliberate limits** section of the README lists what has already
+        been decided against and why. Worth a look first, and worth arguing with
+        if you disagree.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do
+      description: The task, not the feature. What the tool should let you finish that it does not.
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: How you do it today
+      description: Another tool, a workaround, several steps. This is what any new feature has to beat.
+    validations:
+      required: true
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Constraints
+      options:
+        - label: This can be done entirely on the user's own machine, with no server and no upload.
+          required: true
