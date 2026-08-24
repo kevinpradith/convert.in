@@ -1,5 +1,5 @@
-import { PDFDocument } from '@cantoo/pdf-lib'
-import { CORNERS, type Corner } from './pdf-stamp.ts'
+import { degrees, PDFDocument } from '@cantoo/pdf-lib'
+import { CORNERS, displayedSize, placeOnPage, turnOf, type Corner } from './pdf-stamp.ts'
 import { resolvePages } from './pdf-pages.ts'
 import { sniff } from './images.ts'
 
@@ -64,21 +64,29 @@ export async function signPdf(file: Uint8Array, options: SignOptions): Promise<U
 
   for (const index of targets) {
     const page = pdf.getPage(index)
-    const size = page.getSize()
-    if (width + margin * 2 > size.width || height + margin * 2 > size.height) {
+    // The page as the reader sees it. A portrait scan turned a quarter is a
+    // landscape page, and both the corner and the room available follow from
+    // that rather than from the box the file stores.
+    const size = displayedSize(page)
+    const u =
+      horizontal === 'left'
+        ? margin
+        : horizontal === 'right'
+          ? size.width - margin - width
+          : (size.width - width) / 2
+    const v = vertical === 'top' ? size.height - margin - height : margin
+    // The exact question, rather than a rule of thumb: does the signature sit
+    // inside the page where it has been asked to go. Doubling the margin
+    // refused a centred signature that fits perfectly well.
+    if (u < 0 || v < 0 || u + width > size.width || v + height > size.height) {
       throw new Error(
         `the signature is ${Math.round(width)}x${Math.round(height)}pt and does not fit on a ` +
           `${Math.round(size.width)}x${Math.round(size.height)}pt page with a ${margin}pt margin`,
       )
     }
     page.drawImage(image, {
-      x:
-        horizontal === 'left'
-          ? margin
-          : horizontal === 'right'
-            ? size.width - margin - width
-            : (size.width - width) / 2,
-      y: vertical === 'top' ? size.height - margin - height : margin,
+      ...placeOnPage(page, u, v),
+      rotate: degrees(turnOf(page)),
       width,
       height,
     })
