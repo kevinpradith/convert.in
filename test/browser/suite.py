@@ -355,6 +355,12 @@ def run():
         # Convert once, then move a setting. The finished file is encoded at the
         # old setting, so leaving it on offer would hand back something the
         # controls no longer describe.
+        #
+        # Clear first, and not only for tidiness: the SVG from the previous check
+        # is still loaded, and two finished files make Download save both, spaced
+        # apart. The second lands after this block has moved on and gets caught
+        # by whichever expect_download is open next.
+        current.get_by_role('button', name='Clear', exact=True).click()
         current.locator('input[type=file]').set_input_files(str(FIXTURES / 'grey.png'))
         current.locator('img').first.wait_for(timeout=30000)
         current.get_by_role('combobox', name='To').select_option('webp')
@@ -391,6 +397,10 @@ def run():
         with page.expect_download(timeout=60000) as caught:
             download.click()
         scaled = pathlib.Path(caught.value.path()).read_bytes()
+        # Check what arrived before reading numbers out of it. Unpacking the
+        # IHDR of a file that is not a PNG reports a nonsense size rather than
+        # the real problem, which is that the wrong file was caught.
+        check(scaled[:8] == b'\x89PNG\r\n\x1a\n', f'a PNG came down ({scaled[:4]!r})')
         width, height = struct.unpack('>II', scaled[16:24])
         # 240x180 asked to be 60 wide keeps its shape, so the height follows.
         check((width, height) == (60, 45),
