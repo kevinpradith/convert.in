@@ -29,16 +29,37 @@ const en = {
   deselectAll: 'Deselect all',
   remove: 'Remove',
   tools: {
-    images: { label: 'Images to PDF', hint: 'JPEG and PNG, one per page' },
+    convert: { label: 'Convert images', hint: 'PNG, JPEG, WebP, AVIF, JPEG XL' },
+    images: { label: 'Images to PDF', hint: 'Any image, one per page' },
     organize: { label: 'Organize PDF', hint: 'Merge, reorder, rotate, split' },
     export: { label: 'PDF to images', hint: 'Rasterise pages out' },
     protect: { label: 'Protect PDF', hint: 'Password, Acrobat-grade' },
     stamp: { label: 'Stamp PDF', hint: 'Watermark, page numbers' },
   },
+  convert: {
+    emptyTitle: 'Drop images here',
+    emptyHint:
+      'PNG, JPEG, WebP, AVIF, JPEG XL, GIF, BMP, TIFF, ICO, HEIC and SVG go in. PNG, JPEG, WebP, AVIF and JPEG XL come out. Nothing is uploaded, and every scrap of metadata, EXIF and GPS included, is left behind.',
+    add: 'Add images',
+    count: (n: number) => `${n} image${n === 1 ? '' : 's'}`,
+    format: 'To',
+    quality: 'Quality',
+    lossless: 'Lossless',
+    losslessNote: 'Nothing is thrown away',
+    flattens: 'JPEG has no transparency: transparent areas come out white.',
+    change: (percent: number) =>
+      percent === 0
+        ? 'the same size'
+        : percent > 0
+          ? `${percent}% smaller`
+          : `${-percent}% larger`,
+    run: (n: number, format: string) => `Convert ${n} to ${format}`,
+    download: (n: number) => (n === 1 ? 'Download' : `Download ${n}`),
+  },
   images: {
     emptyTitle: 'Drop images here',
     emptyHint:
-      'JPEG and PNG, one image per page. JPEGs are embedded untouched, so nothing is re-compressed on the way in.',
+      'One image per page, in whatever format it arrives. JPEGs are embedded untouched, so nothing is re-compressed on the way in; anything else becomes a lossless PNG first.',
     add: 'Add images',
     count: (n: number) => `${n} image${n === 1 ? '' : 's'}`,
     selected: (n: number) => `${n} selected`,
@@ -169,16 +190,37 @@ const id: Strings = {
   deselectAll: 'Batal pilih',
   remove: 'Hapus',
   tools: {
-    images: { label: 'Gambar ke PDF', hint: 'JPEG dan PNG, per halaman' },
+    convert: { label: 'Konversi gambar', hint: 'PNG, JPEG, WebP, AVIF, JPEG XL' },
+  images: { label: 'Gambar ke PDF', hint: 'Gambar apa saja, per halaman' },
     organize: { label: 'Tata PDF', hint: 'Gabung, susun, putar, pisah' },
     export: { label: 'PDF ke gambar', hint: 'Halaman jadi gambar' },
     protect: { label: 'Kunci PDF', hint: 'Password, setara Acrobat' },
     stamp: { label: 'Cap PDF', hint: 'Watermark, nomor halaman' },
   },
+  convert: {
+    emptyTitle: 'Taruh gambar di sini',
+    emptyHint:
+      'Yang masuk: PNG, JPEG, WebP, AVIF, JPEG XL, GIF, BMP, TIFF, ICO, HEIC dan SVG. Yang keluar: PNG, JPEG, WebP, AVIF dan JPEG XL. Tidak ada yang diunggah, dan semua metadata, termasuk EXIF dan lokasi GPS, ditinggal.',
+    add: 'Tambah gambar',
+    count: (n: number) => `${n} gambar`,
+    format: 'Ke',
+    quality: 'Kualitas',
+    lossless: 'Tanpa kehilangan',
+    losslessNote: 'Tidak ada yang dibuang',
+    flattens: 'JPEG tidak punya transparansi: bagian transparan jadi putih.',
+    change: (percent: number) =>
+      percent === 0
+        ? 'ukurannya sama'
+        : percent > 0
+          ? `${percent}% lebih kecil`
+          : `${-percent}% lebih besar`,
+    run: (n: number, format: string) => `Konversi ${n} ke ${format}`,
+    download: (n: number) => (n === 1 ? 'Unduh' : `Unduh ${n}`),
+  },
   images: {
     emptyTitle: 'Taruh gambar di sini',
     emptyHint:
-      'JPEG dan PNG, satu gambar per halaman. JPEG ditanam apa adanya, jadi tidak ada yang dikompres ulang.',
+      'Satu gambar per halaman, format apa pun. JPEG ditanam apa adanya, jadi tidak ada yang dikompres ulang; format lain jadi PNG lossless dulu.',
     add: 'Tambah gambar',
     count: (n: number) => `${n} gambar`,
     selected: (n: number) => `${n} dipilih`,

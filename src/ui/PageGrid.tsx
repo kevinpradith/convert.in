@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { CheckIcon, cx } from './kit.tsx'
+import { useT } from './i18n.ts'
 
 export interface Tile {
   id: string
@@ -27,6 +28,7 @@ export function PageGrid({
   onReorder?: (dragId: string, overId: string) => void
   onRemove?: (id: string) => void
 }) {
+  const t = useT()
   const [dragId, setDragId] = useState<string | null>(null)
 
   return (
@@ -81,7 +83,7 @@ export function PageGrid({
               {onRemove && (
                 <button
                   type="button"
-                  aria-label={`Remove ${tile.caption}`}
+                  aria-label={`${t.remove} ${tile.caption}`}
                   onClick={(event) => {
                     event.stopPropagation()
                     onRemove(tile.id)
