@@ -538,7 +538,12 @@ test('sniff names the format from the bytes, not the extension', () => {
   assert.equal(sniff(new Uint8Array([0xff, 0xd8, 0xff, 0xe0])), 'jpeg')
   assert.equal(sniff(Buffer.from('RIFF____WEBPVP8 ', 'ascii')), 'webp')
   assert.equal(sniff(Buffer.from('GIF89a', 'ascii')), 'gif')
-  assert.equal(sniff(Buffer.from('BM______', 'ascii')), 'bmp')
+  // "BM", the twelve bytes of file header after it, then a DIB header naming
+  // one of the lengths the format defines. 40 is the one Windows writes.
+  const bmp = Buffer.alloc(18, 0x5f)
+  bmp.write('BM', 0, 'ascii')
+  bmp.writeUInt32LE(40, 14)
+  assert.equal(sniff(bmp), 'bmp')
   assert.equal(sniff(new Uint8Array([0x49, 0x49, 0x2a, 0x00])), 'tiff')
   assert.equal(sniff(new Uint8Array([0x00, 0x00, 0x01, 0x00])), 'ico')
   assert.equal(sniff(new Uint8Array([0xff, 0x0a])), 'jxl')
@@ -550,6 +555,22 @@ test('sniff names the format from the bytes, not the extension', () => {
   assert.equal(sniff(Buffer.from('  <svg xmlns="http://www.w3.org/2000/svg"/>', 'ascii')), 'svg')
   assert.equal(sniff(Buffer.from('not an image at all', 'ascii')), null)
   assert.equal(sniff(new Uint8Array(0)), null)
+})
+
+/**
+ * Two of the signatures are weak enough to catch files that are not images at
+ * all, and a wrong answer here is worse than none: the caller goes on to say
+ * "SVG can be converted in the browser app" about somebody's RSS feed.
+ */
+test('a signature that is only nearly right is not enough', () => {
+  // Every XML document starts this way. Only one of them is a picture.
+  assert.equal(sniff(Buffer.from('<?xml version="1.0"?><rss><channel/></rss>', 'ascii')), null)
+  assert.equal(
+    sniff(Buffer.from('<?xml version="1.0"?>\n<!-- drawn by hand -->\n<svg width="8"/>', 'ascii')),
+    'svg',
+  )
+  // Two letters of a plain sentence, and no DIB header behind them.
+  assert.equal(sniff(Buffer.from('BM is not a bitmap header', 'ascii')), null)
 })
 
 /**
