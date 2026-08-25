@@ -13,6 +13,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Least privilege for the token every step inherits. Nothing here writes.
 permissions:
   contents: read
 
@@ -26,9 +27,18 @@ jobs:
         # The floor from package.json engines, the current LTS, and current.
         node: ['20.19', '22', '24']
     steps:
-      - uses: actions/checkout@v7
+      # Actions are pinned to a commit, not a tag. A tag is a moving pointer,
+      # and moving one is exactly how tj-actions/changed-files was turned into
+      # a secret exfiltrator across 23,000 repositories in March 2025
+      # (CVE-2025-30066). Dependabot still bumps these; it rewrites the comment
+      # with the version it moved to.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The workflow token is written into .git/config unless this is set,
+          # where anything running later in the job can read it.
+          persist-credentials: false
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ matrix.node }}
           cache: npm
@@ -49,22 +59,24 @@ jobs:
     name: Nothing leaves the origin
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24'
           cache: npm
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
 
       - run: npm ci
 
-      # pypdf reads an AES-encrypted file only with the crypto extra, and
-      # every fixture this audits is AES-256.
-      - run: pip install playwright 'pypdf[crypto]'
+      # Pinned in test/requirements.txt for the same reason the actions are
+      # pinned, and kept in a file rather than inline so Dependabot can see it.
+      - run: pip install -r test/requirements.txt
 
       - run: python -m playwright install --with-deps chromium
 
@@ -76,6 +88,10 @@ jobs:
         run: |
           npm run audit:fixtures -- ./fixtures
           python3 test/encryption-audit.py ./fixtures
+
+      # Every command, once, with its output read back. Covers the layer
+      # between a typed command and src/core that neither other suite touches.
+      - run: npm run test:cli
 
       # Serves the real dist/ with the real headers, drives every tool, and
       # fails if a single request leaves the origin or the CSP is violated.

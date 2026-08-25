@@ -34,8 +34,11 @@ export function saveTheme(theme: Theme): void {
 export function loadLang(): Lang {
   const stored = read(KEY.lang)
   if (stored === 'en' || stored === 'id') return stored
-  // Fall back to the browser's own preference before assuming English.
-  return navigator.languages.some((tag) => tag.toLowerCase().startsWith('id')) ? 'id' : 'en'
+  // Fall back to the browser's own preference before assuming English. This
+  // runs while the first render is being set up, so an environment without
+  // navigator.languages has to give a language rather than a blank page.
+  const offered = navigator.languages ?? [navigator.language]
+  return offered.some((tag) => tag?.toLowerCase().startsWith('id')) ? 'id' : 'en'
 }
 
 export function saveLang(lang: Lang): void {
