@@ -1,0 +1,8 @@
+# Pinned so a CI job that has already checked the repository out cannot be
+# handed whatever the registry serves that morning. Dependabot watches this
+# file; the versions here are the ones the suites were last run against.
+#
+# pypdf reads an AES-encrypted file only with the crypto extra, and every
+# fixture test/encryption-audit.py checks is AES-256.
+playwright==1.62.0
+pypdf[crypto]==6.16.0

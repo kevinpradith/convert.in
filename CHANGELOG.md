@@ -58,6 +58,16 @@ still change between minor versions.
   Unlinking an XMP packet is not removing it, since an object nothing points at
   is still written out in full and still readable with `strings`, so the object
   itself goes.
+- **An end-to-end suite for the command line**, `npm run test:cli`. It drives
+  every command once and reads the result back, covering the layer between a
+  typed command and `src/core` that nothing else touched: argument parsing,
+  output naming, the check that works out every output path before writing the
+  first file, and the warnings printed alongside. 34 checks.
+- **Cross-origin isolation**, `Cross-Origin-Embedder-Policy: require-corp` and
+  `Cross-Origin-Resource-Policy: same-origin` beside the existing
+  `Cross-Origin-Opener-Policy`. Every asset here is same-origin, so the cost is
+  nothing, and the pages land in their own process group where a Spectre-class
+  read of another origin has nothing to reach.
 - **info now says what a file's encryption actually covers**, not just that it
   has some. The format lets ciphertext and plaintext sit side by side: `/StmF`
   and `/StrF` name the crypt filter each kind of object goes through, and
@@ -81,6 +91,26 @@ still change between minor versions.
 
 ### Fixed
 
+- **Sizes are quoted in the decimal units SI defines**, where a kilobyte is 1000
+  bytes. They were divided by 1024 and labelled `kB`, which meant the compressor's
+  "fit under 200 kB" was offered as "195 kB" and `--max-size 500kb` aimed at
+  512,000 bytes. An upload form that says 500KB never says which it means, and
+  the decimal reading is the smaller of the two, so a file under it is under
+  both. Windows will now show these files as slightly smaller than this tool
+  does; macOS, most Linux desktops and every disk on the shelf already agree
+  with it.
+- **A download name can no longer carry a bidirectional override.** Those
+  characters have no glyph and reorder what follows them, so a file ending in
+  one plus `gnp.exe` is listed by the browser as ending in `.png` — the filename
+  form of the reordering trick catalogued for source code as CVE-2021-42574.
+  The Windows-illegal characters `< > : " | ? *` go too, along with a trailing
+  dot or space, and truncating a very long name now keeps the extension instead
+  of leaving a file the operating system cannot open.
+- **Every GitHub Action is pinned to a commit** rather than a tag, and the
+  workflow token is no longer left in `.git/config`. Moving a tag is exactly how
+  `tj-actions/changed-files` was turned into a secret exfiltrator across 23,000
+  repositories in March 2025 (CVE-2025-30066). The two Python packages CI
+  installs are pinned in `test/requirements.txt`, which Dependabot watches.
 - **A file locked only by a permissions password no longer demands a password
   that does not exist.** Such a file opens with an empty one, which is what every
   reader does and what the web app already did, but `protect` on the command line

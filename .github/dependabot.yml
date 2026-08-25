@@ -25,3 +25,13 @@ updates:
     groups:
       actions:
         patterns: ['*']
+
+  # The two Python packages the privacy job installs. Pinned in the file rather
+  # than inline in the workflow so that this can watch them.
+  - package-ecosystem: pip
+    directory: /test
+    schedule:
+      interval: monthly
+    groups:
+      test-tools:
+        patterns: ['*']

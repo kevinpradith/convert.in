@@ -1,9 +1,24 @@
 import { useRef, useState, type DragEvent, type ReactNode } from 'react'
 import { cx } from './kit.tsx'
 
-/** Keep only the files whose extension appears in an `accept` list like ".pdf,.png". */
+/**
+ * Keep only the files whose extension appears in an `accept` list like
+ * ".pdf,.png".
+ *
+ * Empty entries are dropped rather than trimmed into existence: one stray comma
+ * would otherwise leave an empty string in the list, and every name ends with
+ * an empty string, so the filter would quietly accept everything.
+ *
+ * The name is all this can go on, since a drop event has no bytes yet. Whatever
+ * gets through is identified again from its own magic bytes further in, so a
+ * .png that is really a PDF is caught there rather than here.
+ */
 export function matching(files: File[], accept: string): File[] {
-  const wanted = accept.split(',').map((part) => part.trim().toLowerCase())
+  const wanted = accept
+    .split(',')
+    .map((part) => part.trim().toLowerCase())
+    .filter((part) => part !== '')
+  if (wanted.length === 0) return files
   return files.filter((file) => wanted.some((ext) => file.name.toLowerCase().endsWith(ext)))
 }
 

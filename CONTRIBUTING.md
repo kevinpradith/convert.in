@@ -35,8 +35,13 @@ ships as platform binaries picked by `npm install`, so a fresh clone gets the
 one for its own machine.
 
 If you touch anything under `src/core/`, the browser is not the only consumer:
-the CLI imports the same modules. `npm run cli -- --help` is the quickest way to
-check you have not broken it.
+the CLI imports the same modules. `npm run test:cli` drives every command once
+and reads the result back, which covers the argument parsing and output naming
+that `npm test` does not reach:
+
+```sh
+npm run test:cli
+```
 
 If you touch encryption, run the independent audit as well. It reads the files
 back with `pypdf`, so a mistake that both sides of `pdf-lib` agree on still gets
@@ -57,7 +62,14 @@ npm run build
 npm run test:browser
 ```
 
-Both suites need `playwright` and `pypdf`, and the encryption one needs pypdf's
+All three Python suites install from one pinned file:
+
+```sh
+pip install -r test/requirements.txt
+python3 -m playwright install chromium
+```
+
+They need `playwright` and `pypdf`, and the encryption one needs pypdf's
 crypto extra, since every fixture it reads back is AES-256 and pypdf leaves that
 dependency optional:
 

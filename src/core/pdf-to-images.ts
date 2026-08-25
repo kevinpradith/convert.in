@@ -63,7 +63,7 @@ export async function renderPage(
   const viewport = page.getViewport({ scale })
   const width = Math.ceil(viewport.width)
   const height = Math.ceil(viewport.height)
-  // A poster-sized page at 288 dpi runs past what a canvas will hold, and past
+  // A poster-sized page at 300 dpi runs past what a canvas will hold, and past
   // it the browser hands back transparent black instead of an error. Saying so
   // is the difference between "try a lower dpi" and a folder of blank images.
   checkSize(width, height)

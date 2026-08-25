@@ -212,11 +212,14 @@ function number(value: string, flag: string): number {
  * "500kb", "2MB", "1.5 mb" or a plain count of bytes. Upload forms state their
  * limit in whichever of those they feel like, and retyping it as a byte count
  * is arithmetic nobody should be asked to do at the command line.
+ *
+ * A kilobyte here is 1000 bytes, as SI defines it and as {@link humanSize}
+ * reports it. Where a form means the 1024s, the smaller reading still fits.
  */
 function bytes(value: string, flag: string): number {
   const match = /^\s*([\d.]+)\s*(b|kb|mb|k|m)?\s*$/i.exec(value)
   if (match === null) fail(`--${flag} must be a size like 500kb or 2mb, got "${value}"`)
-  const scale = { b: 1, k: 1024, kb: 1024, m: 1024 * 1024, mb: 1024 * 1024 }
+  const scale = { b: 1, k: 1000, kb: 1000, m: 1_000_000, mb: 1_000_000 }
   const amount = Number(match![1]) * scale[(match![2] ?? 'b').toLowerCase() as keyof typeof scale]
   if (!Number.isFinite(amount) || amount < 1) fail(`--${flag} must be at least one byte`)
   return Math.floor(amount)

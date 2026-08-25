@@ -35,7 +35,9 @@ here, whatever else it is elsewhere:
   file the tool has just encrypted.
 - A way past the Content-Security-Policy in `vercel.json` and `public/_headers`,
   since the policy is what makes the privacy claim hold even if a dependency is
-  compromised.
+  compromised. The same applies to the cross-origin isolation headers beside it.
+- Anything a crafted filename can do to the name a finished file is saved
+  under, which `safeName` in `src/ui/files.ts` is responsible for.
 - Cross-site scripting through a crafted file, in particular an SVG, which the
   browser decoder renders through an `<img>` element on purpose because that
   context runs no script.
@@ -58,6 +60,13 @@ here, whatever else it is elsewhere:
 Every claim above has a check behind it rather than a paragraph. `npm test`
 covers the core, `python3 test/encryption-audit.py` reads encrypted files back
 with an unrelated library so a mistake both sides of `pdf-lib` agree on is still
-caught, and `npm run test:browser` serves the real build with the real headers
-and fails if a single request leaves the origin. See
-[CONTRIBUTING.md](CONTRIBUTING.md) for how to run them.
+caught, `npm run test:cli` drives every command end to end, and
+`npm run test:browser` serves the real build with the real headers and fails if
+a single request leaves the origin. See [CONTRIBUTING.md](CONTRIBUTING.md) for
+how to run them.
+
+The supply chain around those checks is pinned rather than floating: every
+GitHub Action is referenced by commit rather than by tag, since moving a tag is
+exactly how `tj-actions/changed-files` was turned into a secret exfiltrator
+across 23,000 repositories in March 2025 (CVE-2025-30066), and the two Python
+packages CI installs are pinned in `test/requirements.txt`.
