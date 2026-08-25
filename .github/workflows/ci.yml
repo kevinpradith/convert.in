@@ -51,6 +51,12 @@ jobs:
 
       - run: npm run build
 
+      # The licence notices are read out of the bundle rather than written
+      # down, so a dependency added without regenerating them shows up here as
+      # a dirty tree rather than as a missing copyright notice in a release.
+      - name: The third-party notices match what is bundled
+        run: git diff --exit-code -- public/THIRD-PARTY-NOTICES.txt
+
       # The point of the CLI is that it runs the same core, so a build that
       # passes while the command line is broken has not passed.
       - run: npm run cli -- --version

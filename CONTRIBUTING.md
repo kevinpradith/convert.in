@@ -19,6 +19,21 @@ npm test
 npm run build
 ```
 
+## Adding a runtime dependency
+
+Its licence has to travel with the build. `npm run notices` reads the module
+graph out of the bundle and reproduces the licence of everything it finds, so
+there is no list to remember to update:
+
+```sh
+npm run notices
+```
+
+`npm run build` runs it first, and CI fails if the committed
+`public/THIRD-PARTY-NOTICES.txt` does not match what the bundle actually
+contains. A package that ships no licence file stops the script rather than
+being skipped.
+
 ## Signed commits
 
 Commits on `main` are signed, with an SSH key rather than GPG: Git has
