@@ -299,6 +299,42 @@ test('odd and even name the halves a duplex scan gets wrong', async () => {
 })
 
 /**
+ * The Emscripten codecs carry the C libraries' own diagnostics, and libjpeg
+ * answers a file that stops early with "Premature end of JPEG file" on standard
+ * error. It names no file, offers no advice, and used to land in the middle of a
+ * batch's output directly above a tick saying the conversion worked.
+ */
+test('a codec does not get to write on the terminal', async () => {
+  const written: string[] = []
+  const realErr = process.stderr.write.bind(process.stderr)
+  // Only standard error, which is where the C libraries write and where the
+  // stray line appeared. Standard output carries this runner's own messages to
+  // its parent, and watching it would record those instead. Passed through as
+  // well as recorded, so a failure here is readable rather than swallowed by
+  // the thing it is testing.
+  process.stderr.write = ((chunk: string | Uint8Array, ...rest: unknown[]) => {
+    written.push(String(chunk))
+    return realErr(chunk as string, ...(rest as []))
+  }) as typeof process.stderr.write
+
+  try {
+    const pixels = { width: 40, height: 30, data: new Uint8ClampedArray(40 * 30 * 4).fill(180) }
+    for (const format of IMAGE_FORMATS) {
+      const whole = await encodeImage(pixels, { format })
+      for (const bytes of [whole, whole.slice(0, Math.floor(whole.length * 0.6)), whole.slice(0, 20)]) {
+        // Whether it reads is not the point; whether it complains out loud is.
+        await decodeImage(bytes).catch(() => undefined)
+      }
+    }
+  } finally {
+    process.stderr.write = realErr
+  }
+
+  const noise = written.filter((line) => line.trim() !== '')
+  assert.deepEqual(noise, [], 'every codec kept its diagnostics to itself')
+})
+
+/**
  * A decoder handed half a file does not refuse it: libjpeg fills what it never
  * received with grey, hands back a full-size picture, and prints "Premature end
  * of JPEG file" to standard error, which names no file and offers no advice.
