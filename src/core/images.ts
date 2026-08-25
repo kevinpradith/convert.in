@@ -132,11 +132,47 @@ function buffer(bytes: Uint8Array): ArrayBuffer {
  * a command line with no decoders at all take the same path.
  */
 export async function decodeWithCodec(bytes: Uint8Array, format: ImageFormat): Promise<Pixels> {
+  notices.length = 0
   try {
     return await runCodec(bytes, format)
   } catch (failure) {
     throw unreadable(format, failure)
   }
+}
+
+/**
+ * What the codecs write for themselves, kept rather than printed.
+ *
+ * The Emscripten builds carry the C library's own diagnostics: libjpeg answers
+ * a file that stops early with "Premature end of JPEG file", on standard error,
+ * naming no file and offering no advice. Left alone it lands in the middle of a
+ * batch's output, directly above a tick saying the conversion worked, and there
+ * is nothing a person can do with it.
+ *
+ * That one condition is now detected here instead, by {@link looksTruncated},
+ * which can name the file. The rest are either repeated by the error thrown
+ * below or are about damage nobody can act on, so on a successful decode they
+ * are dropped, and on a failed one they ride along as the cause for whoever
+ * opens a console.
+ */
+const notices: string[] = []
+
+/** Codec modules already told where to put their own printing. */
+const hushed = new WeakSet<object>()
+
+interface Emscripten {
+  init: (options: unknown) => Promise<unknown>
+}
+
+async function hush(module: Emscripten): Promise<void> {
+  // Added before the await, so a second caller arriving while the first is
+  // still starting the module does not start it again.
+  if (hushed.has(module)) return
+  hushed.add(module)
+  const collect = (line: string) => {
+    notices.push(line)
+  }
+  await module.init({ print: collect, printErr: collect })
 }
 
 /**
@@ -166,29 +202,46 @@ function unreadable(format: ImageFormat, cause: unknown): Error {
   return new Error(
     `this ${format.toUpperCase()} could not be read: it is damaged, cut short, or in a variant ` +
       `the decoder here does not handle.${print}`,
-    { cause },
+    // The codec's own last words go with the cause, not into the message: they
+    // are written for whoever is reading a console, not for whoever picked a
+    // file.
+    { cause: notices.length === 0 ? cause : new Error(notices.join('; '), { cause }) },
   )
 }
 
 async function runCodec(bytes: Uint8Array, format: ImageFormat): Promise<Pixels> {
   const data = buffer(bytes)
   switch (format) {
-    case 'png':
-      return decoded(await (await import('@jsquash/png/decode.js')).default(data))
-    case 'jpeg':
+    case 'png': {
+      // The only one built with wasm-bindgen rather than Emscripten, so it has
+      // no printing of its own to redirect.
+      const png = await import('@jsquash/png/decode.js')
+      return decoded(await png.default(data))
+    }
+    case 'jpeg': {
+      const jpeg = await import('@jsquash/jpeg/decode.js')
+      await hush(jpeg)
       // The option name reads backwards. It means "act on the EXIF orientation
       // tag", so a photo taken sideways comes out of here the way up it is
       // meant to be seen. Left off, a phone photo converts rotated: the tag
       // lives in the JPEG and every format this writes to drops it.
-      return decoded(
-        await (await import('@jsquash/jpeg/decode.js')).default(data, { preserveOrientation: true }),
-      )
-    case 'webp':
-      return decoded(await (await import('@jsquash/webp/decode.js')).default(data))
-    case 'avif':
-      return decoded(await (await import('@jsquash/avif/decode.js')).default(data))
-    case 'jxl':
-      return decoded(await (await import('@jsquash/jxl/decode.js')).default(data))
+      return decoded(await jpeg.default(data, { preserveOrientation: true }))
+    }
+    case 'webp': {
+      const webp = await import('@jsquash/webp/decode.js')
+      await hush(webp)
+      return decoded(await webp.default(data))
+    }
+    case 'avif': {
+      const avif = await import('@jsquash/avif/decode.js')
+      await hush(avif)
+      return decoded(await avif.default(data))
+    }
+    case 'jxl': {
+      const jxl = await import('@jsquash/jxl/decode.js')
+      await hush(jxl)
+      return decoded(await jxl.default(data))
+    }
   }
 }
 
@@ -551,27 +604,35 @@ async function runEncoder(
       return new Uint8Array(await optimise(await encode(asImageData(source)), { level: 2 }))
     }
     case 'jpeg': {
-      const encode = (await import('@jsquash/jpeg/encode.js')).default
+      const jpeg = await import('@jsquash/jpeg/encode.js')
+      await hush(jpeg)
       // MozJPEG's own defaults otherwise: progressive, optimised Huffman
       // tables, and the quantisation table tuned on MS-SSIM rather than the
       // one from 1992.
-      return new Uint8Array(await encode(asImageData(source), { quality }))
+      return new Uint8Array(await jpeg.default(asImageData(source), { quality }))
     }
     case 'webp': {
-      const encode = (await import('@jsquash/webp/encode.js')).default
+      const webp = await import('@jsquash/webp/encode.js')
+      await hush(webp)
       // In lossless mode libwebp reads `quality` as how hard to try rather than
       // how much to throw away, so it is pinned high instead of passed through.
       return new Uint8Array(
-        await encode(asImageData(source), lossless ? { lossless: 1, quality: 90 } : { quality }),
+        await webp.default(asImageData(source), lossless ? { lossless: 1, quality: 90 } : { quality }),
       )
     }
     case 'avif': {
-      const encode = (await import('@jsquash/avif/encode.js')).default
-      return new Uint8Array(await encode(asImageData(source), lossless ? { lossless: true } : { quality }))
+      const avif = await import('@jsquash/avif/encode.js')
+      await hush(avif)
+      return new Uint8Array(
+        await avif.default(asImageData(source), lossless ? { lossless: true } : { quality }),
+      )
     }
     case 'jxl': {
-      const encode = (await import('@jsquash/jxl/encode.js')).default
-      return new Uint8Array(await encode(asImageData(source), lossless ? { lossless: true } : { quality }))
+      const jxl = await import('@jsquash/jxl/encode.js')
+      await hush(jxl)
+      return new Uint8Array(
+        await jxl.default(asImageData(source), lossless ? { lossless: true } : { quality }),
+      )
     }
   }
 }

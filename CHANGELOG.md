@@ -140,6 +140,12 @@ still change between minor versions.
   run then reported success over an image whose bottom was missing. `convert`
   and `images` now say which file is cut short and that they are going ahead
   with what is there.
+- **The codecs no longer write on the terminal.** Every Emscripten build is
+  started with its printing routed into this project instead, so the C
+  libraries' own lines stop landing in the middle of a batch's output. Nothing
+  is lost by it: the one condition they reported that a person could act on is
+  the one now detected here, with the filename, and on a failed decode their
+  last words ride along on the error's cause for whoever opens a console.
 - **Redact PDF replaces the document it is given rather than adding to it.**
   It says one at a time and drew one at a time, but the file before was left
   loaded underneath: the previews showed the second document, the search read
