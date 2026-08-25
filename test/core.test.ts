@@ -2,7 +2,18 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { deflateSync, inflateSync, crc32 } from 'node:zlib'
-import { PDFDocument, PDFDict, PDFHexString, PDFName, degrees } from '@cantoo/pdf-lib'
+import {
+  PDFArray,
+  PDFDict,
+  PDFDocument,
+  PDFHexString,
+  PDFName,
+  PDFNumber,
+  PDFString,
+  degrees,
+  type PDFObject,
+  type PDFRef,
+} from '@cantoo/pdf-lib'
 
 import { imagesToPdf, sniffImage } from '../src/core/images-to-pdf.ts'
 import {
@@ -125,6 +136,101 @@ function withOrientation(jpeg: Uint8Array, orientation: number): Uint8Array {
   ])
 }
 
+/**
+ * A document with a two-level table of contents. pdf-lib has no API for an
+ * outline, so it is written as the dictionaries the format actually stores:
+ * a root hanging off the catalogue, items chained by /Next and /Prev, and a
+ * destination array naming a page by reference.
+ *
+ * `named` writes the destinations through the /Names /Dests name tree instead
+ * of inline, which is the other half of what real documents do.
+ */
+async function makeOutlined(named = false): Promise<Uint8Array> {
+  const pdf = await PDFDocument.create()
+  const pages = [0, 1, 2, 3].map((index) => pdf.addPage([200, 200 + index]))
+  const { context } = pdf
+  const root = context.obj({ Type: 'Outlines' })
+  const rootRef = context.register(root)
+  const destinations: [string, PDFArray][] = []
+
+  function item(title: string, page: number, parent: PDFRef) {
+    const target = context.obj([
+      pages[page]!.ref,
+      PDFName.of('XYZ'),
+      PDFNumber.of(0),
+      PDFNumber.of(200),
+      PDFNumber.of(0),
+    ])
+    const dict = context.obj({ Title: PDFString.of(title), Parent: parent })
+    if (named) {
+      const key = `dest${page}`
+      destinations.push([key, target])
+      dict.set(PDFName.of('Dest'), PDFString.of(key))
+    } else {
+      dict.set(PDFName.of('Dest'), target)
+    }
+    return { dict, ref: context.register(dict) }
+  }
+
+  const one = item('Chapter one', 0, rootRef)
+  const two = item('Chapter two', 2, rootRef)
+  const section = item('Section 2.1', 3, two.ref)
+  one.dict.set(PDFName.of('Next'), two.ref)
+  two.dict.set(PDFName.of('Prev'), one.ref)
+  two.dict.set(PDFName.of('First'), section.ref)
+  two.dict.set(PDFName.of('Last'), section.ref)
+  two.dict.set(PDFName.of('Count'), PDFNumber.of(1))
+  root.set(PDFName.of('First'), one.ref)
+  root.set(PDFName.of('Last'), two.ref)
+  root.set(PDFName.of('Count'), PDFNumber.of(3))
+  pdf.catalog.set(PDFName.of('Outlines'), rootRef)
+
+  if (named) {
+    const pairs = context.obj([])
+    for (const [key, target] of destinations) {
+      pairs.push(PDFString.of(key))
+      pairs.push(context.register(target))
+    }
+    const tree = context.obj({})
+    tree.set(PDFName.of('Names'), pairs)
+    const names = context.obj({})
+    names.set(PDFName.of('Dests'), context.register(tree))
+    pdf.catalog.set(PDFName.of('Names'), context.register(names))
+  }
+  return pdf.save()
+}
+
+/** Every bookmark in a document, as "title -> 1-based page", depth first. */
+async function outlineOf(file: Uint8Array): Promise<string[]> {
+  const pdf = await PDFDocument.load(file)
+  const root = pdf.context.lookup(pdf.catalog.get(PDFName.of('Outlines')))
+  if (!(root instanceof PDFDict)) return []
+  const refs = pdf.getPages().map((page) => page.ref.toString())
+  const found: string[] = []
+
+  // Annotated rather than inferred: lookup's signature widens to every object
+  // type at once when it is handed something unknown, and narrowing that
+  // intersection leaves nothing behind.
+  const walk = (start: PDFObject | undefined, depth: number) => {
+    let node: PDFObject | undefined = pdf.context.lookup(start)
+    while (node instanceof PDFDict) {
+      const title = node.get(PDFName.of('Title'))
+      const text =
+        title instanceof PDFHexString || title instanceof PDFString ? title.decodeText() : '?'
+      const destination: PDFObject | undefined = pdf.context.lookup(node.get(PDFName.of('Dest')))
+      const at =
+        destination instanceof PDFArray
+          ? refs.indexOf(destination.get(0)?.toString() ?? '')
+          : -1
+      found.push(`${'  '.repeat(depth)}${text} -> ${at === -1 ? 'nowhere' : `page ${at + 1}`}`)
+      walk(node.get(PDFName.of('First')), depth + 1)
+      node = pdf.context.lookup(node.get(PDFName.of('Next')))
+    }
+  }
+  walk(root.get(PDFName.of('First')), 0)
+  return found
+}
+
 async function makePdf(pages: number): Promise<Uint8Array> {
   const pdf = await PDFDocument.create()
   for (let i = 0; i < pages; i++) pdf.addPage([100 + i, 200]) // width encodes the page index
@@ -182,6 +288,89 @@ test('odd and even name the halves a duplex scan gets wrong', async () => {
   const pdf = await rotatePages(await makePdf(3), [0, 0, 2], 90)
   const angles = (await PDFDocument.load(pdf)).getPages().map((page) => page.getRotation().angle)
   assert.deepEqual(angles, [90, 0, 90])
+})
+
+/* ---------- bookmarks ---------- */
+
+/**
+ * An outline names its pages by reference, so copying pages into a new document
+ * leaves the whole table of contents pointing at objects that came nowhere.
+ * Every one of these operations used to drop it silently, which is the
+ * complaint on every forum thread about merging PDFs.
+ */
+test('bookmarks survive being merged, reordered, extracted and split', async () => {
+  const source = await makeOutlined()
+  assert.deepEqual(await outlineOf(source), [
+    'Chapter one -> page 1',
+    'Chapter two -> page 3',
+    '  Section 2.1 -> page 4',
+  ])
+
+  assert.deepEqual(
+    await outlineOf(await mergePdfs([source, source])),
+    [
+      'Chapter one -> page 1',
+      'Chapter two -> page 3',
+      '  Section 2.1 -> page 4',
+      'Chapter one -> page 5',
+      'Chapter two -> page 7',
+      '  Section 2.1 -> page 8',
+    ],
+    'each source contributes its own, in the order the documents were given',
+  )
+
+  // Chapter one has no page in this selection, so it is dropped rather than
+  // pointed somewhere plausible: a bookmark that jumps to the wrong chapter is
+  // worse than one that is missing, because only the second is noticed.
+  assert.deepEqual(await outlineOf(await selectPages(source, [2, 3])), [
+    'Chapter two -> page 1',
+    '  Section 2.1 -> page 2',
+  ])
+
+  assert.deepEqual(
+    await outlineOf(await selectPages(source, [3, 2, 1, 0])),
+    ['Chapter one -> page 4', 'Chapter two -> page 2', '  Section 2.1 -> page 1'],
+    'reordering moves the bookmarks with their pages',
+  )
+
+  // A page copied three times gets one bookmark, on the first copy, which is
+  // where somebody following the table of contents expects to arrive.
+  assert.deepEqual(await outlineOf(await selectPages(source, [0, 0, 2])), [
+    'Chapter one -> page 1',
+    'Chapter two -> page 3',
+  ])
+
+  const halves = await splitPdf(source, [
+    [0, 1],
+    [2, 3],
+  ])
+  assert.deepEqual(await outlineOf(halves[0]!), ['Chapter one -> page 1'])
+  assert.deepEqual(await outlineOf(halves[1]!), [
+    'Chapter two -> page 1',
+    '  Section 2.1 -> page 2',
+  ])
+})
+
+/**
+ * A destination can be written out in full or referred to by name, and plenty
+ * of writers choose the second. Resolving only the first would drop half the
+ * bookmarks in the wild for no reason a person could see.
+ */
+test('bookmarks that name their destination are carried too', async () => {
+  const named = await makeOutlined(true)
+  assert.deepEqual(await outlineOf(await mergePdfs([named])), [
+    'Chapter one -> page 1',
+    'Chapter two -> page 3',
+    '  Section 2.1 -> page 4',
+  ])
+})
+
+/** A document with nothing to carry should not gain an empty outline. */
+test('a document with no bookmarks does not grow one', async () => {
+  const plain = await mergePdfs([await makePdf(3), await makePdf(2)])
+  assert.deepEqual(await outlineOf(plain), [])
+  const pdf = await PDFDocument.load(plain)
+  assert.equal(pdf.catalog.get(PDFName.of('Outlines')), undefined, 'and no root either')
 })
 
 /* ---------- the small shared pieces ---------- */

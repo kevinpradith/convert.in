@@ -58,6 +58,16 @@ still change between minor versions.
   Unlinking an XMP packet is not removing it, since an object nothing points at
   is still written out in full and still readable with `strings`, so the object
   itself goes.
+- **Bookmarks come with their pages.** A PDF's table of contents is a tree
+  hanging off the catalogue whose entries name their pages by reference, so
+  copying pages left every one of them pointing at objects that came nowhere and
+  the whole outline was dropped. `assemblePages` now rebuilds the tree against
+  the pages that came across, so merge, select, split and reorder all keep it.
+  Merging lays the sources' outlines end to end; an entry whose page was left
+  out is dropped rather than pointed somewhere plausible. Destinations written
+  out in full and destinations named through the `/Names /Dests` tree are both
+  resolved. Interactive forms are still lost by page copying, and the tools
+  still say so.
 - **Redact PDF**, in the window. A black rectangle drawn over a paragraph hides
   nothing: PDF renders in layers, so the characters underneath survive the shape
   on top of them, still selectable and still copyable, which is how the details
