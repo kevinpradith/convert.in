@@ -26,7 +26,7 @@ Eight tools, all in one window:
 | **Organize PDF** | Drop any number of PDFs, then reorder, rotate, delete and duplicate pages. Save the result as one file or as one file per page. |
 | **Clean PDF** | Lists what the file says about whoever made it, then takes it out: the information dictionary, the XMP packet, and the custom keys the software that wrote it added. |
 | **Stamp PDF** | A watermark across the pages, or page numbers on them. One file lets you select tiles; a pile gets stamped through. |
-| **Protect PDF** | Lock with a password, or hand it locked files and take the password off. One password covers the pile. |
+| **Protect PDF** | Lock with a password, or hand it locked files and take the password off. One password covers the pile. Says so when a file asks for a password but leaves its pages readable anyway. |
 | **PDF to images** | Rasterise pages to PNG or JPEG at 72, 144 or 288 dpi. |
 
 Drop files anywhere in the window, drag tiles to reorder, click a tile to select
@@ -240,7 +240,8 @@ convert.in images shot-*.png       # -> shot.pdf, beside the first input
 convert.in images scan-*.jpg -o scan.pdf --size a4 --margin 24
 convert.in compress passport.pdf --max-size 500kb
 convert.in rotate scan.pdf 180 --pages even   # the half a duplex feeder flipped
-convert.in info offer.pdf          # what it says about who made it
+convert.in info offer.pdf          # what it says about who made it, and what
+                                   # its encryption really covers
 convert.in clean offer.pdf         # -> offer-clean.pdf, saying nothing
 convert.in merge part-1.pdf part-2.pdf -o whole.pdf
 convert.in select scan.pdf 1-3,7   # -> scan-selected.pdf
