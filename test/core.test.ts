@@ -17,7 +17,14 @@ import {
   selectPages,
   splitPdf,
 } from '../src/core/pdf-pages.ts'
-import { caveat, describeSecurity, explain, protectPdf, unlockPdf } from '../src/core/pdf-security.ts'
+import {
+  caveat,
+  clearWarning,
+  describeSecurity,
+  explain,
+  protectPdf,
+  unlockPdf,
+} from '../src/core/pdf-security.ts'
 import { compressPdf, compressToFit } from '../src/core/pdf-compress.ts'
 import { describeMetadata, stripMetadata } from '../src/core/pdf-metadata.ts'
 import { signPdf } from '../src/core/pdf-sign.ts'
@@ -414,10 +421,18 @@ test('describe reports page count and first page size', async () => {
 
 test('protect locks a document with AES-256 R6, the setting Acrobat calls "Acrobat X and later"', async () => {
   const plain = await makePdf(3)
-  assert.deepEqual(await describeSecurity(plain), { encrypted: false, needsPassword: false })
+  assert.deepEqual(await describeSecurity(plain), {
+    encrypted: false,
+    needsPassword: false,
+    inTheClear: [],
+  })
 
   const locked = await protectPdf(plain, { openPassword: 'hunter2' })
-  assert.deepEqual(await describeSecurity(locked), { encrypted: true, needsPassword: true })
+  assert.deepEqual(await describeSecurity(locked), {
+    encrypted: true,
+    needsPassword: true,
+    inTheClear: [],
+  })
   await assert.rejects(() => pageCount(locked), /encrypted/i)
 
   // The encryption dictionary is not itself encrypted, so the handler it
@@ -450,7 +465,7 @@ test('protect follows Acrobat rules about the two passwords', async () => {
   })
   assert.deepEqual(
     await describeSecurity(restricted),
-    { encrypted: true, needsPassword: false },
+    { encrypted: true, needsPassword: false, inTheClear: [] },
     'encrypted, but a reader is never prompted',
   )
   // pdf-lib refuses to open any encrypted document unless it is handed a
@@ -677,12 +692,96 @@ test('a permissions password protects nothing from whoever can open the file', a
     copying: false,
   })
   const stripped = await unlockPdf(both, 'reader')
-  assert.deepEqual(await describeSecurity(stripped), { encrypted: false, needsPassword: false })
+  assert.deepEqual(await describeSecurity(stripped), {
+    encrypted: false,
+    needsPassword: false,
+    inTheClear: [],
+  })
 
   const permissionsOnly = await protectPdf(plain, { permissionsPassword: 'owner', printing: 'none' })
-  assert.deepEqual(await describeSecurity(permissionsOnly), { encrypted: true, needsPassword: false })
+  assert.deepEqual(await describeSecurity(permissionsOnly), {
+    encrypted: true,
+    needsPassword: false,
+    inTheClear: [],
+  })
   const opened = await unlockPdf(permissionsOnly, '')
-  assert.deepEqual(await describeSecurity(opened), { encrypted: false, needsPassword: false })
+  assert.deepEqual(await describeSecurity(opened), {
+    encrypted: false,
+    needsPassword: false,
+    inTheClear: [],
+  })
+
+  // Such a file opens with no password, so nothing should be demanding one.
+  // Before this, re-protecting it failed with "supply the password to open it",
+  // and the only way through was to work out that the password was "".
+  const relocked = await protectPdf(permissionsOnly, { openPassword: 'reader' })
+  assert.equal((await describeSecurity(relocked)).needsPassword, true)
+  // A file that really is locked still refuses, rather than the empty password
+  // becoming a way past anything.
+  await assert.rejects(() => protectPdf(relocked, { openPassword: 'other' }), /password protected/)
+})
+
+/**
+ * The format lets ciphertext and plaintext sit side by side: /StmF and /StrF
+ * name the crypt filter each kind of object goes through, and /Identity means
+ * none. A file can therefore announce AES-256, prompt for a password, and still
+ * carry every page in the clear. That is the shape the PDFex work (Muller et
+ * al., ACM CCS 2019) builds its direct-exfiltration attack on, and it is
+ * standard-compliant, so nothing warns about it.
+ *
+ * This was reported as "encrypted, needs a password" before, which is the
+ * answer that gets a document forwarded.
+ */
+test('a file that only pretends to be encrypted is called out', async () => {
+  const source = await PDFDocument.create()
+  source.addPage([200, 200])
+  const locked = await protectPdf(await source.save(), { openPassword: 'hunter2' })
+
+  const swap = (find: string, replace: string) => {
+    const text = Buffer.from(locked).toString('latin1')
+    const at = text.indexOf('/Filter /Standard')
+    assert.ok(at > 0, 'the fixture should carry an encryption dictionary')
+    const changed = text.slice(at).replace(find, replace)
+    assert.notEqual(changed, text.slice(at), `nothing to replace: ${find}`)
+    return new Uint8Array(Buffer.from(text.slice(0, at) + changed, 'latin1'))
+  }
+
+  assert.deepEqual((await describeSecurity(locked)).inTheClear, [], 'what this tool writes is sealed')
+  assert.deepEqual(
+    (await describeSecurity(swap('/StmF /StdCF', '/StmF /Identity'))).inTheClear,
+    ['streams'],
+  )
+  assert.deepEqual(
+    (await describeSecurity(swap('/StrF /StdCF', '/StrF /Identity'))).inTheClear,
+    ['strings'],
+  )
+  assert.deepEqual(
+    (await describeSecurity(swap('/Filter /Standard', '/Filter /Standard /EncryptMetadata false')))
+      .inTheClear,
+    ['metadata'],
+  )
+
+  assert.equal(clearWarning([]), null)
+  assert.match(clearWarning(['streams'])!, /without a password|with no password/i)
+  assert.match(clearWarning(['streams', 'strings'])!, /pages/)
+})
+
+/**
+ * Every one of these reached a person verbatim. "NEEDS PASSWORD" is the
+ * library shouting about an empty password; the other two name a field nobody
+ * chose, in a file they did not write.
+ */
+test('the library is not allowed to answer in its own words', async () => {
+  const source = await PDFDocument.create()
+  source.addPage([200, 200])
+  const locked = await protectPdf(await source.save(), { openPassword: 'hunter2' })
+
+  await assert.rejects(() => unlockPdf(locked, ''), /that password does not open this PDF/)
+  assert.match(
+    explain(new Error('unsupported encryption algorithm')),
+    /locked in a way this cannot open/,
+  )
+  assert.match(explain(new Error('invalid key length: 7')), /locked in a way this cannot open/)
 })
 
 /**

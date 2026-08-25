@@ -1,4 +1,4 @@
-import { EncryptedPDFError, PDFDocument, PDFRef } from '@cantoo/pdf-lib'
+import { EncryptedPDFError, PDFDict, PDFDocument, PDFName, PDFRef } from '@cantoo/pdf-lib'
 
 /**
  * Password security modelled on Acrobat's own dialog, because that is the
@@ -40,7 +40,20 @@ export interface ProtectOptions {
   currentPassword?: string
 }
 
-/** Open a document, turning the library's encryption errors into readable ones. */
+/**
+ * The library's own words for a password it would not take. Only the first is
+ * a type; the rest arrive as messages, and one of them is shouted.
+ */
+const REFUSALS = [/password incorrect/i, /^needs password$/i, /no password given/i]
+
+/**
+ * Open a document, turning the library's encryption errors into readable ones.
+ *
+ * A file locked only by a permissions password opens with an empty one, which
+ * is what every reader does and what a person handed such a file expects: it
+ * does not prompt them either. Asked to open one with no password at all, this
+ * tries the empty password rather than demanding a secret that does not exist.
+ */
 async function open(
   file: Uint8Array,
   password?: string,
@@ -54,44 +67,120 @@ async function open(
   } catch (error) {
     // A wrong password does not come back as EncryptedPDFError: the cipher
     // itself rejects it, with a message rather than a type.
-    const wrongPassword = error instanceof Error && /password incorrect/i.test(error.message)
-    if (error instanceof EncryptedPDFError || wrongPassword) {
-      throw new Error(
-        password === undefined
-          ? 'this PDF is password protected: supply the password to open it'
-          : 'that password does not open this PDF',
-      )
+    const refused =
+      error instanceof EncryptedPDFError ||
+      (error instanceof Error && REFUSALS.some((shape) => shape.test(error.message)))
+    if (!refused) throw error
+    if (password === undefined) {
+      try {
+        return await PDFDocument.load(file, { ...extra, password: '' })
+      } catch {
+        throw new Error('this PDF is password protected: supply the password to open it')
+      }
     }
-    throw error
+    throw new Error('that password does not open this PDF')
   }
 }
+
+/** A part of the document its own encryption dictionary leaves readable. */
+export type InTheClear =
+  /** Page content, images, fonts: everything held in a stream. */
+  | 'streams'
+  /** Titles, authors, form values, annotation text: everything held in a string. */
+  | 'strings'
+  /** The XMP packet, which carries the title and author again. */
+  | 'metadata'
 
 export interface Security {
   /** The file carries a security handler at all. */
   encrypted: boolean
   /** A reader would be prompted: the open password is not empty. */
   needsPassword: boolean
+  /**
+   * What the encryption dictionary declines to encrypt. Empty for a file this
+   * tool wrote, and for anything Acrobat writes; a document with entries here
+   * is protected in name more than in fact.
+   */
+  inTheClear: InTheClear[]
+}
+
+function nameAt(dict: PDFDict, key: string): string | undefined {
+  const value = dict.get(PDFName.of(key))
+  return value instanceof PDFName ? value.asString() : undefined
+}
+
+/**
+ * Which parts of a document its encryption dictionary leaves alone.
+ *
+ * The format allows ciphertext and plaintext side by side: /StmF and /StrF name
+ * the crypt filter each kind of object goes through, and /Identity means none.
+ * A file can therefore announce AES-256, prompt for a password, and still carry
+ * every page in the clear for anyone with a text editor. That is the shape the
+ * PDFex work (Muller et al., ACM CCS 2019) builds its direct-exfiltration
+ * attack on, and it is standard-compliant, so no reader complains.
+ *
+ * Reported rather than repaired: this is what the file says about itself, and a
+ * person deciding whether to forward it is owed the true answer.
+ */
+function whatIsNotEncrypted(pdf: PDFDocument): InTheClear[] {
+  const encryption = pdf.context.lookup(pdf.context.trailerInfo.Encrypt)
+  if (!(encryption instanceof PDFDict)) return []
+  const version = encryption.get(PDFName.of('V'))?.toString()
+  // Crypt filters only exist from V4. Before that the one handler covers the
+  // whole document, so there is nothing to opt out of.
+  if (version !== '4' && version !== '5') return []
+
+  const open: InTheClear[] = []
+  // An absent /StmF or /StrF defaults to /Identity, so missing is as clear as
+  // saying so.
+  if ((nameAt(encryption, 'StmF') ?? '/Identity') === '/Identity') open.push('streams')
+  if ((nameAt(encryption, 'StrF') ?? '/Identity') === '/Identity') open.push('strings')
+  if (encryption.get(PDFName.of('EncryptMetadata'))?.toString() === 'false') {
+    open.push('metadata')
+  }
+  return open
 }
 
 /**
  * Carrying encryption and demanding a password are two different things: a file
  * protected only by a permissions password is fully encrypted yet opens without
  * a prompt, because its open password is empty. Callers need to tell those
- * apart, so this reports both rather than one boolean standing in for two.
+ * apart, so this reports both rather than one boolean standing in for two, and
+ * says which parts are not encrypted at all.
  */
 export async function describeSecurity(file: Uint8Array): Promise<Security> {
   try {
     await PDFDocument.load(file)
-    return { encrypted: false, needsPassword: false }
+    return { encrypted: false, needsPassword: false, inTheClear: [] }
   } catch (error) {
     if (!(error instanceof EncryptedPDFError)) throw error
   }
+  // Reading the encryption dictionary needs no password: it is the one part of
+  // an encrypted document that has to stay readable.
+  const sealed = await PDFDocument.load(file, { ignoreEncryption: true, updateMetadata: false })
+  const inTheClear = whatIsNotEncrypted(sealed)
   try {
     await PDFDocument.load(file, { password: '' })
-    return { encrypted: true, needsPassword: false }
+    return { encrypted: true, needsPassword: false, inTheClear }
   } catch {
-    return { encrypted: true, needsPassword: true }
+    return { encrypted: true, needsPassword: true, inTheClear }
   }
+}
+
+/** What to tell someone about a document that is only partly encrypted. */
+export function clearWarning(parts: InTheClear[]): string | null {
+  if (parts.length === 0) return null
+  const words: Record<InTheClear, string> = {
+    streams: 'its pages, images and fonts',
+    strings: 'its title, author and any form values',
+    metadata: 'its XMP metadata',
+  }
+  // Semicolons rather than "and": two of the three phrases already contain one.
+  const listed = parts.map((part) => words[part]).join('; ')
+  return (
+    `this PDF asks for a password but does not encrypt everything. Readable straight ` +
+    `out of the file, with no password at all: ${listed}.`
+  )
 }
 
 /**
@@ -110,6 +199,12 @@ export function explain(error: unknown): string {
   // that one almost always means the wrong file was picked.
   if (/no pdf header found/i.test(message)) {
     return 'this file is not a PDF'
+  }
+  // An encryption dictionary this cannot work with: a handler nobody
+  // implements, or a key length the cipher has no meaning for. Both come back
+  // as the library's own words, which name a field a person never chose.
+  if (/unsupported encryption algorithm/i.test(message) || /invalid key length/i.test(message)) {
+    return 'this PDF is locked in a way this cannot open: its encryption is damaged or not one of the standard schemes'
   }
   if (
     /failed to parse pdf document/i.test(message) ||

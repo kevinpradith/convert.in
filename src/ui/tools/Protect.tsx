@@ -89,6 +89,10 @@ export function Protect() {
   // cannot be one button.
   const mixed = needsPassword.length > 0 && needsPassword.length < batch.items.length
   const anyRestricted = batch.items.some((item) => locks[item.id]?.encrypted === true)
+  // A file that announces a password and then leaves its pages readable is the
+  // one thing here nobody would think to check, and it changes what the file is
+  // safe for. Named, because in a pile of twenty it has to be findable.
+  const partlyOpen = batch.items.filter((item) => (locks[item.id]?.inTheClear.length ?? 0) > 0)
   const limitation = caveat({ openPassword, printing, changes, copying })
 
   return (
@@ -140,6 +144,15 @@ export function Protect() {
                   ? t.protect.restrictedNotice
                   : t.protect.cipher}
           </p>
+
+          {partlyOpen.length > 0 && (
+            <p
+              role="alert"
+              className="text-body border-line rounded-card border px-3 py-2 leading-relaxed"
+            >
+              {t.protect.partlyOpen(partlyOpen.map((item) => item.name).join(', '))}
+            </p>
+          )}
 
           {!mixed && locked && (
             <>

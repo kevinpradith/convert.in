@@ -240,11 +240,25 @@ SECURITY
   up to the current cipher, unlock it and then protect it again: the result is
   AES-256 whatever the file arrived as.
 
+  A file locked only by a permissions password opens with an empty password,
+  which is what every reader does, so protect and unlock take one without being
+  told: there is no secret to supply and nothing asks for one.
+
   Given --permissions-password on its own, protect does not ask for an open
   password: a permissions-only file is a real thing to want. To set both you
   have to pass both flags, which does put them in your shell history. That is
   the lesser evil, because a permissions password protects nothing from the
   person you handed the open password to anyway.
+
+  info says what a file's own encryption dictionary covers, not just that it has
+  one. The format lets ciphertext and plaintext sit side by side: /StmF and
+  /StrF name the crypt filter each kind of object goes through, and /Identity
+  means none. A document can therefore announce AES-256, prompt for a password,
+  and still carry every page in the clear for anyone with a text editor. Nothing
+  breaks the spec, so no reader warns about it, and it is the shape the PDFex
+  work (Muller et al., ACM CCS 2019) builds its direct-exfiltration attack on.
+  A file like that is reported as "encrypted in part only", with the parts named.
+  Nothing this tool writes is ever partly encrypted.
 
   Three limits come from the format, not from this tool, and hold for Acrobat
   too. Printing, copying and editing are bits a reader is expected to honour,
@@ -562,12 +576,29 @@ KEAMANAN
   Untuk menaikkannya ke cipher yang sekarang, buka dulu lalu protect lagi:
   hasilnya AES-256, apa pun bentuk berkasnya waktu datang.
 
+  Berkas yang hanya dikunci permissions password terbuka dengan password
+  kosong, dan itulah yang dilakukan semua pembaca, jadi protect dan unlock
+  menerimanya tanpa perlu diberi tahu: tidak ada rahasia untuk diserahkan dan
+  tidak ada yang menanyakannya.
+
   Kalau cuma --permissions-password yang diberikan, protect tidak menanyakan
   open password: berkas yang hanya dibatasi izinnya memang hal yang wajar
   diinginkan. Untuk memasang keduanya, dua flag itu harus ditulis semua, dan itu
   memang masuk ke history shell. Itu pilihan yang lebih ringan, karena
   permissions password toh tidak melindungi apa pun dari orang yang sudah lu
   kasih open password.
+
+  info menyebutkan apa saja yang benar-benar dicakup encryption dictionary
+  sebuah berkas, bukan cuma bahwa berkasnya punya satu. Format PDF membolehkan
+  ciphertext dan plaintext berdampingan: /StmF dan /StrF menyebut crypt filter
+  yang dilewati tiap jenis objek, dan /Identity berarti tidak ada. Jadi sebuah
+  dokumen bisa mengumumkan AES-256, meminta password, dan tetap membawa seluruh
+  halamannya terbuka bagi siapa pun yang punya teks editor. Tidak ada yang
+  melanggar spesifikasi, jadi tidak ada pembaca yang memperingatkan, dan itulah
+  bentuk yang dijadikan dasar serangan direct exfiltration oleh riset PDFex
+  (Muller dkk., ACM CCS 2019). Berkas seperti itu dilaporkan sebagai
+  "encrypted in part only", lengkap dengan bagian mana saja. Tidak ada yang
+  ditulis alat ini yang terenkripsi setengah-setengah.
 
   Tiga batasan berikut datang dari format PDF-nya, bukan dari alat ini, dan
   berlaku juga di Acrobat. Cetak, salin dan ubah cuma bit yang diharapkan
