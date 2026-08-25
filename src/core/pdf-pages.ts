@@ -184,7 +184,9 @@ export async function rotatePages(
   const pdf = await PDFDocument.load(file)
   const total = pdf.getPageCount()
   if (indices.length === 0) throw new Error('no pages selected')
-  for (const i of indices) {
+  // Turning is not something a page can be asked for twice: "1,1" or a range
+  // that overlaps "odd" means one page, named more than once, not two turns.
+  for (const i of new Set(indices)) {
     if (!Number.isInteger(i) || i < 0 || i >= total) {
       throw new Error(`page ${i + 1} is out of range (document has ${total} pages)`)
     }
@@ -203,6 +205,15 @@ export function parseRanges(spec: string, total: number): number[] {
   for (const part of spec.split(',')) {
     const token = part.trim()
     if (token === '') continue
+
+    // "odd" and "even" name the halves a duplex scanner gets wrong: a feeder
+    // that flips the back of every sheet leaves one of them upside down, and
+    // typing out 2,4,6,8 up to 300 is not a page range anybody should write.
+    const half = token.toLowerCase()
+    if (half === 'odd' || half === 'even') {
+      for (let page = half === 'odd' ? 1 : 2; page <= total; page += 2) indices.push(page - 1)
+      continue
+    }
 
     // Split on the dash before matching digits. Doing it the other way round,
     // with one regex holding two optional \d+ groups, backtracks quadratically:

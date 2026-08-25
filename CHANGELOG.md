@@ -48,6 +48,21 @@ still change between minor versions.
   attempt and says how far short it fell.
 - **`--dpi` on `images`**, and the matching field in the tool, for the page size
   a `fit` page is worked out from.
+- **Clean PDF**, as a tool and as `clean`, with `info` now listing what it would
+  remove. A PDF names its author, the software that wrote it, the company that
+  software was registered to, and the times it was made and last saved, in an
+  information dictionary and again in an XMP packet that says the same things in
+  XML. None of it shows while reading the document, so a CV, a report or a
+  leaked draft carries it out of the building intact. This lists every piece and
+  removes every piece, including the packet a page can carry of its own.
+  Unlinking an XMP packet is not removing it, since an object nothing points at
+  is still written out in full and still readable with `strings`, so the object
+  itself goes.
+- **`odd` and `even` page ranges**, wherever `--pages` is taken. A duplex feeder
+  that flips the back of every sheet leaves one of those halves upside down, and
+  `2,4,6` up to 300 is not a page range anybody should have to type.
+- **300 dpi** on PDF to images, in place of the 288 that four times 72 gives.
+  300 is the number a print shop asks for.
 - **Natural order in Images to PDF.** Files arrive sorted the way a person
   counts, so `shot2.png` comes before `shot10.png` rather than after it.
   Dragging a tile still overrides it. The CLI already had this as `--sort
@@ -55,6 +70,8 @@ still change between minor versions.
 
 ### Fixed
 
+- **A page named twice is turned once.** `rotate --pages 1,1`, and now any range
+  that overlaps `odd` or `even`, rotated that page once per mention.
 - **A photo taken sideways no longer becomes a sideways page.** A phone writes
   the sensor's pixels and a tag saying which way the phone was held. Embedding
   the JPEG untouched is what keeps `images` lossless, and it is also what lost

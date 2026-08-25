@@ -45,6 +45,7 @@ import {
   type PrintingLevel,
 } from './core/pdf-security.ts'
 import { numberPages, watermarkPdf, type Corner, CORNERS } from './core/pdf-stamp.ts'
+import { describeMetadata, stripMetadata } from './core/pdf-metadata.ts'
 
 const COMMANDS = [
   'convert',
@@ -59,6 +60,7 @@ const COMMANDS = [
   'unlock',
   'watermark',
   'number',
+  'clean',
   'info',
   'help',
   'version',
@@ -800,6 +802,27 @@ async function main(): Promise<void> {
       })
     }
 
+    case 'clean': {
+      const files = requireInputs(rest, 'PDFs')
+      return each(files, (input) => `${stem(input)}-clean.pdf`, async (file, input) => {
+        const before = await describeMetadata(file)
+        if (!before.any) {
+          warn(named(files, input) + 'this PDF already says nothing about itself.')
+          return { bytes: file, detail: 'nothing to remove' }
+        }
+        const named_ = before.entries.map((entry) => entry.name)
+        return {
+          bytes: await stripMetadata(file),
+          detail: [
+            named_.length > 0 ? `${plural(named_.length, 'field')} removed (${named_.join(', ')})` : '',
+            before.xmp > 0 ? `${humanSize(before.xmp)} of XMP removed` : '',
+          ]
+            .filter(Boolean)
+            .join(', '),
+        }
+      })
+    }
+
     case 'info': {
       const files = requireInputs(rest, 'PDFs')
       for (const input of files) {
@@ -823,6 +846,17 @@ async function main(): Promise<void> {
           `${input}  ${dim(`${plural(pages, 'page')} · ${humanSize(size)} · ` +
             `${Math.round(width)} × ${Math.round(height)} pt · ${inches}${lock}`)}`,
         )
+
+        // What the file says about whoever made it. None of this shows while
+        // reading the document, and a CV, a report or a leaked draft all carry
+        // it: run "clean" to take it out.
+        const meta = await describeMetadata(file)
+        for (const entry of meta.entries) {
+          const mark = entry.custom ? dim(' (custom)') : ''
+          console.log(`  ${entry.name.padEnd(16)} ${entry.value}${mark}`)
+        }
+        if (meta.xmp > 0) console.log(`  ${'XMP'.padEnd(16)} ${dim(`${humanSize(meta.xmp)} of XML`)}`)
+        if (meta.any) console.log(dim('  Run "convert.in clean" to take all of that out.'))
       }
       return
     }
