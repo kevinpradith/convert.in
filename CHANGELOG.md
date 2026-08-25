@@ -129,6 +129,17 @@ still change between minor versions.
 
 ### Fixed
 
+- **A page number that cannot fit where it was asked for is refused.** `sign`
+  has always checked; `number` was drawing into the void, so a margin bigger
+  than the page put the label off the edge and a page number that is not on the
+  page looked exactly like one that worked.
+- **A picture that stops before its own end is named before it is converted.**
+  A decoder handed half a file does not refuse it: libjpeg fills what it never
+  received with grey, hands back a full-size picture, and prints "Premature end
+  of JPEG file" to standard error, which names no file and offers no advice. The
+  run then reported success over an image whose bottom was missing. `convert`
+  and `images` now say which file is cut short and that they are going ahead
+  with what is there.
 - **Redact PDF replaces the document it is given rather than adding to it.**
   It says one at a time and drew one at a time, but the file before was left
   loaded underneath: the previews showed the second document, the search read

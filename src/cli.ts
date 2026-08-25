@@ -14,6 +14,7 @@ import {
   encodeImage,
   extensionFor,
   isImageFormat,
+  looksTruncated,
   keepsAlpha,
   resize,
   resizedTo,
@@ -485,6 +486,16 @@ async function main(): Promise<void> {
                 'loses a little more detail.',
             )
           }
+          // A decoder handed half a file does not refuse it: it fills what it
+          // never received with grey and hands back a full-size picture, so
+          // without this the run reports success over an image whose bottom is
+          // missing.
+          if (looksTruncated(source)) {
+            warn(
+              `${basename(input)} stops before the end of the picture, so part of it is ` +
+                'missing.\n            The conversion goes ahead with what is there.',
+            )
+          }
           const decoded = await decodeImage(source)
           const pixels = resizing === undefined ? decoded : resize(decoded, resizing)
           const bytes = await encodeImage(pixels, {
@@ -599,7 +610,13 @@ async function main(): Promise<void> {
     case 'images': {
       const files = ordered(requireInputs(rest, 'images'), values.sort)
       const out = await outputFile(values.out, beside(files[0]!, `${commonName(files)}.pdf`), force)
-      const pdf = await imagesToPdf(await Promise.all(files.map(read)), {
+      const sources = await Promise.all(files.map(read))
+      files.forEach((input, at) => {
+        if (looksTruncated(sources[at]!)) {
+          warn(`${basename(input)} stops before the end of the picture, so part of it is missing.`)
+        }
+      })
+      const pdf = await imagesToPdf(sources, {
         pageSize: oneOf<PageSize>(values.size, ['fit', 'a4', 'letter'], 'size'),
         orientation: oneOf<Orientation>(
           values.orientation,

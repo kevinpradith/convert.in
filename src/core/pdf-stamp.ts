@@ -191,16 +191,28 @@ export async function numberPages(
     // happens to store.
     const { width, height } = displayedSize(page)
     const labelWidth = font.widthOfTextAtSize(label, size)
+    const u =
+      horizontal === 'left'
+        ? margin
+        : horizontal === 'right'
+          ? width - margin - labelWidth
+          : (width - labelWidth) / 2
+    const v = vertical === 'top' ? height - margin - size : margin
+
+    // Refused rather than drawn where nobody will see it. A margin bigger than
+    // the page, or a size bigger than the margin leaves room for, puts the
+    // number off the edge, and a page number that is not on the page is the
+    // same as no page number at all except that it looks like it worked. This
+    // is the check sign has had all along; number was drawing into the void.
+    if (u < 0 || v < 0 || u + labelWidth > width || v + size > height) {
+      throw new Error(
+        `page ${index + 1} is ${Math.round(width)}x${Math.round(height)}pt, and "${label}" at ` +
+          `size ${size} with a ${margin}pt margin does not fit on it`,
+      )
+    }
+
     page.drawText(label, {
-      ...placeOnPage(
-        page,
-        horizontal === 'left'
-          ? margin
-          : horizontal === 'right'
-            ? width - margin - labelWidth
-            : (width - labelWidth) / 2,
-        vertical === 'top' ? height - margin - size : margin,
-      ),
+      ...placeOnPage(page, u, v),
       rotate: degrees(turnOf(page)),
       size,
       font,
