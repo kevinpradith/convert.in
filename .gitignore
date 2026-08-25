@@ -1,18 +1,53 @@
+# Kept close to github/gitignore's own Node template, with the handful of extra
+# entries this project has actually needed. Everything here is either generated
+# by a command in package.json or is not this project's to publish.
+
+# Dependencies and build output
 node_modules/
 dist/
 .vite/
+vite.config.ts.timestamp-*
+*.tsbuildinfo
 
-# Never let a secret reach a public repository by accident.
+# Secrets. First on the list that matters: an .env file reaching a public
+# repository is the one mistake that cannot be undone by deleting it.
 .env
 .env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
 
+# Logs, caches and coverage
 *.log
+npm-debug.log*
+.npm
+.cache
+.eslintcache
+coverage/
+*.lcov
+
+# Whatever the operating system and the editor leave behind
 *.local
 .DS_Store
 Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.orig
+*.rej
 
 # Copied out of node_modules by the pdfjs-assets plugin in vite.config.ts.
 public/pdfjs/
 
 # Written by "npm run audit:fixtures" for the encryption and browser suites.
 fixtures/
+
+# Scratch files written while investigating something. Named so they cannot be
+# committed by a hurried "git add -A": two stray outputs from an argument fuzz
+# reached a commit once, and had to be taken back out of the history.
+probe*.ts
+probe*.py
+*-tmp.ts
+*-tmp.py

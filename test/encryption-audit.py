@@ -166,7 +166,7 @@ print('== 7. nothing readable is left outside the ciphertext ==')
 # side, and a reader will happily render both. /StmF and /StrF above say every
 # stream and every string goes through the crypt filter; this says the same
 # thing from the outside, by looking for the source document's own words in the
-# bytes we shipped.
+# bytes this project wrote.
 for name, password in (('open-only.pdf', 'hunter2'), ('both.pdf', 'openpw'), ('perms-only.pdf', '')):
     raw = (D / name).read_bytes()
     # Title and author live in /Info, the text in a content stream, the field

@@ -288,7 +288,7 @@ const id: Strings = {
   progress: (done: number, total: number) => `${done} dari ${total}…`,
   brokeTitle: 'Alat ini berhenti bekerja',
   brokeHint:
-    'Ada yang salah waktu menggambar alat ini. Alat lain masih memegang berkasnya masing-masing. Coba lagi, dan kalau terus berulang kemungkinan berkasnya memang tidak terbaca di sini.',
+    'Ada yang salah saat menggambar alat ini. Alat lain masih memegang berkasnya masing-masing. Coba lagi, dan jika terus berulang kemungkinan berkasnya memang tidak terbaca di sini.',
   brokeRetry: 'Coba lagi',
   licences: 'Lisensi',
   language: 'Bahasa',
@@ -351,7 +351,7 @@ const id: Strings = {
   compress: {
     emptyTitle: 'Taruh PDF di sini',
     emptyHint:
-      'Gambar di dalamnya di-encode ulang, dan di situlah hampir semua bobot sebuah hasil pindaian berada. PDF yang isinya cuma teks tidak punya yang bisa diperkecil dan kembali apa adanya. Taruh sebanyak yang kamu mau: tidak ada antrean dan tidak ada batas, karena kerjanya di browser ini.',
+      'Gambar di dalamnya di-encode ulang, dan di situlah hampir semua bobot sebuah hasil pindaian berada. PDF yang isinya hanya teks tidak punya yang bisa diperkecil dan kembali apa adanya. Taruh sebanyak yang Anda perlukan: tidak ada antrean dan tidak ada batas, karena kerjanya di browser ini.',
     quality: 'Kualitas',
     maxSide: 'Sisi terpanjang',
     unlimited: 'Biarkan apa adanya',
@@ -383,7 +383,7 @@ const id: Strings = {
     working: 'Menyensor\u2026',
     run: 'Sensor',
     find: 'Cari',
-    findLabel: 'Kata atau frasa yang mau dihitamkan',
+    findLabel: 'Kata atau frasa yang akan dihitamkan',
     findPlaceholder: 'sebuah nama',
     addMatches: 'Hitamkan semua yang cocok',
     matches: (n: number) =>
@@ -415,7 +415,7 @@ const id: Strings = {
   sign: {
     emptyTitle: 'Taruh PDF di sini',
     emptyHint:
-      'Gambar tanda tanganmu, atau bawa PNG-nya, lalu tempatkan di halaman. Satu tanda tangan berlaku untuk semua berkas yang kamu taruh. Tidak ada yang diunggah, dan justru itu intinya: tanda tangan adalah hal terakhir yang pantas diserahkan ke server orang lain.',
+      'Gambarkan tanda tangan Anda, atau bawa berkas PNG-nya, lalu tempatkan di halaman. Satu tanda tangan berlaku untuk semua berkas yang Anda taruh. Tidak ada yang diunggah, dan justru itu intinya: tanda tangan adalah hal terakhir yang pantas diserahkan ke server orang lain.',
     notCrypto:
       'Ini menggambar tanda tangan, seperti menandatangani hasil cetak lalu memindainya. Bukan tanda tangan kriptografis dan tidak membuktikan siapa yang menandatangani.',
     draw: 'Gambar',
@@ -483,10 +483,10 @@ const id: Strings = {
       'Kunci dengan password, atau serahkan yang sudah terkunci lalu lepas passwordnya. Satu password berlaku untuk seluruh tumpukan. Enkripsinya AES-256, setelan yang Acrobat sebut "Acrobat X and later".',
     lockedNotice: 'Berkas ini terkunci. Masukkan passwordnya untuk membuka.',
     partlyOpen: (names: string) =>
-      `${names} meminta password tapi tidak mengenkripsi semuanya: halamannya, atau judul dan penulisnya, bisa dibaca langsung dari berkasnya tanpa password. Format PDF memang mengizinkan itu, jadi tidak ada pembaca yang memperingatkan. Anggap saja berkas ini tidak terlindungi.`,
-    restrictedNotice: 'Berkas ini terenkripsi tapi terbuka tanpa diminta password: yang dikunci cuma izinnya.',
+      `${names} meminta password tetapi tidak mengenkripsi semuanya: halamannya, atau judul dan penulisnya, bisa dibaca langsung dari berkasnya tanpa password. Format PDF memang mengizinkan itu, jadi tidak ada pembaca yang memperingatkan. Anggap saja berkas ini tidak terlindungi.`,
+    restrictedNotice: 'Berkas ini terenkripsi tetapi terbuka tanpa diminta password: yang dikunci hanya izinnya.',
     openPassword: 'Password buka',
-    openHint: 'Dibutuhkan untuk membuka berkasnya. Kosongkan kalau cuma mau membatasi.',
+    openHint: 'Dibutuhkan untuk membuka berkasnya. Kosongkan jika hanya ingin membatasi.',
     permissionsPassword: 'Password izin',
     permissionsHint: 'Mencabut batasan di bawah. Harus beda dari password buka.',
     password: 'Password',
@@ -504,9 +504,9 @@ const id: Strings = {
     restrictionsNote:
       'Cetak, ubahan dan salinan dipatuhi oleh aplikasi pembacanya, bukan dipaksakan oleh enkripsinya. Hanya password buka yang benar-benar menahan dokumen supaya tidak terbaca.',
     restrictionsOpenToAnyone:
-      'Batasan ini tidak disertai password buka, jadi berkasnya terbuka untuk siapa saja dan batasannya lepas lagi tanpa password sama sekali. Isi password buka kalau dokumennya memang harus tertutup.',
+      'Batasan ini tidak disertai password buka, jadi berkasnya terbuka untuk siapa saja dan batasannya lepas lagi tanpa password sama sekali. Isi password buka jika dokumennya memang harus tertutup.',
     restrictionsLiftable:
-      'Siapa pun yang lu kasih password buka bisa mencabut batasan ini, lewat alat ini atau alat lain mana pun. Batasan ini mencatat niat, bukan memaksakannya.',
+      'Siapa pun yang Anda beri password buka bisa mencabut batasan ini, lewat alat ini atau alat lain mana pun. Batasan ini mencatat niat, bukan memaksakannya.',
     lock: 'Kunci PDF',
     unlock: 'Lepas password',
     working: 'Memproses…',
@@ -528,7 +528,7 @@ const id: Strings = {
     position: 'Posisi',
     start: 'Mulai dari',
     format: 'Format',
-    allPages: 'Mengecap semua halaman. Pilih kotaknya kalau mau sebagian saja.',
+    allPages: 'Mengecap semua halaman. Pilih kotaknya jika hanya sebagian.',
     somePages: (n: number) => `Mengecap ${n} halaman.`,
     save: 'Simpan PDF',
     working: 'Memproses…',
@@ -536,7 +536,7 @@ const id: Strings = {
   export: {
     emptyTitle: 'Taruh satu PDF di sini',
     emptyHint:
-      'Halaman digambar ulang di peramban ini. Pilih yang lu mau, atau ambil semuanya.',
+      'Halaman digambar ulang di peramban ini. Pilih yang Anda perlukan, atau ambil semuanya.',
     open: 'Buka yang lain',
     pages: (n: number) => `${n} halaman`,
     pageLabel: (n: number) => `Halaman ${n}`,

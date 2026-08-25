@@ -397,21 +397,20 @@ CARA PAKAI
   convert.in <perintah> [opsi]
 
 PERINTAH
-  convert <gambar...> --to <f> Antara PNG, JPEG, WebP, AVIF dan JPEG XL
-  compress <in.pdf>            Encode ulang gambar di dalam PDF
-  sign    <in.pdf> <ttd.png>   Tempelkan gambar tanda tangan ke halaman
-  images  <gambar...>          JPEG dan PNG jadi satu PDF, satu gambar per halaman
-  merge   <pdf...>             Gabung PDF sesuai urutan yang diberikan
-  select  <in.pdf> <halaman>   Ambil halaman itu sesuai urutannya: susun ulang, hapus, petik
-  rotate  <pdf...> [derajat]   Putar halaman, bawaannya 90
-  split   <in.pdf> [tiap]      Satu PDF per kelompok halaman, bawaannya 1
-  protect <pdf...>             Kunci dengan password, AES-256, Acrobat X and later
-  unlock  <pdf...>             Lepas password dari berkas yang terkunci
-  watermark <pdf...> <teks>    Cap teks miring melintasi halaman
-  number  <pdf...>             Cetak nomor halaman
+  convert <gambar...> --to <f> Antara PNG, JPEG, WebP, AVIF dan JPEG XL compress
+  <in.pdf>            Encode ulang gambar di dalam PDF sign    <in.pdf>
+  <ttd.png>   Tempelkan gambar tanda tangan ke halaman images  <gambar...>
+  JPEG dan PNG jadi satu PDF, satu gambar per halaman merge   <pdf...>
+  Gabung PDF sesuai urutan yang diberikan select  <in.pdf> <halaman>   Ambil
+  halaman itu sesuai urutannya: susun ulang, hapus, petik rotate  <pdf...>
+  [derajat]   Putar halaman, bawaannya 90 split   <in.pdf> [tiap]      Satu PDF
+  per kelompok halaman, bawaannya 1 protect <pdf...>             Kunci dengan
+  password, AES-256, Acrobat X and later unlock  <pdf...>             Lepas
+  password dari berkas yang terkunci watermark <pdf...> <teks>    Cap teks
+  miring melintasi halaman number  <pdf...>             Cetak nomor halaman
   clean   <pdf...>             Buang keterangan siapa yang membuat berkasnya
-  resize  <pdf...> [kertas]    Samakan ukuran halaman, bawaannya a4
-  info    <pdf...>             Jumlah halaman, ukuran, dimensi, status kunci
+  resize  <pdf...> [kertas]    Samakan ukuran halaman, bawaannya a4 info
+  <pdf...>             Jumlah halaman, ukuran, dimensi, status kunci
 
 HASIL
   -o boleh dikosongkan. Tanpa itu hasilnya mendarat di sebelah berkas asal:
@@ -438,7 +437,7 @@ HASIL
 
 BANYAK BERKAS SEKALIGUS
   Semua perintah yang mengubah satu berkas jadi satu berkas menerima sebanyak
-  yang kamu sebut, tanpa batas dan tanpa antrean, karena kerjanya di sini. images
+  yang Anda sebutkan, tanpa batas dan tanpa antrean, karena kerjanya di sini.
   dan merge memang sudah membaca banyak; split yang tetap satu dokumen.
 
     convert.in number *.pdf -o numbered/
@@ -516,7 +515,8 @@ APLIKASI WEB
 
   Dua flag memang tidak punya padanan di peramban. --force tidak ada artinya di
   sana, karena unduhan tidak pernah menimpa apa pun. --sort natural juga tidak
-  perlu, karena di sana lu menyeret kotaknya sendiri ke urutan yang lu mau.
+  perlu, karena di sana Anda menyeret kotaknya sendiri ke urutan yang
+  diinginkan.
 
 MEMPERKECIL PDF
   compress meng-encode ulang gambar JPEG di dalam dokumen. Di situlah hampir
@@ -540,12 +540,12 @@ MEMPERKECIL PDF
     compress paspor.pdf --max-size 500kb      angka yang diminta formulirnya
     compress berkas.pdf --max-size 5mb -o out/
 
-  PDF yang isinya cuma teks kembali sebesar aslinya, dan itu dikatakan apa
+  PDF yang isinya hanya teks kembali sebesar aslinya, dan itu dikatakan apa
   adanya. Tidak ada gambar untuk di-encode ulang, dan tidak ada di sini yang
   menulis ulang content stream atau memangkas font: Ghostscript dan MuPDF
   melakukannya, dan keduanya AGPL, yang tidak bisa dipakai proyek ini.
 
-  Gambar hanya diganti kalau yang baru benar-benar lebih kecil, jadi berkas
+  Gambar hanya diganti jika yang baru benar-benar lebih kecil, jadi berkas
   yang sudah padat dikembalikan apa adanya, bukan malah dibikin lebih buruk.
 
 TANDA TANGAN
@@ -586,7 +586,7 @@ FORMAT
   Metadata dibuang. Konversi membongkar berkasnya jadi piksel lalu menyusunnya
   ulang, jadi EXIF, koordinat GPS, nomor seri kamera, riwayat penyuntingan dan
   profil warna semuanya ditinggal. Itu fitur, bukan kelalaian: foto yang dikirim
-  dari ponsel kalau tidak begitu membawa lokasi tempat foto itu diambil.
+  dari ponsel yang tanpa itu akan membawa lokasi tempat foto itu diambil.
 
   Foto yang miring diluruskan. JPEG menyimpan sudut kameranya di sebuah tag,
   bukan di pikselnya, dan tidak ada format lain yang membawa tag itu, jadi
@@ -599,64 +599,65 @@ FORMAT
 
 KEAMANAN
   Password ditanyakan, bukan diambil dari argumen, karena password di argv
-  mendarat di history shell lu dan kelihatan di ps. Untuk script, pipe saja:
+  mendarat di riwayat shell Anda dan terlihat di ps. Untuk skrip, gunakan pipa:
 
     printf '%s' "$PASSWORD" | convert.in unlock locked.pdf
 
   Enkripsinya AES-256 ditulis sebagai V5/R6, itu setelan yang Acrobat sebut
   "Acrobat X and later". Dua password Acrobat ada dua-duanya: open password
   dibutuhkan untuk membuka berkasnya, permissions password mencabut batasannya.
-  Acrobat menolak kalau keduanya sama, dan di sini juga ditolak: kalau sama,
+  Acrobat menolak jika keduanya sama, dan di sini juga ditolak: jika sama,
   siapa pun yang bisa membuka berkasnya sudah memegang hak owner.
 
-  Format PDF cuma memakai 127 byte pertama dari sebuah password, jadi yang lebih
-  panjang ditolak, bukan diam-diam dipotong ke panjang yang tidak lu lihat.
+  Format PDF hanya memakai 127 byte pertama dari sebuah password, sehingga
+  password yang lebih panjang ditolak, bukan diam-diam dipotong sampai panjang
+  yang tidak Anda lihat.
 
   unlock juga membuka skema yang lebih tua, RC4-40, RC4-128 dan AES-128, bukan
-  cuma AES-256, karena berkas yang ditulis bertahun-tahun lalu masih beredar.
+  hanya AES-256, karena berkas yang ditulis bertahun-tahun lalu masih beredar.
   Untuk menaikkannya ke cipher yang sekarang, buka dulu lalu protect lagi:
-  hasilnya AES-256, apa pun bentuk berkasnya waktu datang.
+  hasilnya AES-256, apa pun bentuk berkasnya saat datang.
 
   Berkas yang hanya dikunci permissions password terbuka dengan password
   kosong, dan itulah yang dilakukan semua pembaca, jadi protect dan unlock
   menerimanya tanpa perlu diberi tahu: tidak ada rahasia untuk diserahkan dan
   tidak ada yang menanyakannya.
 
-  Kalau cuma --permissions-password yang diberikan, protect tidak menanyakan
+  Jika hanya --permissions-password yang diberikan, protect tidak menanyakan
   open password: berkas yang hanya dibatasi izinnya memang hal yang wajar
   diinginkan. Untuk memasang keduanya, dua flag itu harus ditulis semua, dan itu
-  memang masuk ke history shell. Itu pilihan yang lebih ringan, karena
-  permissions password toh tidak melindungi apa pun dari orang yang sudah lu
-  kasih open password.
+  memang masuk ke riwayat shell. Itu pilihan yang lebih ringan, karena pada
+  dasarnya permissions password tidak melindungi apa pun dari orang yang sudah
+  Anda beri open password.
 
   info menyebutkan apa saja yang benar-benar dicakup encryption dictionary
-  sebuah berkas, bukan cuma bahwa berkasnya punya satu. Format PDF membolehkan
-  ciphertext dan plaintext berdampingan: /StmF dan /StrF menyebut crypt filter
-  yang dilewati tiap jenis objek, dan /Identity berarti tidak ada. Jadi sebuah
-  dokumen bisa mengumumkan AES-256, meminta password, dan tetap membawa seluruh
-  halamannya terbuka bagi siapa pun yang punya teks editor. Tidak ada yang
-  melanggar spesifikasi, jadi tidak ada pembaca yang memperingatkan, dan itulah
-  bentuk yang dijadikan dasar serangan direct exfiltration oleh riset PDFex
-  (Muller dkk., ACM CCS 2019). Berkas seperti itu dilaporkan sebagai
-  "encrypted in part only", lengkap dengan bagian mana saja. Tidak ada yang
-  ditulis alat ini yang terenkripsi setengah-setengah.
+  sebuah berkas, bukan hanya bahwa berkasnya memiliki satu. Format PDF
+  membolehkan ciphertext dan plaintext berdampingan: /StmF dan /StrF menyebut
+  crypt filter yang dilewati tiap jenis objek, dan /Identity berarti tidak ada.
+  Jadi sebuah dokumen bisa mengumumkan AES-256, meminta password, dan tetap
+  membawa seluruh halamannya terbuka bagi siapa pun yang punya teks editor.
+  Tidak ada yang melanggar spesifikasi, jadi tidak ada pembaca yang
+  memperingatkan, dan itulah bentuk yang dijadikan dasar serangan direct
+  exfiltration oleh riset PDFex (Muller dkk., ACM CCS 2019). Berkas seperti itu
+  dilaporkan sebagai "encrypted in part only", lengkap dengan bagian mana saja.
+  Tidak ada yang ditulis alat ini yang terenkripsi setengah-setengah.
 
   Tiga batasan berikut datang dari format PDF-nya, bukan dari alat ini, dan
-  berlaku juga di Acrobat. Cetak, salin dan ubah cuma bit yang diharapkan
+  berlaku juga di Acrobat. Cetak, salin dan ubah hanyalah bit yang diharapkan
   dipatuhi pembaca, bukan kunci: siapa pun yang memegang open password bisa
-  mencabut batasannya, dan berkas yang cuma berisi permissions password terbuka
+  mencabut batasannya, dan berkas yang hanya berisi permissions password terbuka
   tanpa password sama sekali. Hanya open password yang benar-benar menahan
   dokumen supaya tidak terbaca. AES mode CBC tidak membawa pemeriksaan
-  integritas, jadi enkripsi menyembunyikan isi tapi tidak membuktikan berkasnya
-  sampai dalam keadaan yang sama seperti waktu dikirim; tanda tangan digital
-  yang melakukan itu, dan alat ini tidak menandatangani. Dan tebakan offline
-  tetap serangan yang paling relevan, jadi open password itulah seluruh
+  integritas, jadi enkripsi menyembunyikan isi tetapi tidak membuktikan
+  berkasnya sampai dalam keadaan yang sama seperti saat dikirim; tanda tangan
+  digital yang melakukan itu, dan alat ini tidak menandatangani. Dan tebakan
+  offline tetap serangan yang paling relevan, jadi open password itulah seluruh
   kekuatannya.
 
 URUTAN HALAMAN
   Urutan halaman mengikuti urutan berkas yang masuk, dan itu urutan hasil glob
-  dari shell lu. Kebanyakan shell menaruh shot10.png sebelum shot2.png; --sort
-  natural menghitung seperti manusia. Ada peringatan kalau urutannya kelihatan
+  dari shell Anda. Kebanyakan shell menaruh shot10.png sebelum shot2.png; --sort
+  natural menghitung seperti manusia. Ada peringatan jika urutannya terlihat
   leksikal.
 
   --pages juga menerima "odd" dan "even". Pengumpan bolak-balik yang membalik
@@ -689,20 +690,20 @@ URUTAN HALAMAN
   merge menyusun outline tiap sumber berurutan, select dan split menyimpan entri
   yang halamannya ikut, dan menata ulang memindahkan entrinya bersama
   halamannya. Entri yang halamannya ditinggal dibuang, bukan diarahkan ke tempat
-  yang kelihatan masuk akal: bookmark yang melompat ke bab yang salah lebih
-  buruk daripada bookmark yang hilang, karena cuma yang kedua yang kelihatan.
+  yang terlihat masuk akal: bookmark yang melompat ke bab yang salah lebih
+  buruk daripada bookmark yang hilang, karena hanya yang kedua yang terlihat.
 
   Menata ulang halaman tetap meninggalkan formulir interaktif, karena penyalinan
-  halaman membawa kotaknya tapi tidak membawa formulirnya. merge, select, dan
-  split memberi tahu sebelum melakukannya; rotate, watermark, number, dan protect
-  tidak merusaknya.
+  halaman membawa kotaknya tetapi tidak membawa formulirnya. merge, select, dan
+  split memberi tahu sebelum melakukannya; rotate, watermark, number, dan
+  protect tidak merusaknya.
 
 APA YANG DIKATAKAN PDF TENTANG LU
   Sebuah PDF menyebut siapa penulisnya, software apa yang menulisnya, atas nama
   perusahaan mana software itu terdaftar, serta kapan berkasnya dibuat dan
   terakhir disimpan. Word menambahkan nama perusahaan, pemindai kadang
   menambahkan identitas mesinnya, dan sistem dokumen menambahkan apa pun yang
-  dia mau. Tidak ada satu pun yang terlihat saat dokumennya dibaca, dan justru
+  dia kehendaki. Tidak ada satu pun yang terlihat saat dokumennya dibaca, dan justru
   karena itu sebuah CV, laporan, atau draf yang bocor membawanya keluar utuh.
 
   info menampilkan semuanya. clean membuang semuanya: information dictionary,
@@ -717,38 +718,34 @@ APA YANG DIKATAKAN PDF TENTANG LU
   sini objeknya sendiri: paket yang tidak dirujuk siapa pun tetap ditulis utuh
   ke berkas dan tetap terbaca dengan "strings".
 
-  Sensor PDF, di jendela aplikasinya, adalah gagasan yang sama tapi diterapkan
+  Sensor PDF, di jendela aplikasinya, adalah gagasan yang sama tetapi diterapkan
   ke halamannya, bukan ke keterangannya. Kotak hitam yang digambar di atas
   sebuah paragraf tidak menyembunyikan apa pun: PDF dirender berlapis, jadi
   hurufnya selamat di baliknya, masih bisa diseleksi dan disalin. Tidak ada
   perintah CLI-nya karena tiap halaman dirender lewat canvas, dan ini satu-
-  satunya alat di sini yang sengaja membuang sesuatu: halamannya kembali
-  sebagai gambar, jadi yang tertutup benar-benar hilang dan teks selebihnya
-  berhenti bisa diseleksi oleh siapa pun.
+  satunya alat di sini yang sengaja membuang sesuatu: halamannya kembali sebagai
+  gambar, jadi yang tertutup benar-benar hilang dan teks selebihnya berhenti
+  bisa diseleksi oleh siapa pun.
 
 PATH
-  Path-nya persis seperti yang sudah dipakai shell lu: C:\\Users\\me\\a.png di
+  Path-nya persis seperti yang sudah dipakai shell Anda: C:\\Users\\me\\a.png di
   PowerShell atau cmd, /home/me/a.png di Linux dan macOS. Tidak perlu apa-apa.
 
   Khusus di dalam WSL, path Windows diterjemahkan otomatis, karena WSL tidak
-  bisa melihat C:\\ tapi memasangnya di /mnt/c. Di sana wajib dikutip, kalau
+  bisa melihat C:\\ tetapi memasangnya di /mnt/c. Di sana wajib dikutip, jika
   tidak backslash-nya sudah dimakan shell sebelum sampai ke sini:
   'C:\\Users\\me\\a.png'
 
 CONTOH
-  convert.in images shot-*.png
-  convert.in images shot*.png --sort natural
-  convert.in images scan-*.jpg -o scan.pdf --size a4 --margin 24
-  convert.in compress paspor.pdf --max-size 500kb
-  convert.in merge bagian-1.pdf bagian-2.pdf -o utuh.pdf
-  convert.in select scan.pdf 1-3,7
-  convert.in rotate scan.pdf 90 --pages 2-4
-  convert.in split buku.pdf 10
-  convert.in protect scan.pdf --printing low --changes none
-  convert.in unlock terkunci.pdf
-  convert.in watermark scan.pdf "RAHASIA" --opacity 0.2
-  convert.in number laporan.pdf --format "{n} / {total}" --position bottom-right
-  convert.in info scan.pdf
+  convert.in images shot-*.png convert.in images shot*.png --sort natural
+  convert.in images scan-*.jpg -o scan.pdf --size a4 --margin 24 convert.in
+  compress paspor.pdf --max-size 500kb convert.in merge bagian-1.pdf
+  bagian-2.pdf -o utuh.pdf convert.in select scan.pdf 1-3,7 convert.in rotate
+  scan.pdf 90 --pages 2-4 convert.in split buku.pdf 10 convert.in protect
+  scan.pdf --printing low --changes none convert.in unlock terkunci.pdf
+  convert.in watermark scan.pdf "RAHASIA" --opacity 0.2 convert.in number
+  laporan.pdf --format "{n} / {total}" --position bottom-right convert.in info
+  scan.pdf
 
 CATATAN
   --size fit mengambil ukuran halaman dari kerapatan yang disebut gambarnya,
@@ -761,7 +758,7 @@ CATATAN
   halamannya, bukan pikselnya: foto yang diambil miring keluar tegak, tetap
   sama persis byte demi byte. Empat orientasi yang juga mencerminkan gambar
   di-decode dan ditulis ulang, karena halaman tidak bisa dicerminkan.
-  Watermark dan nomor halaman digambar dengan font bawaan yang cuma mencakup
+  Watermark dan nomor halaman digambar dengan font bawaan yang hanya mencakup
   Latin-1, jadi teks di luar itu ditolak, bukan diam-diam dibuang.
 
   Belum ada di PATH?      npm link, dari folder project. Atau jalankan langsung:

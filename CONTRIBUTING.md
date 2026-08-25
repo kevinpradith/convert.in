@@ -19,6 +19,25 @@ npm test
 npm run build
 ```
 
+## The two languages
+
+The interface and the guide ship in English and Bahasa Indonesia, in
+`src/ui/i18n.ts` and `src/help.ts`. The Indonesian is written in the formal
+register, following the same rules Mozilla's Indonesian localisation team works
+to: `you` is **Anda**, singular and plural; conversational forms, slang and
+regional expressions are not used; and spelling follows
+[EYD Edisi V](https://ejaan.kemendikdasmen.go.id/eyd/), the Badan Bahasa
+standard. Where KBBI marks a word *cak* — the colloquial register — the standard
+form is the one that belongs here: `hanya` rather than `cuma`, `tetapi` rather
+than `tapi`, `jika` rather than `kalau`.
+
+A technical term keeps its English form where that is what a person would search
+for. `password`, `flag` and `path` are left alone on purpose; translating them
+would make the guide harder to use, not easier.
+
+`id` must have the same shape as `en` or the build fails, so a new string has to
+be added to both at once.
+
 ## Two choices about the toolchain
 
 `@types/node` is held at the **oldest** Node this project supports rather than
