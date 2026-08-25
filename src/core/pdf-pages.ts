@@ -390,7 +390,6 @@ export async function resizePages(
   for (const page of pdf.getPages()) {
     const source = visibleBox(page)
     const { width, height } = source
-    if (width <= 0 || height <= 0) continue
     // getRotation is what a reader applies on top of the box, so a page stored
     // sideways is wider than it is tall to everybody but the file itself.
     const turned = Math.abs(page.getRotation().angle / 90) % 2 === 1
@@ -414,7 +413,13 @@ export async function resizePages(
 
     // One factor for both axes: scaling them apart would change the shape of
     // everything on the page, which is the failure people call "stretched".
-    const factor = Math.min(room.width / width, room.height / height)
+    //
+    // A page with no width or no height is a broken page, and there is nothing
+    // on it to scale. It still gets the sheet, because being asked to put every
+    // page on A4 and quietly leaving one at nothing by three hundred points is
+    // the answer nobody wants.
+    const factor =
+      width > 0 && height > 0 ? Math.min(room.width / width, room.height / height) : 1
     const left = (boxWidth - width * factor) / 2
     const bottom = (boxHeight - height * factor) / 2
 

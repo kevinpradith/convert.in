@@ -384,6 +384,14 @@ test('every page can be put on the same sheet', async () => {
     /margin is larger/,
   )
   await assert.rejects(() => resizePages(mixed, { paper: 'a4', marginPt: -1 }), /margin/)
+
+  // A page with no width is a broken page and there is nothing on it to scale,
+  // but being asked to put every page on A4 and quietly leaving one at nothing
+  // by three hundred points is the answer nobody wants.
+  const flat = await PDFDocument.create()
+  flat.addPage([300, 300]).setMediaBox(0, 0, 0, 300)
+  const put = await PDFDocument.load(await resizePages(await flat.save(), { paper: 'a4' }))
+  assert.deepEqual(put.getPage(0).getSize(), { width: 595.28, height: 841.89 })
 })
 
 /**
