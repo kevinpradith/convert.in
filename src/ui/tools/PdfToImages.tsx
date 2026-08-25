@@ -177,7 +177,10 @@ export function PdfToImages() {
                 options={[
                   { value: '1', label: '72 dpi' },
                   { value: '2', label: '144 dpi' },
-                  { value: '4', label: '288 dpi' },
+                  // 300 rather than the 288 that four times 72 gives: 300 is
+                  // the number a print shop asks for, and being told 288 when
+                  // the form said 300 is a question nobody should have to ask.
+                  { value: String(300 / 72), label: '300 dpi' },
                 ]}
               />
             </Field>
