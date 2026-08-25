@@ -516,6 +516,20 @@ before writing the first file, and the warnings printed alongside.
 Their two Python packages are pinned in `test/requirements.txt`. Nothing else in
 the project needs Python.
 
+### The page a reader sees, not the page the file describes
+
+A page carries a MediaBox saying how big the sheet is and, often, a CropBox
+saying how much of it to display. Where the two differ the CropBox wins, and
+everything outside it is simply not drawn: a 600-point page cropped to its
+middle 300 is a 300-point page to everybody but the file itself. Neither box has
+to start at the origin either.
+
+`visibleBox` answers that question once, and `info`, `watermark`, `number`,
+`sign` and `resize` all ask it rather than reading the sheet. The same idea runs
+through `/Rotate`: a page stored sideways is measured the way it is looked at.
+Both are the kind of thing that is invisible until it is wrong, and then the
+page number is drawn onto a part of the sheet nobody can see.
+
 ### One sheet for every page
 
 A PDF does not require one page size: every page carries its own box, and a

@@ -1,5 +1,5 @@
 import { degrees, PDFDocument, rgb, StandardFonts, type PDFPage } from '@cantoo/pdf-lib'
-import { resolvePages } from './pdf-pages.ts'
+import { resolvePages, visibleBox } from './pdf-pages.ts'
 
 /**
  * Text drawn over existing pages. Both operations use the built-in Helvetica so
@@ -26,7 +26,9 @@ export function turnOf(page: PDFPage): number {
 
 /** The page as the reader sees it: a quarter turn swaps the sides. */
 export function displayedSize(page: PDFPage): { width: number; height: number } {
-  const { width, height } = page.getSize()
+  // The visible box, not getSize(): a cropped page is the size of its crop, and
+  // a corner worked out from the sheet lands outside what anybody can see.
+  const { width, height } = visibleBox(page)
   const turn = turnOf(page)
   return turn === 90 || turn === 270 ? { width: height, height: width } : { width, height }
 }
@@ -37,16 +39,18 @@ export function displayedSize(page: PDFPage): { width: number; height: number } 
  * turn so the drawn thing reads upright and runs the way the reader expects.
  */
 export function placeOnPage(page: PDFPage, u: number, v: number): { x: number; y: number } {
-  const { width, height } = page.getSize()
+  // Worked out inside the visible box and then shifted onto the sheet, because
+  // neither box has to start at the origin.
+  const { x, y, width, height } = visibleBox(page)
   switch (turnOf(page)) {
     case 90:
-      return { x: width - v, y: u }
+      return { x: x + width - v, y: y + u }
     case 180:
-      return { x: width - u, y: height - v }
+      return { x: x + width - u, y: y + height - v }
     case 270:
-      return { x: v, y: height - u }
+      return { x: x + v, y: y + height - u }
     default:
-      return { x: u, y: v }
+      return { x: x + u, y: y + v }
   }
 }
 
@@ -98,7 +102,8 @@ export async function watermarkPdf(
     // The centre of the page is the centre whichever way it is turned, so only
     // the angle has to account for the rotation: without this a 45 degree
     // watermark leans the other way on a sideways scan.
-    const { width, height } = page.getSize()
+    const box = visibleBox(page)
+    const { width, height } = box
     const spin = angleDegrees + turnOf(page)
     const radians = (spin * Math.PI) / 180
     const fontSize = size ?? (0.78 * Math.hypot(width, height)) / perUnit
@@ -108,8 +113,8 @@ export async function watermarkPdf(
     // drawText rotates around its own origin, so walk back from the page centre
     // along the baseline and then across it to land the text visually centred.
     page.drawText(text, {
-      x: width / 2 - (textWidth / 2) * Math.cos(radians) + (textHeight / 2) * Math.sin(radians),
-      y: height / 2 - (textWidth / 2) * Math.sin(radians) - (textHeight / 2) * Math.cos(radians),
+      x: box.x + width / 2 - (textWidth / 2) * Math.cos(radians) + (textHeight / 2) * Math.sin(radians),
+      y: box.y + height / 2 - (textWidth / 2) * Math.sin(radians) - (textHeight / 2) * Math.cos(radians),
       size: fontSize,
       font,
       rotate: degrees(spin),

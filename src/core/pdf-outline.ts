@@ -44,7 +44,13 @@ const DEST = PDFName.of('Dest')
 /** How deep an outline is followed before it is treated as a loop. */
 const MAX_DEPTH = 32
 
-/** How many nodes are followed at one level before it is treated as a loop. */
+/**
+ * How many nodes are followed at one level before it is treated as a loop.
+ *
+ * The visited set below catches a chain that points back at itself, which is
+ * the shape a hand-written loop takes. This catches the other one: a chain long
+ * enough to be a denial of service rather than a table of contents.
+ */
 const MAX_SIBLINGS = 10_000
 
 /* ------------------------------------------------------- destinations --- */
@@ -153,14 +159,17 @@ function rebuild(
   out: PDFDocument,
   pageFor: (destination: PDFArray) => PDFRef | undefined,
   depth: number,
+  visited: Set<PDFDict>,
 ): Built | undefined {
-  if (depth > MAX_DEPTH) return undefined
+  if (depth > MAX_DEPTH || visited.has(node)) return undefined
+  visited.add(node)
 
   const children: Built[] = []
   let child = source.context.lookup(node.get(FIRST))
   for (let seen = 0; child instanceof PDFDict && seen < MAX_SIBLINGS; seen++) {
-    const placeholder = PDFRef.of(0)
-    const built = rebuild(source, child, placeholder, out, pageFor, depth + 1)
+    if (visited.has(child)) break
+    // The parent is filled in below, once this node has a reference of its own.
+    const built = rebuild(source, child, PDFRef.of(0), out, pageFor, depth + 1, visited)
     if (built !== undefined) children.push(built)
     child = source.context.lookup(child.get(NEXT))
   }
@@ -249,9 +258,14 @@ export function carryOutline(
         const named = destination.get(0)
         return named === undefined ? undefined : landed.get(`${index}:${named.toString()}`)
       }
+      // One set per source: an outline that points back at itself would
+      // otherwise be walked until the sibling cap stopped it, ten thousand
+      // copies later.
+      const visited = new Set<PDFDict>()
       let node = source.context.lookup(root.get(FIRST))
       for (let seen = 0; node instanceof PDFDict && seen < MAX_SIBLINGS; seen++) {
-        const built = rebuild(source, node, outlinesRef, out, pageFor, 0)
+        if (visited.has(node)) break
+        const built = rebuild(source, node, outlinesRef, out, pageFor, 0, visited)
         if (built !== undefined) top.push(built)
         node = source.context.lookup(node.get(NEXT))
       }

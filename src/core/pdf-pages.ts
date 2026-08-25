@@ -1,4 +1,12 @@
-import { PDFDocument, degrees, type PDFPage } from '@cantoo/pdf-lib'
+import {
+  PDFArray,
+  PDFDict,
+  PDFDocument,
+  PDFName,
+  PDFNumber,
+  degrees,
+  type PDFPage,
+} from '@cantoo/pdf-lib'
 import { carryOutline } from './pdf-outline.ts'
 
 /** Page indices here are 0-based; the ranges people type are 1-based. */
@@ -25,8 +33,46 @@ export async function describe(file: Uint8Array): Promise<Description> {
   const pdf = await PDFDocument.load(file)
   const pages = pdf.getPageCount()
   if (pages === 0) throw new Error('this PDF has no pages')
-  const { width, height } = pdf.getPage(0).getSize()
+  const { width, height } = visibleBox(pdf.getPage(0))
   return { pages, width, height }
+}
+
+/** A rectangle in a page's own coordinates, with its corner where the box starts. */
+export interface Box {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+/**
+ * The part of a page a reader actually shows.
+ *
+ * A page carries a MediaBox saying how big the sheet is and, often, a CropBox
+ * saying how much of it to display. Where the two differ the CropBox wins, and
+ * everything outside it is simply not drawn: a 600 point page cropped to its
+ * middle 300 is a 300 point page to everybody but the file itself. Anything
+ * that measures a page, or works out a corner of one, has to ask this rather
+ * than getSize(), which reports the MediaBox and nothing else.
+ *
+ * Neither box has to start at the origin, either. A cropping tool leaves boxes
+ * like [50 50 645 891], so the corner is part of the answer and not an
+ * assumption.
+ */
+export function visibleBox(page: PDFPage): Box {
+  const media = page.getMediaBox()
+  // getCropBox falls back to the media box, so the entry has to be looked for
+  // rather than the value compared.
+  if (page.node.CropBox() === undefined) return media
+  const crop = page.getCropBox()
+  // A CropBox is only meaningful where it overlaps the sheet, and a reader that
+  // finds no overlap falls back to the whole sheet.
+  const left = Math.max(media.x, crop.x)
+  const bottom = Math.max(media.y, crop.y)
+  const right = Math.min(media.x + media.width, crop.x + crop.width)
+  const top = Math.min(media.y + media.height, crop.y + crop.height)
+  if (right - left <= 0 || top - bottom <= 0) return media
+  return { x: left, y: bottom, width: right - left, height: top - bottom }
 }
 
 /**
@@ -286,6 +332,36 @@ export interface ResizeOptions {
 }
 
 /**
+ * Apply the same move to a page's annotations as to its content.
+ *
+ * pdf-lib can scale annotations but not move them, and a comment that keeps its
+ * old coordinates while the page around it shifts is a comment pointing at the
+ * wrong line. Their rectangles are absolute, in the same space the content
+ * uses, so the same affine applies: scale, then translate.
+ */
+function moveAnnotations(page: PDFPage, factor: number, dx: number, dy: number): void {
+  const annotations = page.node.Annots()
+  if (!(annotations instanceof PDFArray)) return
+  for (let at = 0; at < annotations.size(); at++) {
+    const annotation = page.node.context.lookup(annotations.get(at))
+    if (!(annotation instanceof PDFDict)) continue
+    const rect = page.node.context.lookup(annotation.get(PDFName.of('Rect')))
+    if (!(rect instanceof PDFArray) || rect.size() < 4) continue
+    const moved = [0, 1, 2, 3].map((corner) => {
+      const value = page.node.context.lookup(rect.get(corner))
+      if (!(value instanceof PDFNumber)) return null
+      // Even indices are x, odd are y.
+      return value.asNumber() * factor + (corner % 2 === 0 ? dx : dy)
+    })
+    if (moved.some((value) => value === null)) continue
+    annotation.set(
+      PDFName.of('Rect'),
+      page.node.context.obj(moved.map((value) => PDFNumber.of(value!))),
+    )
+  }
+}
+
+/**
  * Put every page on the same sheet.
  *
  * A PDF does not require one page size: each page carries its own MediaBox, and
@@ -312,7 +388,8 @@ export async function resizePages(
 
   const pdf = await PDFDocument.load(file)
   for (const page of pdf.getPages()) {
-    const { width, height } = page.getSize()
+    const source = visibleBox(page)
+    const { width, height } = source
     if (width <= 0 || height <= 0) continue
     // getRotation is what a reader applies on top of the box, so a page stored
     // sideways is wider than it is tall to everybody but the file itself.
@@ -338,9 +415,24 @@ export async function resizePages(
     // One factor for both axes: scaling them apart would change the shape of
     // everything on the page, which is the failure people call "stretched".
     const factor = Math.min(room.width / width, room.height / height)
-    page.scale(factor, factor)
-    page.translateContent((boxWidth - width * factor) / 2, (boxHeight - height * factor) / 2)
-    page.setSize(boxWidth, boxHeight)
+    const left = (boxWidth - width * factor) / 2
+    const bottom = (boxHeight - height * factor) / 2
+
+    // Bring the visible corner to the origin before scaling, since scaling
+    // happens about the origin and neither box has to start there. Then move
+    // the result to the middle of the new sheet.
+    page.translateContent(-source.x, -source.y)
+    page.scaleContent(factor, factor)
+    page.translateContent(left, bottom)
+    moveAnnotations(page, factor, left - source.x * factor, bottom - source.y * factor)
+    page.setMediaBox(0, 0, boxWidth, boxHeight)
+
+    // The old crop describes a page that no longer exists. Left behind, a
+    // reader would go on showing the part of the sheet it names, which is the
+    // one thing this was asked not to do.
+    for (const name of ['CropBox', 'BleedBox', 'TrimBox', 'ArtBox']) {
+      page.node.delete(PDFName.of(name))
+    }
   }
   return pdf.save()
 }

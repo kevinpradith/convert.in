@@ -129,6 +129,28 @@ still change between minor versions.
 
 ### Fixed
 
+- **A cropped page is measured and drawn on as the part that is shown.** A page
+  carries a MediaBox saying how big the sheet is and, often, a CropBox saying
+  how much of it to display; where they differ the CropBox wins and everything
+  outside it is simply not drawn. Nothing read it, so a 600-point page cropped
+  to its middle 300 was reported by `info` as 600, and a page number asked for
+  the bottom right corner landed on part of the sheet no reader displays.
+  `visibleBox` is now what `info`, `watermark`, `number`, `sign` and `resize`
+  all measure against.
+- **Resizing a page whose box does not start at the origin lands square.**
+  Scaling happens about the origin, and a cropping tool leaves boxes like
+  `[50 50 645 891]`, so the content came out shifted by the corner it started
+  at. The old crop is also removed rather than left behind, where a reader would
+  have gone on showing the part of the sheet it named, and annotations are moved
+  as well as scaled: a comment that keeps its old coordinates while the page
+  shifts under it points at the wrong line.
+- **A redaction rectangle that is not numbers is refused**, rather than clamped
+  into one that paints nothing. A redaction that quietly covers nothing is the
+  one failure that tool must not have.
+- **An outline that points back at itself no longer runs away with the merge.**
+  Nothing in the format stops a bookmark being its own sibling, and following
+  one with only a counter to stop it produced ten thousand copies of the same
+  entry. With the guard removed the test hangs; with it, it finishes in 23ms.
 - **Sizes are quoted in the decimal units SI defines**, where a kilobyte is 1000
   bytes. They were divided by 1024 and labelled `kB`, which meant the compressor's
   "fit under 200 kB" was offered as "195 kB" and `--max-size 500kb` aimed at
