@@ -192,6 +192,45 @@ def cjk_pdf():
     return bytes(out)
 
 
+def talkative_pdf():
+    """A PDF that names its author twice over: once in the information
+    dictionary a reader shows, and again in an XMP packet, which is the copy
+    that survives most "cleaning" and which nothing displays."""
+    content = b'BT /F1 12 Tf 20 100 Td (hello) Tj ET\n'
+    xmp = (
+        b'<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>'
+        b'<x:xmpmeta xmlns:x="adobe:ns:meta/">a.person</x:xmpmeta>'
+        b'<?xpacket end="w"?>'
+    )
+    objects = [
+        b'<< /Type /Catalog /Pages 2 0 R /Metadata 7 0 R >>',
+        b'<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+        b'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] '
+        b'/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
+        b'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+        b'<< /Length %d >>\nstream\n' % len(content) + content + b'endstream',
+        b'<< /Title (Q3 layoffs draft) /Author (a.person) '
+        b'/Creator (Microsoft Word for Office 365) /Company (Acme Holdings) >>',
+        b'<< /Type /Metadata /Subtype /XML /Length %d >>\nstream\n' % len(xmp)
+        + xmp
+        + b'\nendstream',
+    ]
+    out = bytearray(b'%PDF-1.7\n%\xe2\xe3\xcf\xd3\n')
+    offsets = []
+    for number, body in enumerate(objects, 1):
+        offsets.append(len(out))
+        out += b'%d 0 obj\n' % number + body + b'\nendobj\n'
+    start = len(out)
+    out += b'xref\n0 %d\n0000000000 65535 f \n' % (len(objects) + 1)
+    for offset in offsets:
+        out += b'%010d 00000 n \n' % offset
+    out += b'trailer\n<< /Size %d /Root 1 0 R /Info 6 0 R >>\nstartxref\n%d\n%%%%EOF\n' % (
+        len(objects) + 1,
+        start,
+    )
+    return bytes(out)
+
+
 # Runs as a real same-origin script. Anything driven through page.evaluate goes
 # in over the automation channel, which is exempt from CSP and would report a
 # pass whatever the policy said.
@@ -217,6 +256,7 @@ def main():
         sys.exit(f'{FIXTURES}/plain.pdf is missing. Run "npm run audit:fixtures -- {FIXTURES}" first.')
 
     (FIXTURES / 'cjk.pdf').write_bytes(cjk_pdf())
+    (FIXTURES / 'talkative.pdf').write_bytes(talkative_pdf())
     (FIXTURES / 'grey.png').write_bytes(png(240, 180, 40))
     (FIXTURES / 'pale.png').write_bytes(png(180, 240, 200))
     (FIXTURES / 'half-clear.png').write_bytes(png(120, 80, 30, alpha=True))
@@ -758,6 +798,22 @@ def run():
               f"the number sits in the right half ({where['x']:.0f} of {where['w']})")
         check(where['y'] > where['h'] / 2,
               f"and in the bottom half ({where['y']:.0f} of {where['h']})")
+
+        print('== what a PDF says about itself ==')
+        current = tool('Clean PDF')
+        current.locator('input[type=file]').set_input_files(str(FIXTURES / 'talkative.pdf'))
+        # Seeing the name sitting there is the argument for the tool. A button
+        # labelled "remove metadata" is an abstraction over it.
+        shown = current.get_by_text('a.person', exact=True)
+        shown.wait_for(timeout=30000)
+        check(shown.count() >= 1, 'the author is shown before anything is done to the file')
+        check(current.get_by_text('Acme Holdings', exact=True).count() == 1,
+              'and so is the custom key the software that wrote it added')
+        cleaned = produced_bytes(current, 'Clean')
+        text = cleaned.decode('latin-1')
+        for secret in ('a.person', 'Acme Holdings', 'Q3 layoffs draft', 'xpacket'):
+            check(secret not in text, f'{secret!r} is gone from the bytes')
+        check(len(PdfReader(io.BytesIO(cleaned)).pages) == 1, 'and the page survived')
 
         print('== protect ==')
         current = tool('Protect PDF')

@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { deflateSync, inflateSync, crc32 } from 'node:zlib'
-import { PDFDocument } from '@cantoo/pdf-lib'
+import { PDFDocument, PDFDict, PDFHexString, PDFName } from '@cantoo/pdf-lib'
 
 import { imagesToPdf, sniffImage } from '../src/core/images-to-pdf.ts'
 import {
@@ -19,6 +19,7 @@ import {
 } from '../src/core/pdf-pages.ts'
 import { caveat, describeSecurity, explain, protectPdf, unlockPdf } from '../src/core/pdf-security.ts'
 import { compressPdf, compressToFit } from '../src/core/pdf-compress.ts'
+import { describeMetadata, stripMetadata } from '../src/core/pdf-metadata.ts'
 import { signPdf } from '../src/core/pdf-sign.ts'
 import { decodeImage } from '../src/core/images-node.ts'
 import {
@@ -144,6 +145,78 @@ test('chunkPages splits into consecutive groups and keeps the short tail', () =>
   assert.deepEqual(chunkPages(4, 1), [[0], [1], [2], [3]])
   assert.deepEqual(chunkPages(3, 10), [[0, 1, 2]])
   assert.throws(() => chunkPages(3, 0), />= 1/)
+})
+
+/**
+ * A duplex feeder that flips the back of every sheet leaves half the document
+ * upside down, and the fix is a page range nobody wants to type out to 300.
+ */
+test('odd and even name the halves a duplex scan gets wrong', async () => {
+  assert.deepEqual(parseRanges('odd', 7), [0, 2, 4, 6])
+  assert.deepEqual(parseRanges('even', 7), [1, 3, 5])
+  assert.deepEqual(parseRanges('EVEN', 4), [1, 3])
+  assert.deepEqual(parseRanges('1,even', 4), [0, 1, 3])
+  // Nothing to name is still an empty range, not a silent no-op.
+  assert.throws(() => parseRanges('even', 1), /empty page range/)
+
+  // Turning is not something one page can be asked for twice, however many
+  // ways the range names it.
+  const pdf = await rotatePages(await makePdf(3), [0, 0, 2], 90)
+  const angles = (await PDFDocument.load(pdf)).getPages().map((page) => page.getRotation().angle)
+  assert.deepEqual(angles, [90, 0, 90])
+})
+
+/* ---------- metadata ---------- */
+
+/**
+ * A PDF names its author, the machine that wrote it and the company licence it
+ * was written under, in an information dictionary and again in an XMP packet,
+ * and none of it shows while reading the document. Every one of those copies
+ * has to go, and the packet has to leave the file rather than merely lose the
+ * reference that pointed at it.
+ */
+test('what a PDF says about itself can be listed, and taken out', async () => {
+  const doc = await PDFDocument.create()
+  doc.addPage([200, 200])
+  doc.setTitle('Q3 layoffs draft')
+  doc.setAuthor('a.person')
+  doc.setCreator('Microsoft Word for Office 365')
+  const once = await doc.save()
+
+  // A custom key and an XMP packet, which is where the interesting things
+  // usually are and which pdf-lib has no setter for.
+  const marked = await PDFDocument.load(once, { updateMetadata: false })
+  const info = marked.context.lookup(marked.context.trailerInfo.Info) as PDFDict
+  info.set(PDFName.of('Company'), PDFHexString.fromText('Acme Holdings'))
+  const packet = marked.context.stream(
+    '<?xpacket begin=""?><x:xmpmeta xmlns:x="adobe:ns:meta/">a.person</x:xmpmeta><?xpacket end="w"?>',
+    { Type: 'Metadata', Subtype: 'XML' },
+  )
+  marked.catalog.set(PDFName.of('Metadata'), marked.context.register(packet))
+  const dirty = await marked.save()
+
+  const before = await describeMetadata(dirty)
+  assert.equal(before.any, true)
+  const names = before.entries.map((entry) => entry.name)
+  for (const key of ['Title', 'Author', 'Creator', 'Company']) {
+    assert.ok(names.includes(key), `${key} should have been found`)
+  }
+  assert.equal(before.entries.find((entry) => entry.name === 'Company')?.custom, true)
+  assert.equal(before.entries.find((entry) => entry.name === 'Author')?.custom, false)
+  assert.ok(before.xmp > 0)
+
+  const clean = await stripMetadata(dirty)
+  assert.deepEqual(await describeMetadata(clean), { entries: [], xmp: 0, any: false })
+  assert.equal((await PDFDocument.load(clean)).getPageCount(), 1, 'the pages are untouched')
+
+  // Unlinking the packet is not removing it: an object nothing points at is
+  // still written out in full, and still readable with `strings`.
+  const text = Buffer.from(clean).toString('latin1')
+  assert.ok(!text.includes('xpacket'), 'the XMP packet left the file, not just the catalog')
+  assert.ok(!text.includes('a.person'), 'and so did the name inside it')
+  // pdf-lib stamps its own Producer during a normal save, which would put one
+  // of the removed keys straight back.
+  assert.ok(!text.includes('pdf-lib'), 'nothing signed the file on the way out')
 })
 
 /* ---------- imagesToPdf ---------- */

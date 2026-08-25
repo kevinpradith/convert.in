@@ -39,6 +39,7 @@ COMMANDS
   unlock  <pdf...>            Take the password off a locked file
   watermark <pdf...> <text>   Stamp text diagonally across the pages
   number  <pdf...>            Print page numbers
+  clean   <pdf...>            Strip what the file says about who made it
   info    <pdf...>            Pages, file size, dimensions, whether it is locked
 
 OUTPUT
@@ -59,6 +60,7 @@ OUTPUT
     unlock  scan.pdf       ->  scan-unlocked.pdf
     watermark scan.pdf X   ->  scan-watermarked.pdf
     number  scan.pdf       ->  scan-numbered.pdf
+    clean   scan.pdf       ->  scan-clean.pdf
 
   Nothing is ever overwritten without --force.
 
@@ -82,7 +84,8 @@ MANY FILES AT ONCE
 
 OPTIONS
   -o, --out <path>       Output file, or the folder for split and for many files
-  -p, --pages <ranges>   1-based: "1-3,7" or "8-". Repeat a page to duplicate it
+  -p, --pages <ranges>   1-based: "1-3,7" or "8-", or "odd" / "even".
+                         Repeat a page to duplicate it
   -f, --force            Overwrite an existing file, or write into a used folder
       --to <format>      png, jpeg, webp, avif, jxl                  convert
       --quality <1-100>  Per-format default, see FORMATS              convert
@@ -258,9 +261,34 @@ PAGE ORDER
   expanded the glob. Most shells sort shot10.png before shot2.png; --sort natural
   counts the way you do. A warning is printed when the order looks lexical.
 
+  --pages also takes "odd" and "even". A duplex feeder that flips the back of
+  every sheet leaves one of those halves upside down, and 2,4,6 up to 300 is not
+  a page range anybody should have to type.
+
+    rotate scan.pdf 180 --pages even
+
   Rearranging pages leaves an interactive form behind, since page copying carries
   the boxes but not the form itself. merge, select and split say so before doing
   it; rotate, watermark, number and protect leave forms intact.
+
+WHAT A PDF SAYS ABOUT YOU
+  A PDF names its author, the software that wrote it, the company licence that
+  software was registered under, and the times it was made and last saved. Word
+  adds the company, a scanner sometimes adds the machine, and a document system
+  adds whatever it likes. None of it shows while reading the document, which is
+  why a CV, a report or a leaked draft carries it out of the building intact.
+
+  info lists every piece of it. clean takes every piece back out: the information
+  dictionary, the XMP packet that says the same things again in XML, and the
+  packet a page can carry of its own. The pages and any form are untouched.
+
+    convert.in info offer.pdf         see what is in there
+    convert.in clean offer.pdf        take it out
+    convert.in clean *.pdf -o sent/   before sending a folder of them
+
+  Removing the reference to an XMP packet is not removing the packet, so this
+  removes the object itself: an unreferenced one is still written out in full
+  and still readable with "strings".
 
 PATHS
   Paths are whatever your shell already uses: C:\\Users\\me\\a.png in PowerShell or
@@ -329,6 +357,7 @@ PERINTAH
   unlock  <pdf...>             Lepas password dari berkas yang terkunci
   watermark <pdf...> <teks>    Cap teks miring melintasi halaman
   number  <pdf...>             Cetak nomor halaman
+  clean   <pdf...>             Buang keterangan siapa yang membuat berkasnya
   info    <pdf...>             Jumlah halaman, ukuran, dimensi, status kunci
 
 HASIL
@@ -349,6 +378,7 @@ HASIL
     unlock  scan.pdf       ->  scan-unlocked.pdf
     watermark scan.pdf X   ->  scan-watermarked.pdf
     number  scan.pdf       ->  scan-numbered.pdf
+    clean   scan.pdf       ->  scan-clean.pdf
 
   Tidak ada yang pernah ditimpa tanpa --force.
 
@@ -373,7 +403,8 @@ BANYAK BERKAS SEKALIGUS
 
 OPSI
   -o, --out <path>       Berkas hasil, atau folder untuk split dan untuk banyak berkas
-  -p, --pages <rentang>  Mulai dari 1: "1-3,7" atau "8-". Ulangi nomor untuk menggandakan
+  -p, --pages <rentang>  Mulai dari 1: "1-3,7" atau "8-", atau "odd" / "even".
+                         Ulangi nomor untuk menggandakan
   -f, --force            Timpa berkas yang sudah ada, atau tulis ke folder yang terpakai
       --to <format>      png, jpeg, webp, avif, jxl                   convert
       --quality <1-100>  Bawaan beda per format, lihat FORMAT          convert
@@ -556,10 +587,36 @@ URUTAN HALAMAN
   natural menghitung seperti manusia. Ada peringatan kalau urutannya kelihatan
   leksikal.
 
+  --pages juga menerima "odd" dan "even". Pengumpan bolak-balik yang membalik
+  sisi belakang tiap lembar meninggalkan salah satu paruhnya terbalik, dan
+  2,4,6 sampai 300 bukan rentang halaman yang pantas diketik siapa pun.
+
+    rotate scan.pdf 180 --pages even
+
   Menata ulang halaman meninggalkan formulir interaktif, karena penyalinan
   halaman membawa kotaknya tapi tidak membawa formulirnya. merge, select, dan
   split memberi tahu sebelum melakukannya; rotate, watermark, number, dan protect
   tidak merusaknya.
+
+APA YANG DIKATAKAN PDF TENTANG LU
+  Sebuah PDF menyebut siapa penulisnya, software apa yang menulisnya, atas nama
+  perusahaan mana software itu terdaftar, serta kapan berkasnya dibuat dan
+  terakhir disimpan. Word menambahkan nama perusahaan, pemindai kadang
+  menambahkan identitas mesinnya, dan sistem dokumen menambahkan apa pun yang
+  dia mau. Tidak ada satu pun yang terlihat saat dokumennya dibaca, dan justru
+  karena itu sebuah CV, laporan, atau draf yang bocor membawanya keluar utuh.
+
+  info menampilkan semuanya. clean membuang semuanya: information dictionary,
+  paket XMP yang mengulang hal yang sama dalam bentuk XML, dan paket yang bisa
+  dibawa tiap halaman sendiri. Halaman dan formulirnya tidak disentuh.
+
+    convert.in info penawaran.pdf       lihat apa yang ada di dalamnya
+    convert.in clean penawaran.pdf      buang
+    convert.in clean *.pdf -o kirim/    sebelum mengirim satu folder
+
+  Menghapus rujukan ke paket XMP bukan menghapus paketnya, jadi yang dibuang di
+  sini objeknya sendiri: paket yang tidak dirujuk siapa pun tetap ditulis utuh
+  ke berkas dan tetap terbaca dengan "strings".
 
 PATH
   Path-nya persis seperti yang sudah dipakai shell lu: C:\\Users\\me\\a.png di

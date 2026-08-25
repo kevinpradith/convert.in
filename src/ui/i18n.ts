@@ -47,6 +47,7 @@ const en = {
     organize: { label: 'Organize PDF', hint: 'Merge, reorder, rotate, split' },
     export: { label: 'PDF to images', hint: 'Rasterise pages out' },
     protect: { label: 'Protect PDF', hint: 'Password, Acrobat-grade' },
+    clean: { label: 'Clean PDF', hint: 'Strip the hidden metadata' },
     stamp: { label: 'Stamp PDF', hint: 'Watermark, page numbers' },
   },
   convert: {
@@ -96,6 +97,24 @@ const en = {
     result: (percent: number, replaced: number) =>
       `${percent}% smaller, ${replaced} image${replaced === 1 ? '' : 's'} re-encoded`,
     hint: 'Capping the longest side is worth more than quality on anything scanned above 300 dpi.',
+  },
+  clean: {
+    emptyTitle: 'Drop PDFs here',
+    emptyHint:
+      'A PDF names its author, the software that wrote it, the company licence it was written under, and often more. None of it shows while reading the document. This lists every piece and takes it out, in this browser, without the file going anywhere.',
+    run: 'Clean',
+    working: 'Stripping\u2026',
+    custom: 'added by the software that wrote it',
+    xmp: (size: string) => `${size} of XML saying the same things again`,
+    alreadyClean: 'This PDF already says nothing about itself.',
+    removed: (fields: number, xmp: number) =>
+      [
+        fields > 0 ? `${fields} field${fields === 1 ? '' : 's'} removed` : '',
+        xmp > 0 ? 'XMP removed' : '',
+      ]
+        .filter(Boolean)
+        .join(' \u00b7 '),
+    hint: 'The pages are untouched. This removes what the file says about itself, not what it says.',
   },
   sign: {
     emptyTitle: 'Drop PDFs here',
@@ -269,6 +288,7 @@ const id: Strings = {
     organize: { label: 'Tata PDF', hint: 'Gabung, susun, putar, pisah' },
     export: { label: 'PDF ke gambar', hint: 'Halaman jadi gambar' },
     protect: { label: 'Kunci PDF', hint: 'Password, setara Acrobat' },
+    clean: { label: 'Bersihkan PDF', hint: 'Buang metadata tersembunyi' },
     stamp: { label: 'Cap PDF', hint: 'Watermark, nomor halaman' },
   },
   convert: {
@@ -317,6 +337,21 @@ const id: Strings = {
     result: (percent: number, replaced: number) =>
       `${percent}% lebih kecil, ${replaced} gambar di-encode ulang`,
     hint: 'Membatasi sisi terpanjang lebih berpengaruh daripada kualitas untuk apa pun yang dipindai di atas 300 dpi.',
+  },
+  clean: {
+    emptyTitle: 'Taruh PDF di sini',
+    emptyHint:
+      'Sebuah PDF menyebut siapa penulisnya, software apa yang menulisnya, lisensi perusahaan mana yang dipakai, dan sering kali lebih dari itu. Tidak ada satu pun yang terlihat saat dokumennya dibaca. Ini menampilkan semuanya lalu membuangnya, di browser ini, tanpa berkasnya pergi ke mana pun.',
+    run: 'Bersihkan',
+    working: 'Membuang\u2026',
+    custom: 'ditambahkan software penulisnya',
+    xmp: (size: string) => `${size} XML yang menyebutkan hal yang sama lagi`,
+    alreadyClean: 'PDF ini memang sudah tidak menyebut apa pun tentang dirinya.',
+    removed: (fields: number, xmp: number) =>
+      [fields > 0 ? `${fields} field dibuang` : '', xmp > 0 ? 'XMP dibuang' : '']
+        .filter(Boolean)
+        .join(' \u00b7 '),
+    hint: 'Halamannya tidak disentuh. Yang dibuang adalah apa yang dikatakan berkasnya tentang dirinya sendiri, bukan isinya.',
   },
   sign: {
     emptyTitle: 'Taruh PDF di sini',

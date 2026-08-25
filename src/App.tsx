@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Clean } from './ui/tools/Clean.tsx'
 import { Compress } from './ui/tools/Compress.tsx'
 import { Convert } from './ui/tools/Convert.tsx'
 import { ImagesToPdf } from './ui/tools/ImagesToPdf.tsx'
@@ -73,6 +74,7 @@ export default function App() {
                     {id === 'stamp' && <Stamp />}
                     {id === 'sign' && <Sign />}
                     {id === 'protect' && <Protect />}
+                    {id === 'clean' && <Clean />}
                     {id === 'export' && <PdfToImages />}
                   </Boundary>
                 </div>

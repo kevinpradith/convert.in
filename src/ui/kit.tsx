@@ -352,3 +352,12 @@ export const ExportIcon = ({ size = 40, stroke = 0.9 }: IconProps) => (
     <path d="M12 6.5h2v7h-7v-2" />
   </Icon>
 )
+
+/** A page with its label peeled off: what the file says about itself, removed. */
+export const TagIcon = ({ size = 40, stroke = 0.9 }: IconProps) => (
+  <Icon size={size} stroke={stroke}>
+    <path d="M3 2.5h6L13 6.5v7a1.5 1.5 0 0 1-1.5 1.5h-8A1.5 1.5 0 0 1 2 13.5v-9.5A1.5 1.5 0 0 1 3 2.5Z" />
+    <path d="M9 2.5v4h4" />
+    <path d="m5.5 11.5 4-3M5.5 8.5l4 3" />
+  </Icon>
+)
