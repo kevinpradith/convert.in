@@ -71,10 +71,13 @@ export function Redact() {
   }
 
   async function open(files: File[]) {
-    // One document at a time: a rectangle is drawn on a particular page of a
-    // particular file, and there is nothing sensible to do with the second.
-    const added = await batch.add(files.slice(0, 1))
+    // One document at a time, and the one before it goes. A rectangle is drawn
+    // on a particular page of a particular file, so a second document has
+    // nothing to inherit: leaving the first loaded meant the previews showed
+    // one file while the search read another and the run redacted both.
+    batch.clear()
     forgetPreviews()
+    const added = await batch.add(files.slice(0, 1))
     if (!added[0]) return
     batch.setBusy(t.redact.reading)
     try {
@@ -89,7 +92,13 @@ export function Redact() {
             url: await renderThumbnail(doc, number, PREVIEW_PX),
           })
         }
-        setPreviews(rendered)
+        // Revoked inside the setter rather than beforehand, so a second file
+        // dropped while the first is still rendering cannot leave a list of
+        // object URLs behind that nothing will ever release.
+        setPreviews((previous) => {
+          for (const page of previous) URL.revokeObjectURL(page.url)
+          return rendered
+        })
       } finally {
         await closeDoc(doc)
       }

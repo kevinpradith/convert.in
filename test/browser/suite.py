@@ -838,6 +838,43 @@ def run():
         check(b'/Encrypt' not in redacted and opened.metadata in (None, {}),
               'and the metadata went with it')
 
+        # A page stored sideways is where the geometry can quietly go wrong:
+        # searching measures against the page as it is looked at, and the
+        # rectangles are painted onto a canvas rendered the same way, so the
+        # two have to agree. The rebuilt page must also come back the shape a
+        # reader saw, not the shape the box stored.
+        sideways_text = PdfWriter()
+        sideways_text.append(io.BytesIO(FIXTURES.joinpath('plain.pdf').read_bytes()))
+        # Not "page": that is the Playwright one, and shadowing it here breaks
+        # every download from this point on.
+        for sheet in sideways_text.pages:
+            sheet.rotate(90)
+        with open(FIXTURES / 'turned-text.pdf', 'wb') as handle:
+            sideways_text.write(handle)
+        shown = PdfReader(str(FIXTURES / 'turned-text.pdf')).pages[0]
+        check(round(float(shown.mediabox.width)) == 300 and shown.rotation == 90,
+              'the fixture is a 300x400 page turned a quarter, so it reads 400x300')
+
+        # Set straight on the input rather than through the picker button: that
+        # button opens the browser's own file dialog, which nothing here can
+        # answer.
+        current.locator('input[type=file]').set_input_files(str(FIXTURES / 'turned-text.pdf'))
+        current.locator('img').first.wait_for(timeout=60000)
+        current.get_by_role('textbox', name='Word or phrase to black out').fill('page')
+        current.get_by_role('button', name='Black out every match').click()
+        told = current.get_by_role('status')
+        told.wait_for(timeout=60000)
+        check('3 match' in told.inner_text(),
+              f'the text is found on a turned page too ({told.inner_text()!r})')
+
+        turned_out = PdfReader(io.BytesIO(produced_bytes(current, 'Redact')))
+        box = turned_out.pages[0].mediabox
+        check(round(float(box.width)) == 400 and round(float(box.height)) == 300,
+              f'and it comes back the shape the reader saw '
+              f'({round(float(box.width))}x{round(float(box.height))})')
+        check(''.join(p.extract_text() for p in turned_out.pages).strip() == '',
+              'with no text left on any page')
+
         print('== what a PDF says about itself ==')
         current = tool('Clean PDF')
         current.locator('input[type=file]').set_input_files(str(FIXTURES / 'talkative.pdf'))

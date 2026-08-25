@@ -81,7 +81,8 @@ function namedDestination(doc: PDFDocument, key: string): PDFObject | undefined 
   // of entries, not millions, and a tree written slightly out of order would
   // defeat the search while the walk still finds it.
   const stack: PDFDict[] = [root]
-  for (let visited = 0; stack.length > 0 && visited < MAX_SIBLINGS; visited++) {
+  const seen = new Set<PDFDict>([root])
+  for (let steps = 0; stack.length > 0 && steps < MAX_SIBLINGS; steps++) {
     const node = stack.pop()!
     const pairs = doc.context.lookup(node.get(PDFName.of('Names')))
     if (pairs instanceof PDFArray) {
@@ -96,7 +97,12 @@ function namedDestination(doc: PDFDocument, key: string): PDFObject | undefined 
     if (kids instanceof PDFArray) {
       for (let at = 0; at < kids.size(); at++) {
         const kid = doc.context.lookup(kids.get(at))
-        if (kid instanceof PDFDict) stack.push(kid)
+        // A tree whose kid is its own parent is walked once, not until the
+        // step count gives up.
+        if (kid instanceof PDFDict && !seen.has(kid)) {
+          seen.add(kid)
+          stack.push(kid)
+        }
       }
     }
   }

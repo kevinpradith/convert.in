@@ -129,6 +129,20 @@ still change between minor versions.
 
 ### Fixed
 
+- **Redact PDF replaces the document it is given rather than adding to it.**
+  It says one at a time and drew one at a time, but the file before was left
+  loaded underneath: the previews showed the second document, the search read
+  the first, and pressing Redact produced two files. Found by the browser
+  suite, which could not download the result of the second run.
+- **A page with no width still goes on the sheet.** `resize` skipped one
+  entirely, so being asked to put every page on A4 quietly left one at nothing
+  by three hundred points.
+- **A destination name tree whose kid is its own parent is walked once**, rather
+  than until the step count gives up.
+- **Page previews are released when they are replaced.** Dropping a second file
+  while the first was still rendering left a list of object URLs behind that
+  nothing would ever revoke. Revoking now happens inside the state update, so
+  no list can be replaced without being released, in Redact and in Stamp.
 - **A cropped page is measured and drawn on as the part that is shown.** A page
   carries a MediaBox saying how big the sheet is and, often, a CropBox saying
   how much of it to display; where they differ the CropBox wins and everything

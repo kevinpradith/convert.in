@@ -66,7 +66,13 @@ export function Stamp() {
           batch.setBusy(t.progress(number, doc.numPages))
           rendered.push({ id: newId(), index: number - 1, url: await renderThumbnail(doc, number) })
         }
-        setThumbnails(rendered)
+        // Revoked inside the setter rather than beforehand, so a second file
+        // dropped while the first is still rendering cannot leave a list of
+        // object URLs behind that nothing will ever release.
+        setThumbnails((previous) => {
+          for (const page of previous) URL.revokeObjectURL(page.url)
+          return rendered
+        })
       } finally {
         await closeDoc(doc)
       }
