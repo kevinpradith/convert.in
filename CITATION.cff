@@ -1,0 +1,38 @@
+# Citation File Format 1.2.0. GitHub reads this file and offers a formatted
+# citation and a BibTeX entry in the sidebar of the repository.
+# Specification: https://citation-file-format.github.io
+cff-version: 1.2.0
+title: convert.in
+message: >-
+  If you use this software in work you publish, please cite it using the
+  metadata in this file.
+type: software
+authors:
+  - given-names: Kevin
+    family-names: Praditiansyah
+    email: kevinpradithh@gmail.com
+repository-code: https://github.com/kevinpradith/convert.in
+url: https://github.com/kevinpradith/convert.in
+abstract: >-
+  Image and PDF tools that never upload a file. A browser application and a
+  command line tool share one isomorphic core, so a change lands in both at
+  once. Images convert between PNG, JPEG, WebP, AVIF and JPEG XL through
+  WebAssembly codecs; PDFs are built, merged, reordered, split, stamped,
+  signed, compressed to a size limit, stripped of their metadata, redacted by
+  rebuilding the pages from pixels, and encrypted with AES-256 written as the
+  ISO 32000-2 revision 6 handler. The claim that nothing leaves the machine is
+  enforced by a Content-Security-Policy and checked by a browser suite that
+  fails if a single request leaves the origin.
+keywords:
+  - pdf
+  - image-processing
+  - privacy
+  - local-first
+  - offline
+  - webassembly
+  - pdf-encryption
+  - redaction
+  - typescript
+license: MIT
+version: 0.2.0
+date-released: '2026-08-26'
