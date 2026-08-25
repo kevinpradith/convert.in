@@ -74,6 +74,57 @@ def pages_of(path):
     return len(PdfReader(str(path)).pages)
 
 
+def outlined_pdf():
+    """A four-page document with a two-level table of contents.
+
+    Written out by hand because the point of reading it back with pypdf is that
+    nothing which produced it also read it."""
+    objects = [
+        b'<< /Type /Catalog /Pages 2 0 R /Outlines 6 0 R >>',
+        b'<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R 10 0 R] /Count 4 >>',
+        b'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] >>',
+        b'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] >>',
+        b'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] >>',
+        b'<< /Type /Outlines /First 7 0 R /Last 8 0 R /Count 3 >>',
+        b'<< /Title (Chapter one) /Parent 6 0 R /Next 8 0 R '
+        b'/Dest [3 0 R /XYZ 0 200 0] >>',
+        b'<< /Title (Chapter two) /Parent 6 0 R /Prev 7 0 R '
+        b'/First 9 0 R /Last 9 0 R /Count 1 /Dest [5 0 R /XYZ 0 200 0] >>',
+        b'<< /Title (Section 2.1) /Parent 8 0 R /Dest [10 0 R /XYZ 0 200 0] >>',
+        b'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] >>',
+    ]
+    out = bytearray(b'%PDF-1.7\n%\xe2\xe3\xcf\xd3\n')
+    offsets = []
+    for number, body in enumerate(objects, 1):
+        offsets.append(len(out))
+        out += b'%d 0 obj\n' % number + body + b'\nendobj\n'
+    start = len(out)
+    out += b'xref\n0 %d\n0000000000 65535 f \n' % (len(objects) + 1)
+    for offset in offsets:
+        out += b'%010d 00000 n \n' % offset
+    out += b'trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n' % (
+        len(objects) + 1,
+        start,
+    )
+    return bytes(out)
+
+
+def bookmarks_of(path):
+    """Every bookmark as "title -> 1-based page", read back with pypdf."""
+    reader = PdfReader(str(path))
+    found = []
+
+    def walk(items):
+        for item in items:
+            if isinstance(item, list):
+                walk(item)
+            else:
+                found.append(f'{item.title} -> {reader.get_destination_page_number(item) + 1}')
+
+    walk(reader.outline)
+    return found
+
+
 def main():
     work = pathlib.Path(tempfile.mkdtemp(prefix='convert-in-smoke-'))
     try:
@@ -139,6 +190,34 @@ def smoke(work):
     code, _ = run('split', source, '-o', work / 'split')
     parts = sorted((work / 'split').glob('*.pdf'))
     check(code == 0 and len(parts) == 3, f'split writes one file per page ({len(parts)})')
+
+    print()
+    print('== bookmarks ==')
+    # An outline names its pages by reference, so copying pages leaves the whole
+    # table of contents pointing at objects that came nowhere. Read back with
+    # pypdf, which shares no code with what wrote the file.
+    (work / 'book.pdf').write_bytes(outlined_pdf())
+    check(bookmarks_of(work / 'book.pdf') ==
+          ['Chapter one -> 1', 'Chapter two -> 3', 'Section 2.1 -> 4'],
+          'the fixture really carries a two-level table of contents')
+
+    code, _ = run('merge', work / 'book.pdf', work / 'book.pdf', '-o', work / 'twobooks.pdf')
+    check(code == 0 and bookmarks_of(work / 'twobooks.pdf') == [
+        'Chapter one -> 1', 'Chapter two -> 3', 'Section 2.1 -> 4',
+        'Chapter one -> 5', 'Chapter two -> 7', 'Section 2.1 -> 8',
+    ], f'merge carries both sets ({bookmarks_of(work / "twobooks.pdf")})')
+
+    # Chapter one has no page here, so it goes rather than pointing somewhere
+    # plausible.
+    code, _ = run('select', work / 'book.pdf', '3-4', '-o', work / 'chapter2.pdf')
+    check(code == 0 and bookmarks_of(work / 'chapter2.pdf') ==
+          ['Chapter two -> 1', 'Section 2.1 -> 2'],
+          f'select keeps the ones whose pages came ({bookmarks_of(work / "chapter2.pdf")})')
+
+    code, _ = run('split', work / 'book.pdf', '2', '-o', work / 'halves')
+    halves = sorted((work / 'halves').glob('*.pdf'))
+    check(len(halves) == 2 and bookmarks_of(halves[1]) == ['Chapter two -> 1', 'Section 2.1 -> 2'],
+          'and split gives each half its own')
 
     print()
     print('== stamping ==')

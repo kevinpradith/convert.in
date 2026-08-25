@@ -283,9 +283,17 @@ PAGE ORDER
 
     rotate scan.pdf 180 --pages even
 
-  Rearranging pages leaves an interactive form behind, since page copying carries
-  the boxes but not the form itself. merge, select and split say so before doing
-  it; rotate, watermark, number and protect leave forms intact.
+  Bookmarks come with their pages. An outline names each page by reference, so
+  copying pages leaves the whole table of contents pointing at objects that came
+  nowhere, which is why most tools drop it. merge lays the sources' outlines end
+  to end, select and split keep the entries whose pages came and reordering
+  moves them along with their pages. An entry whose page was left out is dropped
+  rather than pointed somewhere plausible: a bookmark that jumps to the wrong
+  chapter is worse than one that is missing, because only the second is noticed.
+
+  Rearranging pages does still leave an interactive form behind, since page
+  copying carries the boxes but not the form itself. merge, select and split say
+  so before doing it; rotate, watermark, number and protect leave forms intact.
 
 WHAT A PDF SAYS ABOUT YOU
   A PDF names its author, the software that wrote it, the company licence that
@@ -634,7 +642,16 @@ URUTAN HALAMAN
 
     rotate scan.pdf 180 --pages even
 
-  Menata ulang halaman meninggalkan formulir interaktif, karena penyalinan
+  Bookmark ikut bersama halamannya. Sebuah outline menyebut tiap halaman lewat
+  rujukan, jadi menyalin halaman meninggalkan seluruh daftar isinya menunjuk ke
+  objek yang tidak ikut pindah, dan karena itulah kebanyakan alat membuangnya.
+  merge menyusun outline tiap sumber berurutan, select dan split menyimpan entri
+  yang halamannya ikut, dan menata ulang memindahkan entrinya bersama
+  halamannya. Entri yang halamannya ditinggal dibuang, bukan diarahkan ke tempat
+  yang kelihatan masuk akal: bookmark yang melompat ke bab yang salah lebih
+  buruk daripada bookmark yang hilang, karena cuma yang kedua yang kelihatan.
+
+  Menata ulang halaman tetap meninggalkan formulir interaktif, karena penyalinan
   halaman membawa kotaknya tapi tidak membawa formulirnya. merge, select, dan
   split memberi tahu sebelum melakukannya; rotate, watermark, number, dan protect
   tidak merusaknya.

@@ -1,4 +1,5 @@
 import { PDFDocument, degrees, type PDFPage } from '@cantoo/pdf-lib'
+import { carryOutline } from './pdf-outline.ts'
 
 /** Page indices here are 0-based; the ranges people type are 1-based. */
 
@@ -130,6 +131,12 @@ export async function assemblePages(
     const rotate = picks[slot]!.rotate
     if (rotate) added.setRotation(degrees(normaliseAngle(added.getRotation().angle + rotate)))
   })
+
+  // Bookmarks name their pages by reference, so copying pages leaves the whole
+  // table of contents pointing at objects that came nowhere. Rebuilt here
+  // rather than in each caller, because merge, select, split and rotate all
+  // come through this one function.
+  carryOutline(docs, out, picks)
   return out.save()
 }
 

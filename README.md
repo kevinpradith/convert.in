@@ -23,7 +23,7 @@ Ten tools, all in one window:
 | **Compress PDF** | Re-encodes the pictures inside, which is where nearly all the weight of a scan is. Give it the limit the upload form asked for and it works out its own settings. Says so when a file has nothing to shrink. Takes a pile. |
 | **Sign PDF** | Draw a signature or bring a PNG of one, and place it on a page. One signature covers however many files you drop. |
 | **Images to PDF** | Any image in, one image per page, in the order a person would count them. Pages are sized by the resolution the image claims, and a photo taken sideways comes out upright. Fit-to-image, A4 or Letter, with an optional margin. |
-| **Organize PDF** | Drop any number of PDFs, then reorder, rotate, delete and duplicate pages. Save the result as one file or as one file per page. |
+| **Organize PDF** | Drop any number of PDFs, then reorder, rotate, delete and duplicate pages. Bookmarks come with their pages. Save the result as one file or as one file per page. |
 | **Clean PDF** | Lists what the file says about whoever made it, then takes it out: the information dictionary, the XMP packet, and the custom keys the software that wrote it added. |
 | **Redact PDF** | Drag a rectangle, or search for a word and black out every occurrence. What is covered is then removed rather than hidden: the pages are rebuilt from pixels, so nothing survives underneath to be selected or copied. |
 | **Stamp PDF** | A watermark across the pages, or page numbers on them. One file lets you select tiles; a pile gets stamped through. |
@@ -514,6 +514,27 @@ before writing the first file, and the warnings printed alongside.
 
 Their two Python packages are pinned in `test/requirements.txt`. Nothing else in
 the project needs Python.
+
+### Bookmarks come with their pages
+
+A PDF's table of contents is a tree hanging off the catalogue, and every entry
+names its page by reference. Copying pages into a new document does not bring
+it: the references point at objects that are no longer part of anything, so
+merging or extracting silently throws the whole outline away. That is the
+complaint on every forum thread about merging PDFs, and it is why Sejda sells
+keeping them as a feature.
+
+`assemblePages` rebuilds the tree against the pages that actually came across,
+so merge, select, split and reorder all keep it without knowing they do. Merging
+lays the sources' outlines end to end. Reordering moves each entry with its
+page. An entry whose page was left out is dropped rather than pointed somewhere
+plausible, because a bookmark that jumps to the wrong chapter is worse than one
+that is missing: only the second is noticed. Destinations written out in full
+and destinations referred to by name through the `/Names /Dests` tree are both
+resolved, since plenty of writers choose the second.
+
+`npm run test:cli` reads the result back with pypdf, which shares no code with
+what wrote it.
 
 ### Redaction that removes what it covers
 
