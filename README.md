@@ -15,7 +15,7 @@ npm run dev       # http://localhost:5173
 npm run build     # static files in dist/, host them anywhere or open them locally
 ```
 
-Nine tools, all in one window:
+Ten tools, all in one window:
 
 | Tool | What it does |
 | --- | --- |
@@ -25,6 +25,7 @@ Nine tools, all in one window:
 | **Images to PDF** | Any image in, one image per page, in the order a person would count them. Pages are sized by the resolution the image claims, and a photo taken sideways comes out upright. Fit-to-image, A4 or Letter, with an optional margin. |
 | **Organize PDF** | Drop any number of PDFs, then reorder, rotate, delete and duplicate pages. Save the result as one file or as one file per page. |
 | **Clean PDF** | Lists what the file says about whoever made it, then takes it out: the information dictionary, the XMP packet, and the custom keys the software that wrote it added. |
+| **Redact PDF** | Drag a rectangle, or search for a word and black out every occurrence. What is covered is then removed rather than hidden: the pages are rebuilt from pixels, so nothing survives underneath to be selected or copied. |
 | **Stamp PDF** | A watermark across the pages, or page numbers on them. One file lets you select tiles; a pile gets stamped through. |
 | **Protect PDF** | Lock with a password, or hand it locked files and take the password off. One password covers the pile. Says so when a file asks for a password but leaves its pages readable anyway. |
 | **PDF to images** | Rasterise pages to PNG or JPEG at 72, 144 or 300 dpi. |
@@ -513,6 +514,36 @@ before writing the first file, and the warnings printed alongside.
 
 Their two Python packages are pinned in `test/requirements.txt`. Nothing else in
 the project needs Python.
+
+### Redaction that removes what it covers
+
+A black rectangle drawn over a paragraph hides nothing. PDF renders in layers,
+so the characters underneath survive the shape on top of them, still selectable
+and still copyable; that is how the details behind the bars in the Manafort
+filings were read, and the same mistake is made every week.
+
+The only removal this project can make and then prove is to stop the page being
+text at all. Each page is rendered to pixels, the rectangles are painted onto
+those pixels, and the document is rebuilt from the images. There is no text
+object left to select, no vector path to lift and no earlier revision to
+recover, because the objects that held them are not carried across. The
+information dictionary and the XMP packet go too, since a redacted document that
+still names its author has only moved the leak.
+
+What that costs is stated in the tool rather than buried here: the text stops
+being searchable and selectable for the recipient as well, and the file is
+usually larger. Both are the price of the guarantee, not a defect in it.
+
+Two ways to say where. Dragging suits a signature, a photograph or a corner of a
+scan. Searching suits what dragging is worst at — a name that appears forty
+times across nineteen pages, which is a job somebody will get wrong once, and
+once is all it takes. Searching also works without a pointer, which dragging
+cannot. A scanned page carries no text, so nothing is found there and the
+rectangle has to be drawn.
+
+The browser suite proves the claim from the bytes out rather than restating it:
+it redacts a document and then checks that no text can be extracted from any
+page and that none of the original words appear anywhere in the file.
 
 ## Deliberate limits
 

@@ -58,6 +58,26 @@ still change between minor versions.
   Unlinking an XMP packet is not removing it, since an object nothing points at
   is still written out in full and still readable with `strings`, so the object
   itself goes.
+- **Redact PDF**, in the window. A black rectangle drawn over a paragraph hides
+  nothing: PDF renders in layers, so the characters underneath survive the shape
+  on top of them, still selectable and still copyable, which is how the details
+  behind the bars in the Manafort filings were read. This removes rather than
+  covers: each page is rendered to pixels, the rectangles are painted onto those
+  pixels, and the document is rebuilt from the images, so there is no text object
+  left to select, no vector path to lift and no earlier revision to recover. The
+  information dictionary and the XMP packet go with it, since a redacted document
+  that still names its author has only moved the leak.
+
+  Two ways to say where. Dragging suits a signature or a corner of a scan.
+  Searching suits what dragging is worst at, a name that appears forty times
+  across nineteen pages, and it works without a pointer, which dragging cannot.
+  The cost is stated in the tool rather than buried: the text stops being
+  selectable for the recipient too, and the file is usually larger. The browser
+  suite checks the claim from the bytes out, that no text can be extracted from
+  any page of the result and that none of the original words are anywhere in it.
+
+  There is no `redact` command, for the same reason there is no `PDF to images`
+  one: the rendering runs through a canvas.
 - **An end-to-end suite for the command line**, `npm run test:cli`. It drives
   every command once and reads the result back, covering the layer between a
   typed command and `src/core` that nothing else touched: argument parsing,

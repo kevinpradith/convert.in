@@ -5,6 +5,7 @@ import {
   ExportIcon,
   ImageIcon,
   LockIcon,
+  MarkerIcon,
   Logo,
   PagesIcon,
   Segmented,
@@ -25,6 +26,7 @@ export const TOOL_IDS = [
   'sign',
   'protect',
   'clean',
+  'redact',
   'export',
 ] as const
 export type ToolId = (typeof TOOL_IDS)[number]
@@ -38,6 +40,7 @@ const TOOL_ICONS: Record<ToolId, typeof ImageIcon> = {
   sign: SignIcon,
   protect: LockIcon,
   clean: TagIcon,
+  redact: MarkerIcon,
   export: ExportIcon,
 }
 

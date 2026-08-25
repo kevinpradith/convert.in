@@ -38,6 +38,9 @@ here, whatever else it is elsewhere:
   compromised. The same applies to the cross-origin isolation headers beside it.
 - Anything a crafted filename can do to the name a finished file is saved
   under, which `safeName` in `src/ui/files.ts` is responsible for.
+- Any way to recover content that Redact PDF covered. The claim there is that
+  the covered content is gone from the file, not hidden in it, and that the
+  metadata went with it.
 - Cross-site scripting through a crafted file, in particular an SVG, which the
   browser decoder renders through an `<img>` element on purpose because that
   context runs no script.

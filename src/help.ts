@@ -134,7 +134,9 @@ THE WEB APP
     merge, select, rotate, split  Organize PDF
     watermark, number             Stamp PDF
     protect, unlock               Protect PDF
-    (no command)                  PDF to images, which needs a canvas
+    clean                         Clean PDF
+    (no command)                  PDF to images and Redact PDF, which need a
+                                  canvas
 
   Page ranges are typed the same way in both, because both run the same parser:
   put "1-3,7" in the Pages box in the toolbar.
@@ -303,6 +305,14 @@ WHAT A PDF SAYS ABOUT YOU
   Removing the reference to an XMP packet is not removing the packet, so this
   removes the object itself: an unreferenced one is still written out in full
   and still readable with "strings".
+
+  Redact PDF, in the window, is the same idea applied to the page rather than
+  to the paperwork. A black rectangle drawn over a paragraph hides nothing: PDF
+  renders in layers, so the characters survive underneath it, still selectable
+  and still copyable. There is no command for it because it renders each page
+  through a canvas, and it is the one tool here that deliberately throws
+  something away: the pages come back as pictures, so what was covered is gone
+  and the rest of the text stops being selectable for everybody.
 
 PATHS
   Paths are whatever your shell already uses: C:\\Users\\me\\a.png in PowerShell or
@@ -648,6 +658,15 @@ APA YANG DIKATAKAN PDF TENTANG LU
   Menghapus rujukan ke paket XMP bukan menghapus paketnya, jadi yang dibuang di
   sini objeknya sendiri: paket yang tidak dirujuk siapa pun tetap ditulis utuh
   ke berkas dan tetap terbaca dengan "strings".
+
+  Sensor PDF, di jendela aplikasinya, adalah gagasan yang sama tapi diterapkan
+  ke halamannya, bukan ke keterangannya. Kotak hitam yang digambar di atas
+  sebuah paragraf tidak menyembunyikan apa pun: PDF dirender berlapis, jadi
+  hurufnya selamat di baliknya, masih bisa diseleksi dan disalin. Tidak ada
+  perintah CLI-nya karena tiap halaman dirender lewat canvas, dan ini satu-
+  satunya alat di sini yang sengaja membuang sesuatu: halamannya kembali
+  sebagai gambar, jadi yang tertutup benar-benar hilang dan teks selebihnya
+  berhenti bisa diseleksi oleh siapa pun.
 
 PATH
   Path-nya persis seperti yang sudah dipakai shell lu: C:\\Users\\me\\a.png di

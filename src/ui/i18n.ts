@@ -48,6 +48,7 @@ const en = {
     export: { label: 'PDF to images', hint: 'Rasterise pages out' },
     protect: { label: 'Protect PDF', hint: 'Password, Acrobat-grade' },
     clean: { label: 'Clean PDF', hint: 'Strip the hidden metadata' },
+    redact: { label: 'Redact PDF', hint: 'Black it out and remove it' },
     stamp: { label: 'Stamp PDF', hint: 'Watermark, page numbers' },
   },
   convert: {
@@ -97,6 +98,32 @@ const en = {
     result: (percent: number, replaced: number) =>
       `${percent}% smaller, ${replaced} image${replaced === 1 ? '' : 's'} re-encoded`,
     hint: 'Capping the longest side is worth more than quality on anything scanned above 300 dpi.',
+  },
+  redact: {
+    emptyTitle: 'Drop a PDF here',
+    emptyHint:
+      'Drag a rectangle over anything that should not be there, or search for a word and black out every occurrence of it. What is covered is then removed rather than hidden: the pages are rebuilt from pixels, so there is no text left underneath to select, copy or recover.',
+    notice:
+      'Every page is rebuilt as an image, so the text stops being selectable and searchable for the recipient too. That is what makes the removal real, and it cannot be undone. The metadata goes with it.',
+    replace: 'Open another',
+    reading: 'Reading the pages\u2026',
+    searching: 'Searching\u2026',
+    working: 'Redacting\u2026',
+    run: 'Redact',
+    find: 'Find',
+    findLabel: 'Word or phrase to black out',
+    findPlaceholder: 'a name',
+    addMatches: 'Black out every match',
+    matches: (n: number) =>
+      n === 0
+        ? 'Nothing matched. A scanned page carries no text, so draw the box instead.'
+        : `${n} match${n === 1 ? '' : 'es'} blacked out`,
+    detail: 'Detail',
+    detailLabel: 'Pixels per inch to rebuild at',
+    count: (n: number) => `${n} box${n === 1 ? '' : 'es'}`,
+    clearBoxes: 'Remove all boxes',
+    wholePage: 'Cover the whole page',
+    removeBox: (page: number) => `Remove this box from page ${page}`,
   },
   clean: {
     emptyTitle: 'Drop PDFs here',
@@ -291,6 +318,7 @@ const id: Strings = {
     export: { label: 'PDF ke gambar', hint: 'Halaman jadi gambar' },
     protect: { label: 'Kunci PDF', hint: 'Password, setara Acrobat' },
     clean: { label: 'Bersihkan PDF', hint: 'Buang metadata tersembunyi' },
+    redact: { label: 'Sensor PDF', hint: 'Hitamkan sekaligus hapus isinya' },
     stamp: { label: 'Cap PDF', hint: 'Watermark, nomor halaman' },
   },
   convert: {
@@ -339,6 +367,32 @@ const id: Strings = {
     result: (percent: number, replaced: number) =>
       `${percent}% lebih kecil, ${replaced} gambar di-encode ulang`,
     hint: 'Membatasi sisi terpanjang lebih berpengaruh daripada kualitas untuk apa pun yang dipindai di atas 300 dpi.',
+  },
+  redact: {
+    emptyTitle: 'Taruh satu PDF di sini',
+    emptyHint:
+      'Seret kotak di atas apa pun yang tidak seharusnya ada, atau cari sebuah kata lalu hitamkan semua kemunculannya. Yang tertutup lalu dihapus, bukan disembunyikan: halamannya disusun ulang dari piksel, jadi tidak ada teks tersisa di baliknya untuk diseleksi, disalin, atau dipulihkan.',
+    notice:
+      'Semua halaman disusun ulang jadi gambar, jadi teksnya berhenti bisa diseleksi dan dicari, termasuk oleh penerimanya. Justru itu yang membuat penghapusannya nyata, dan itu tidak bisa dibatalkan. Metadatanya ikut dibuang.',
+    replace: 'Buka yang lain',
+    reading: 'Membaca halaman\u2026',
+    searching: 'Mencari\u2026',
+    working: 'Menyensor\u2026',
+    run: 'Sensor',
+    find: 'Cari',
+    findLabel: 'Kata atau frasa yang mau dihitamkan',
+    findPlaceholder: 'sebuah nama',
+    addMatches: 'Hitamkan semua yang cocok',
+    matches: (n: number) =>
+      n === 0
+        ? 'Tidak ada yang cocok. Halaman hasil pindaian tidak punya teks, jadi kotaknya digambar saja.'
+        : `${n} kemunculan dihitamkan`,
+    detail: 'Kerapatan',
+    detailLabel: 'Piksel per inci untuk menyusun ulang',
+    count: (n: number) => `${n} kotak`,
+    clearBoxes: 'Hapus semua kotak',
+    wholePage: 'Tutup seluruh halaman',
+    removeBox: (page: number) => `Hapus kotak ini dari halaman ${page}`,
   },
   clean: {
     emptyTitle: 'Taruh PDF di sini',
