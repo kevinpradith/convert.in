@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { deflateSync, inflateSync, crc32 } from 'node:zlib'
-import { PDFDocument, PDFDict, PDFHexString, PDFName } from '@cantoo/pdf-lib'
+import { PDFDocument, PDFDict, PDFHexString, PDFName, degrees } from '@cantoo/pdf-lib'
 
 import { imagesToPdf, sniffImage } from '../src/core/images-to-pdf.ts'
 import {
@@ -13,6 +13,7 @@ import {
   mergePdfs,
   pageCount,
   parseRanges,
+  resolvePages,
   rotatePages,
   selectPages,
   splitPdf,
@@ -39,7 +40,17 @@ import {
   keepsAlpha,
   sniff,
 } from '../src/core/images.ts'
-import { numberPages, watermarkPdf } from '../src/core/pdf-stamp.ts'
+import {
+  displayedSize,
+  numberPages,
+  placeOnPage,
+  turnOf,
+  watermarkPdf,
+} from '../src/core/pdf-stamp.ts'
+import { isMirrored, readImageMeta, turnFor } from '../src/core/image-meta.ts'
+import { humanSize, sizeChange } from '../src/core/units.ts'
+import { numbered, safeName, stem } from '../src/ui/files.ts'
+import { matching } from '../src/ui/Dropzone.tsx'
 
 /* ---------- fixtures, built here so the repo carries no binary blobs ---------- */
 
@@ -171,6 +182,153 @@ test('odd and even name the halves a duplex scan gets wrong', async () => {
   const pdf = await rotatePages(await makePdf(3), [0, 0, 2], 90)
   const angles = (await PDFDocument.load(pdf)).getPages().map((page) => page.getRotation().angle)
   assert.deepEqual(angles, [90, 0, 90])
+})
+
+/* ---------- the small shared pieces ---------- */
+
+/**
+ * Sizes are quoted in the decimal units SI defines. The difference from the
+ * 1024s only matters in one place, and it is the place that matters most: an
+ * upload form saying "500KB" never says which it means, and the decimal reading
+ * is the smaller of the two, so a file under it is under both.
+ */
+test('sizes are reported in the units an upload form means', () => {
+  assert.equal(humanSize(0), '0 B')
+  assert.equal(humanSize(999), '999 B')
+  assert.equal(humanSize(1000), '1 kB')
+  assert.equal(humanSize(200_000), '200 kB', 'not the 195 kB the 1024s would give')
+  assert.equal(humanSize(1_000_000), '1.0 MB')
+  assert.equal(humanSize(2_500_000), '2.5 MB')
+  // Nothing here should ever be handed one of these, but a size that reads as
+  // "NaN MB" in a progress line is worse than one that admits it does not know.
+  assert.equal(humanSize(Number.NaN), '? B')
+  assert.equal(humanSize(Number.POSITIVE_INFINITY), '? B')
+
+  assert.equal(sizeChange(100, 50), 50)
+  assert.equal(sizeChange(50, 100), -100, 'a file that grew reports a negative saving')
+  assert.equal(sizeChange(0, 0), 0, 'nothing divided by nothing is not a percentage')
+})
+
+/**
+ * The name a finished file is offered under comes from the name of the file
+ * that was dropped in, which is somebody else's text whenever the document came
+ * from somebody else.
+ */
+test('a download name cannot carry anything but a name', () => {
+  assert.equal(safeName('report.pdf'), 'report.pdf')
+  assert.equal(safeName('../../etc/passwd'), '-..-etc-passwd', 'separators cannot escape')
+  assert.equal(safeName('  .bashrc'), 'bashrc', 'trimmed first, so the dot is still leading')
+  assert.equal(safeName('a:b.pdf'), 'ab.pdf', 'a colon is an alternate data stream on Windows')
+  assert.equal(safeName('report .'), 'report', 'Windows drops these and Unix does not')
+  assert.equal(safeName('   '), 'convert.in.pdf', 'something has to be offered')
+
+  // A bidirectional override reorders what follows it, so this name is listed
+  // by the browser as ending in ".png" while the bytes end in ".exe". The
+  // source-code form of the same trick is CVE-2021-42574.
+  assert.equal(safeName('report\u202Egnp.exe'), 'reportgnp.exe')
+  assert.equal(safeName('\u2066hidden\u2069.pdf'), 'hidden.pdf')
+
+  // Truncation keeps the extension, or the file stops being openable.
+  const long = safeName(`${'x'.repeat(250)}.pdf`)
+  assert.equal(long.length, 200)
+  assert.ok(long.endsWith('.pdf'), 'the extension survives whatever else is cut')
+  // What is not an extension is not treated as one.
+  assert.equal(safeName('y'.repeat(250)).length, 200)
+
+  assert.equal(stem('holiday photos.HEIC'), 'holiday photos')
+  assert.equal(stem('archive.tar.gz'), 'archive.tar')
+  assert.equal(stem('.bashrc'), '.bashrc', 'a dotfile is all name and no extension')
+  assert.equal(numbered('page', 0, 100), 'page-001', 'padded so a file manager sorts them')
+  assert.equal(numbered('page', 9, 10), 'page-10')
+})
+
+/**
+ * A drop event carries names, not bytes, so this is the only filter that can
+ * run at the door. Whatever gets through is identified from its own magic bytes
+ * further in.
+ */
+test('a drop is filtered by extension without an empty entry letting everything in', () => {
+  const dropped = [
+    new File([], 'scan.pdf'),
+    new File([], 'photo.PNG'),
+    new File([], 'notes.txt'),
+  ]
+  assert.deepEqual(
+    matching(dropped, '.pdf,.png').map((file) => file.name),
+    ['scan.pdf', 'photo.PNG'],
+    'the extension is matched without regard to case',
+  )
+  // One stray comma leaves an empty string in the list, and every name ends
+  // with an empty string, so this used to accept the lot.
+  assert.deepEqual(
+    matching(dropped, '.pdf,').map((file) => file.name),
+    ['scan.pdf'],
+  )
+  assert.deepEqual(matching(dropped, '').length, 3, 'accepting nothing in particular takes all')
+})
+
+/**
+ * A page carries its content in one orientation and a /Rotate telling the
+ * reader to turn it. Everything drawn onto a page has to cross that, and three
+ * tools do, so the crossing lives in one place.
+ */
+test('the rotation helpers agree with what a reader is shown', async () => {
+  const pdf = await PDFDocument.create()
+  const page = pdf.addPage([400, 200])
+
+  assert.equal(turnOf(page), 0)
+  assert.deepEqual(displayedSize(page), { width: 400, height: 200 })
+  assert.deepEqual(placeOnPage(page, 10, 20), { x: 10, y: 20 })
+
+  page.setRotation(degrees(90))
+  assert.equal(turnOf(page), 90)
+  assert.deepEqual(displayedSize(page), { width: 200, height: 400 }, 'the reader sees it upright')
+  assert.deepEqual(placeOnPage(page, 10, 20), { x: 380, y: 10 })
+
+  page.setRotation(degrees(180))
+  assert.deepEqual(displayedSize(page), { width: 400, height: 200 })
+  assert.deepEqual(placeOnPage(page, 10, 20), { x: 390, y: 180 })
+
+  page.setRotation(degrees(270))
+  assert.deepEqual(placeOnPage(page, 10, 20), { x: 20, y: 190 })
+
+  page.setRotation(degrees(-90))
+  assert.equal(turnOf(page), 270, 'a negative turn folds into the same four')
+
+  // pdf-lib will not set an angle that is not a quarter turn, but a file from
+  // somewhere else can carry one, so it is written into the page dictionary
+  // the way a parser would find it.
+  page.node.set(PDFName.of('Rotate'), pdf.context.obj(45))
+  assert.equal(turnOf(page), 0, 'an angle that is not a quarter turn is treated as none')
+  assert.deepEqual(displayedSize(page), { width: 400, height: 200 })
+})
+
+/** The EXIF orientation tag, which is eight values and only four of them turns. */
+test('orientation tags map to turns, and the mirrored ones are known', () => {
+  assert.deepEqual([1, 2, 3, 4, 5, 6, 7, 8].map(turnFor), [0, 0, 180, 180, 90, 90, 270, 270])
+  assert.deepEqual([1, 2, 3, 4, 5, 6, 7, 8].map(isMirrored), [
+    false, true, false, true, true, false, true, false,
+  ])
+  // Nothing that is not a tag becomes a turn.
+  assert.equal(turnFor(0), 0)
+  assert.equal(turnFor(99), 0)
+
+  // A file that says nothing says nothing, rather than guessing.
+  assert.deepEqual(readImageMeta(makePng(4, 4)), { orientation: 1, dpi: null })
+  assert.deepEqual(readImageMeta(new Uint8Array([1, 2, 3])), { orientation: 1, dpi: null })
+  assert.deepEqual(readImageMeta(new Uint8Array(0)), { orientation: 1, dpi: null })
+  assert.equal(readImageMeta(withResolution(makePng(4, 4), 300)).dpi, 300)
+})
+
+/** Every page-level tool narrows to a set of indices through this one function. */
+test('a page selection is checked before anything is drawn on it', () => {
+  assert.deepEqual(resolvePages(3), [0, 1, 2], 'no selection means the whole document')
+  assert.deepEqual(resolvePages(3, [2, 0]), [2, 0], 'the order given is the order kept')
+  assert.throws(() => resolvePages(0), /no pages/)
+  assert.throws(() => resolvePages(3, []), /no pages selected/)
+  assert.throws(() => resolvePages(3, [3]), /out of range/)
+  assert.throws(() => resolvePages(3, [-1]), /out of range/)
+  assert.throws(() => resolvePages(3, [1.5]), /out of range/)
 })
 
 /* ---------- metadata ---------- */

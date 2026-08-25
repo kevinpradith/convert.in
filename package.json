@@ -48,6 +48,7 @@
     "cli": "node bin/convert.in.mjs",
     "audit:fixtures": "node --import tsx test/encryption-fixtures.mts",
     "test:browser": "python3 test/browser/suite.py dist fixtures",
+    "test:cli": "python3 test/cli-smoke.py",
     "notices": "node scripts/notices.mjs"
   },
   "dependencies": {

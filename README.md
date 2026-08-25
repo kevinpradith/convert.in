@@ -15,7 +15,7 @@ npm run dev       # http://localhost:5173
 npm run build     # static files in dist/, host them anywhere or open them locally
 ```
 
-Eight tools, all in one window:
+Nine tools, all in one window:
 
 | Tool | What it does |
 | --- | --- |
@@ -27,7 +27,7 @@ Eight tools, all in one window:
 | **Clean PDF** | Lists what the file says about whoever made it, then takes it out: the information dictionary, the XMP packet, and the custom keys the software that wrote it added. |
 | **Stamp PDF** | A watermark across the pages, or page numbers on them. One file lets you select tiles; a pile gets stamped through. |
 | **Protect PDF** | Lock with a password, or hand it locked files and take the password off. One password covers the pile. Says so when a file asks for a password but leaves its pages readable anyway. |
-| **PDF to images** | Rasterise pages to PNG or JPEG at 72, 144 or 288 dpi. |
+| **PDF to images** | Rasterise pages to PNG or JPEG at 72, 144 or 300 dpi. |
 
 Drop files anywhere in the window, drag tiles to reorder, click a tile to select
 it, or type a range like `1-3,7` into the Pages box in the toolbar.
@@ -188,6 +188,21 @@ in a config file. A test asserts the two header files still agree, because they
 are maintained by hand and a policy that drifts between hosts is worse than no
 policy at all.
 
+The pages are also cross-origin isolated, with `Cross-Origin-Opener-Policy:
+same-origin` and `Cross-Origin-Embedder-Policy: require-corp`. Every asset here
+is same-origin, so the cost is nothing, and it puts the document in its own
+process group where a Spectre-class read of another origin's memory has nothing
+to reach.
+
+`require-trusted-types-for 'script'` is **not** set, and that is a decision
+rather than an omission. It was tested: pdf.js ships no Trusted Types policy of
+its own, so the directive blocks it from starting its worker and it silently
+falls back to decoding pages on the main thread. Adding a default policy that
+waves script URLs through would satisfy the directive and defend against
+nothing. The app has no HTML sinks at all — no `innerHTML`, no
+`dangerouslySetInnerHTML`, no `eval` — which is what the directive exists to
+protect, so the honest position is to say so here.
+
 `script-src` carries one addition, `'wasm-unsafe-eval'`. pdf.js decodes JBIG2 and
 JPEG 2000 images in WebAssembly, and browsers refuse to compile a WebAssembly
 module under a CSP that does not say so. The keyword permits exactly that and
@@ -239,19 +254,18 @@ convert.in convert logo.png --to webp --lossless
 convert.in images shot-*.png       # -> shot.pdf, beside the first input
 convert.in images scan-*.jpg -o scan.pdf --size a4 --margin 24
 convert.in compress passport.pdf --max-size 500kb
-convert.in rotate scan.pdf 180 --pages even   # the half a duplex feeder flipped
-convert.in info offer.pdf          # what it says about who made it, and what
-                                   # its encryption really covers
-convert.in clean offer.pdf         # -> offer-clean.pdf, saying nothing
 convert.in merge part-1.pdf part-2.pdf -o whole.pdf
 convert.in select scan.pdf 1-3,7   # -> scan-selected.pdf
 convert.in rotate scan.pdf 90 --pages 2-4
+convert.in rotate scan.pdf 180 --pages even   # the half a duplex feeder flipped
 convert.in split book.pdf 10       # -> book-pages/
 convert.in protect scan.pdf        # asks for the password, never takes it from argv
 convert.in unlock locked.pdf
 convert.in watermark scan.pdf "CONFIDENTIAL" --opacity 0.2
 convert.in number report.pdf --format "{n} / {total}" --position bottom-right
-convert.in info scan.pdf
+convert.in info offer.pdf          # pages and size, what it says about who made
+                                   # it, and what its encryption really covers
+convert.in clean offer.pdf         # -> offer-clean.pdf, saying nothing
 ```
 
 `-o` is optional: without it the result is named after the input and written
@@ -452,6 +466,7 @@ src/ui/prefs.ts  Theme and language, persisted, with storage failures swallowed.
 test/         node:test over core, no framework.
 test/browser/   the built app driven in a real browser, under the shipped headers.
 test/encryption-audit.py  the produced PDFs read back by pypdf, not by pdf-lib.
+test/cli-smoke.py         every command driven once, end to end.
 ```
 
 `src/core/` does not know whether it is running in a browser or a terminal, which is
@@ -471,13 +486,17 @@ npm run cli -- --help
 Everything runs from a clean checkout with no configuration: no environment
 variables, no services, no accounts.
 
-Two suites reach past the core and need Python, because the whole point of both
-is to check the work with something other than the library that produced it:
+Three suites reach past the core and need Python, because the point of each is
+to check the work with something other than the library that produced it:
 
 ```sh
+pip install -r test/requirements.txt
+python3 -m playwright install chromium
+
 npm run build
 npm run audit:fixtures -- ./fixtures   # documents with something to lose
 python3 test/encryption-audit.py ./fixtures   # pypdf reads the encryption back
+npm run test:cli                       # every command, once, end to end
 npm run test:browser                   # the built app, driven in Chromium
 ```
 
@@ -488,8 +507,12 @@ and a wrong one that must not. It also checks what should *not* happen: no
 request leaves the origin, pdf.js never warns that an asset is missing, and
 nothing is refused by the Content-Security-Policy.
 
-They need `playwright` (plus `python3 -m playwright install chromium`) and
-`pypdf`. Nothing else in the project does.
+`npm run test:cli` covers the layer between a typed command and `src/core`:
+argument parsing, output naming, the check that works out every output path
+before writing the first file, and the warnings printed alongside.
+
+Their two Python packages are pinned in `test/requirements.txt`. Nothing else in
+the project needs Python.
 
 ## Deliberate limits
 

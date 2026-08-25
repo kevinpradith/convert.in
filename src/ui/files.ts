@@ -28,21 +28,53 @@ export function useOnce(): (job: () => Promise<void>) => Promise<void> {
 }
 
 /**
- * Names come from whatever the dropped file was called, which can carry path
- * separators, control characters or a leading dot. Browsers mostly sanitise the
- * download attribute themselves, but the safe name is cheap to build and does
- * not depend on which browser is asking.
+ * Characters that have no business in a download name.
+ *
+ * The first ranges are the C0 and C1 control blocks and DEL. The rest are the
+ * bidirectional overrides: they carry no glyph of their own and they reorder
+ * what the characters after them look like, so a name ending in an override
+ * followed by "gnp.exe" is listed by the browser as ending in ".png". That is
+ * the filename form of the reordering trick catalogued for source code as
+ * CVE-2021-42574, and a downloads folder is exactly where it pays off. Windows
+ * additionally refuses < > : " | ? * and reads a colon as an alternate data
+ * stream, so those go too.
  */
-function safeName(name: string): string {
+// eslint-disable-next-line no-control-regex
+const UNWANTED = /[\u0000-\u001f\u007f-\u009f\u200e\u200f\u202a-\u202e\u2066-\u2069<>:"|?*]/g
+
+/** Longest name handed to the downloader, well inside every filesystem's limit. */
+const NAME_LIMIT = 200
+
+/**
+ * Build the name a finished file is offered under.
+ *
+ * It comes from whatever the dropped file was called, which is somebody else's
+ * text whenever the document arrived from somebody else. Browsers mostly
+ * sanitise the download attribute themselves, but "mostly" and "which browser"
+ * are not worth depending on when the alternative is one function.
+ *
+ * The extension survives whatever else is cut, because a truncated name that no
+ * longer ends in .pdf is a file the operating system no longer knows how to
+ * open.
+ */
+export function safeName(name: string): string {
   const cleaned = name
     .replace(/[/\\]/g, '-')
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\u0000-\u001f\u007f]/g, '')
+    .replace(UNWANTED, '')
     // Trimmed before the leading dots are taken off, not after: " .bashrc"
     // survived the other order, because the dot was no longer at the front.
     .trim()
     .replace(/^\.+/, '')
-  return cleaned === '' ? 'convert.in.pdf' : cleaned.slice(0, 200)
+    // A trailing dot or space is legal on Unix and silently dropped by Windows,
+    // which leaves the two disagreeing about what the file is called.
+    .replace(/[\s.]+$/, '')
+  if (cleaned === '') return 'convert.in.pdf'
+  if (cleaned.length <= NAME_LIMIT) return cleaned
+  const dot = cleaned.lastIndexOf('.')
+  // A dot two thirds of the way through a 300-character name is part of the
+  // name, not an extension.
+  const extension = dot > 0 && cleaned.length - dot <= 16 ? cleaned.slice(dot) : ''
+  return cleaned.slice(0, NAME_LIMIT - extension.length) + extension
 }
 
 /** Hand a blob to the browser's downloader. */

@@ -22,7 +22,7 @@ const MAX_AREA = 268_435_456
 
 /**
  * Exported because rasterising a PDF page draws onto a canvas too, and a large
- * page at 288 dpi passes these limits long before anything complains: the
+ * page at 300 dpi passes these limits long before anything complains: the
  * canvas comes back blank rather than refusing.
  */
 export function checkSize(width: number, height: number): void {
