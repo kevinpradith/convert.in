@@ -805,6 +805,39 @@ def run():
         check(where['y'] > where['h'] / 2,
               f"and in the bottom half ({where['y']:.0f} of {where['h']})")
 
+        print('== redaction removes rather than covers ==')
+        # A black rectangle drawn over a paragraph hides nothing: PDF renders in
+        # layers, so the characters survive underneath, still selectable. This
+        # checks the opposite claim, from the bytes out: after redacting, the
+        # words are not in the file at all and no text can be extracted from any
+        # page, because the pages are no longer text.
+        current = tool('Redact PDF')
+        current.locator('input[type=file]').set_input_files(str(FIXTURES / 'plain.pdf'))
+        current.locator('img').first.wait_for(timeout=60000)
+        check(current.locator('img').count() == 3, 'every page is shown to draw on')
+
+        current.get_by_role('textbox', name='Word or phrase to black out').fill('page 2')
+        current.get_by_role('button', name='Black out every match').click()
+        told = current.get_by_role('status')
+        told.wait_for(timeout=60000)
+        check('1 match' in told.inner_text(), f'the search found it ({told.inner_text()!r})')
+
+        redacted = produced_bytes(current, 'Redact')
+        opened = PdfReader(io.BytesIO(redacted))
+        check(len(opened.pages) == 3, f'the document still has its pages ({len(opened.pages)})')
+        # Rebuilt at the same physical size, not at the pixel count it was
+        # rendered to: 300 x 400 points in, 300 x 400 points out.
+        box = opened.pages[0].mediabox
+        check(round(float(box.width)) == 300 and round(float(box.height)) == 400,
+              f'and their size ({round(float(box.width))}x{round(float(box.height))})')
+
+        text = ''.join(page.extract_text() for page in opened.pages)
+        check(text.strip() == '', f'no text can be extracted from any page ({text.strip()[:40]!r})')
+        for gone in (b'page 1', b'page 2', b'page 3', b'Audit Source', b'convert.in'):
+            check(gone not in redacted, f'{gone.decode()!r} is not in the bytes at all')
+        check(b'/Encrypt' not in redacted and opened.metadata in (None, {}),
+              'and the metadata went with it')
+
         print('== what a PDF says about itself ==')
         current = tool('Clean PDF')
         current.locator('input[type=file]').set_input_files(str(FIXTURES / 'talkative.pdf'))

@@ -361,3 +361,12 @@ export const TagIcon = ({ size = 40, stroke = 0.9 }: IconProps) => (
     <path d="m5.5 11.5 4-3M5.5 8.5l4 3" />
   </Icon>
 )
+
+/** A marker drawing a bar across a line: what redaction looks like. */
+export const MarkerIcon = ({ size = 40, stroke = 0.9 }: IconProps) => (
+  <Icon size={size} stroke={stroke}>
+    <rect x="2" y="9.5" width="12" height="3.5" rx="1" />
+    <path d="M4.5 9.5V5a1.5 1.5 0 0 1 1.5-1.5h4A1.5 1.5 0 0 1 11.5 5v4.5" />
+    <path d="M6.5 3.5V2.5h3v1" />
+  </Icon>
+)

@@ -6,6 +6,7 @@ import { ImagesToPdf } from './ui/tools/ImagesToPdf.tsx'
 import { Organize } from './ui/tools/Organize.tsx'
 import { PdfToImages } from './ui/tools/PdfToImages.tsx'
 import { Protect } from './ui/tools/Protect.tsx'
+import { Redact } from './ui/tools/Redact.tsx'
 import { Sign } from './ui/tools/Sign.tsx'
 import { Stamp } from './ui/tools/Stamp.tsx'
 import { Boundary } from './ui/Boundary.tsx'
@@ -75,6 +76,7 @@ export default function App() {
                     {id === 'sign' && <Sign />}
                     {id === 'protect' && <Protect />}
                     {id === 'clean' && <Clean />}
+                    {id === 'redact' && <Redact />}
                     {id === 'export' && <PdfToImages />}
                   </Boundary>
                 </div>
