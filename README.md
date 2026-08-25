@@ -7,6 +7,21 @@
 Local image and PDF tools. The web app does all of its work inside the browser and
 the CLI does all of its work on your machine, so no file is ever uploaded anywhere.
 
+<picture>
+  <source
+    media="(prefers-color-scheme: dark)"
+    srcset="public/images/screenshots/convert-dark.webp"
+  />
+  <img
+    alt="The convert.in window: ten tools down the left, three images loaded, and the conversion settings along the bottom."
+    src="public/images/screenshots/convert-light.webp"
+  />
+</picture>
+
+<sup>Taken from the built application by <code>test/browser</code>'s own driver, then
+shrunk by <code>convert.in convert --to webp</code>. It is a picture of the thing that
+ships, not a mock-up.</sup>
+
 ## Web app
 
 ```sh

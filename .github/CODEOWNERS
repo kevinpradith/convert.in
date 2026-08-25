@@ -1,0 +1,7 @@
+# Every path, one owner. GitHub requests a review from the owner on any pull
+# request that touches a matching file.
+#
+# This lives in .github/ rather than the repository root on purpose: whoever
+# owns this file controls who reviews everything else, so it is kept in the
+# directory the owner also owns.
+* @kevinpradith
