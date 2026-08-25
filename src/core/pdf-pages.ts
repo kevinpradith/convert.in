@@ -252,3 +252,95 @@ export function parseRanges(spec: string, total: number): number[] {
   if (indices.length === 0) throw new Error('empty page range')
   return indices
 }
+
+/* ------------------------------------------------------------ page size --- */
+
+/** Page sizes in PDF points, 72 to the inch. */
+const PAPER = {
+  a4: [595.28, 841.89],
+  letter: [612, 792],
+  legal: [612, 1008],
+  a3: [841.89, 1190.55],
+  a5: [419.53, 595.28],
+} as const
+
+export type Paper = keyof typeof PAPER
+
+export const PAPERS = Object.keys(PAPER) as Paper[]
+
+/** Named apart from the images-to-PDF one, which answers a different question. */
+export type SheetOrientation = 'auto' | 'portrait' | 'landscape'
+
+export const SHEET_ORIENTATIONS: SheetOrientation[] = ['auto', 'portrait', 'landscape']
+
+export interface ResizeOptions {
+  /** Which sheet every page should end up on. */
+  paper: Paper
+  /**
+   * 'auto' keeps each page's own shape, turning the sheet to match, so a
+   * landscape chart does not come back letterboxed between two white bands.
+   */
+  orientation?: SheetOrientation
+  /** White border to leave around the scaled content, in points. */
+  marginPt?: number
+}
+
+/**
+ * Put every page on the same sheet.
+ *
+ * A PDF does not require one page size: each page carries its own MediaBox, and
+ * a document assembled from a scan, an export and a downloaded form quite
+ * legally holds three. That is fine on screen and chaos on paper, where the
+ * printer rescales, shifts the margins or changes tray at every size change.
+ *
+ * The content is scaled to fit and centred rather than stretched, so nothing
+ * changes shape and nothing is cropped. Annotations are scaled with it, since a
+ * comment that stays where it was is a comment pointing at the wrong line.
+ *
+ * A page stored sideways is measured the way it is looked at: the sheet is
+ * turned to match it rather than the content being squeezed into the short
+ * edge.
+ */
+export async function resizePages(
+  file: Uint8Array,
+  options: ResizeOptions,
+): Promise<Uint8Array> {
+  const { paper, orientation = 'auto', marginPt = 0 } = options
+  const sheet = PAPER[paper]
+  if (sheet === undefined) throw new Error(`page size must be one of: ${PAPERS.join(', ')}`)
+  if (!Number.isFinite(marginPt) || marginPt < 0) throw new Error('margin must be a number >= 0')
+
+  const pdf = await PDFDocument.load(file)
+  for (const page of pdf.getPages()) {
+    const { width, height } = page.getSize()
+    if (width <= 0 || height <= 0) continue
+    // getRotation is what a reader applies on top of the box, so a page stored
+    // sideways is wider than it is tall to everybody but the file itself.
+    const turned = Math.abs(page.getRotation().angle / 90) % 2 === 1
+    // 'auto' follows the shape the page is looked at in, not the shape its box
+    // happens to be stored in.
+    const shownWide = turned ? height >= width : width >= height
+    const landscape =
+      orientation === 'auto' ? shownWide : orientation === 'landscape'
+
+    // The sheet as the reader will see it, then expressed in the page's own
+    // unrotated terms so the box and the content agree.
+    const [shownWidth, shownHeight] = landscape
+      ? [Math.max(...sheet), Math.min(...sheet)]
+      : [Math.min(...sheet), Math.max(...sheet)]
+    const [boxWidth, boxHeight] = turned
+      ? [shownHeight, shownWidth]
+      : [shownWidth, shownHeight]
+
+    const room = { width: boxWidth - marginPt * 2, height: boxHeight - marginPt * 2 }
+    if (room.width <= 0 || room.height <= 0) throw new Error('margin is larger than the page')
+
+    // One factor for both axes: scaling them apart would change the shape of
+    // everything on the page, which is the failure people call "stretched".
+    const factor = Math.min(room.width / width, room.height / height)
+    page.scale(factor, factor)
+    page.translateContent((boxWidth - width * factor) / 2, (boxHeight - height * factor) / 2)
+    page.setSize(boxWidth, boxHeight)
+  }
+  return pdf.save()
+}

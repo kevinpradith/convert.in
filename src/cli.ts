@@ -28,10 +28,15 @@ import {
   hasFormFields,
   mergePdfs,
   pageCount,
+  PAPERS,
   parseRanges,
+  resizePages,
   rotatePages,
+  SHEET_ORIENTATIONS,
   selectPages,
   splitPdf,
+  type Paper,
+  type SheetOrientation,
 } from './core/pdf-pages.ts'
 import {
   CHANGES_LEVELS,
@@ -62,6 +67,7 @@ const COMMANDS = [
   'watermark',
   'number',
   'clean',
+  'resize',
   'info',
   'help',
   'version',
@@ -806,6 +812,33 @@ async function main(): Promise<void> {
           detail: plural(pages?.length ?? total, 'page'),
         }
       })
+    }
+
+    case 'resize': {
+      const files = requireInputs(rest, 'PDFs')
+      // "resize scan.pdf a4" reads better than spelling the flag out, so a
+      // trailing word that names a paper size is taken as one.
+      const trailing = trailingArgument(positionals)
+      const named = trailing !== undefined && (PAPERS as string[]).includes(trailing.toLowerCase())
+      if (named) files.pop()
+      const paper = oneOf<Paper>(
+        named ? trailing!.toLowerCase() : (values.size ?? 'a4'),
+        PAPERS,
+        'size',
+      )
+      const settings = {
+        paper,
+        orientation: oneOf<SheetOrientation>(
+          values.orientation ?? 'auto',
+          SHEET_ORIENTATIONS,
+          'orientation',
+        ),
+        marginPt: number(values.margin ?? '0', 'margin'),
+      }
+      return each(files, (input) => `${stem(input)}-${paper}.pdf`, async (file) => ({
+        bytes: await resizePages(file, settings),
+        detail: `${plural(await pageCount(file), 'page')} on ${paper.toUpperCase()}`,
+      }))
     }
 
     case 'clean': {
