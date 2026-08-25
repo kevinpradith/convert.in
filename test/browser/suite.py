@@ -805,6 +805,29 @@ def run():
         check(where['y'] > where['h'] / 2,
               f"and in the bottom half ({where['y']:.0f} of {where['h']})")
 
+        print('== a page range that will not do ==')
+        # The reason used to live in a title attribute, which reaches a mouse
+        # and nothing else. A range typed wrongly has to say what is wrong with
+        # it where it can be read and announced.
+        current = tool('Organize PDF')
+        current.locator('input[type=file]').set_input_files(str(FIXTURES / 'plain.pdf'))
+        current.locator('img').first.wait_for(timeout=60000)
+        box = current.get_by_role('textbox', name='Select pages by number')
+        box.fill('3-1')
+        box.press('Enter')
+        told = current.get_by_role('alert')
+        told.wait_for(timeout=15000)
+        check('counts backwards' in told.inner_text(),
+              f'a backwards range says so, rather than blaming the page count '
+              f'({told.inner_text()[:60]!r})')
+        check(box.get_attribute('aria-errormessage') == told.get_attribute('id'),
+              'and the field points at the message, so it is announced with it')
+        box.fill('9')
+        box.press('Enter')
+        check('out of bounds' in current.get_by_role('alert').inner_text(),
+              'a range past the end is still called out of bounds')
+        current.get_by_role('button', name='Clear', exact=True).click()
+
         print('== redaction removes rather than covers ==')
         # A black rectangle drawn over a paragraph hides nothing: PDF renders in
         # layers, so the characters survive underneath, still selectable. This
