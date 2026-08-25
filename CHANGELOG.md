@@ -58,6 +58,14 @@ still change between minor versions.
   Unlinking an XMP packet is not removing it, since an object nothing points at
   is still written out in full and still readable with `strings`, so the object
   itself goes.
+- **One sheet for every page**, as `resize` and as the Sheet control in
+  Organize. A PDF does not require one page size, and a document assembled from
+  a scan, an export and a downloaded form quite legally holds three; that is
+  fine on screen and chaos on paper, where the printer rescales, shifts the
+  margins or changes tray at every size change. The content is scaled to fit and
+  centred rather than stretched, annotations scale with it, and the sheet turns
+  to match each page unless told otherwise, so a landscape chart is not
+  letterboxed. A5, A4, A3, Letter and Legal.
 - **Bookmarks come with their pages.** A PDF's table of contents is a tree
   hanging off the catalogue whose entries name their pages by reference, so
   copying pages left every one of them pointing at objects that came nowhere and

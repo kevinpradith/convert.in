@@ -1,11 +1,26 @@
 import { useState } from 'react'
-import { assemblePages, hasFormFields } from '../../core/pdf-pages.ts'
+import {
+  assemblePages,
+  hasFormFields,
+  PAPERS,
+  resizePages,
+  type Paper,
+} from '../../core/pdf-pages.ts'
 import { closeDoc, loadDoc, renderThumbnail } from '../../core/pdf-to-images.ts'
 import { FilePicker } from '../Dropzone.tsx'
 import { PageGrid, reorder, type Tile } from '../PageGrid.tsx'
 import { RangeSelect } from '../RangeSelect.tsx'
 import { Spacer, Workspace } from '../Workspace.tsx'
-import { Button, DownloadIcon, PagesIcon, PlusIcon, RotateIcon, TrashIcon } from '../kit.tsx'
+import {
+  Button,
+  DownloadIcon,
+  Field,
+  PagesIcon,
+  PlusIcon,
+  RotateIcon,
+  Select,
+  TrashIcon,
+} from '../kit.tsx'
 import { useT } from '../i18n.ts'
 import { message, newId, numbered, readBytes, save, saveAll, stem, toBlob, useOnce } from '../files.ts'
 
@@ -41,6 +56,8 @@ export function Organize() {
   const [pages, setPages] = useState<Page[]>([])
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
   const [busy, setBusy] = useState<string | null>(null)
+  /** Empty means every page keeps the size it arrived at. */
+  const [paper, setPaper] = useState('')
   const [forms, setForms] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -123,16 +140,19 @@ export function Organize() {
     const order = new Map(sources.map((source, index) => [source.id, index]))
     const bytes = sources.map((source) => source.bytes)
     return Promise.all(
-      groups.map((group) =>
-        assemblePages(
+      groups.map(async (group) => {
+        const assembled = await assemblePages(
           bytes,
           group.map((page) => ({
             source: order.get(page.sourceId)!,
             page: page.page,
             rotate: page.rotation,
           })),
-        ),
-      ),
+        )
+        // Sizing is the last step, so it applies to the pages that were kept
+        // rather than to every page of every source.
+        return paper === '' ? assembled : resizePages(assembled, { paper: paper as Paper })
+      }),
     )
   }
 
@@ -255,6 +275,20 @@ export function Organize() {
                   : t.organize.someSelected(selected.size)}
             </span>
             <div className="ml-auto flex items-center gap-2">
+              <Field label={t.organize.paper}>
+                <Select
+                  aria-label={t.organize.paperLabel}
+                  value={paper}
+                  onChange={(event) => setPaper(event.target.value)}
+                >
+                  <option value="">{t.organize.paperAsIs}</option>
+                  {PAPERS.map((size) => (
+                    <option key={size} value={size}>
+                      {size.toUpperCase()}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
               <Button onClick={saveSeparately} disabled={busy !== null}>
                 {t.organize.saveSeparately}
               </Button>

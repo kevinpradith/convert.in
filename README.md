@@ -23,7 +23,7 @@ Ten tools, all in one window:
 | **Compress PDF** | Re-encodes the pictures inside, which is where nearly all the weight of a scan is. Give it the limit the upload form asked for and it works out its own settings. Says so when a file has nothing to shrink. Takes a pile. |
 | **Sign PDF** | Draw a signature or bring a PNG of one, and place it on a page. One signature covers however many files you drop. |
 | **Images to PDF** | Any image in, one image per page, in the order a person would count them. Pages are sized by the resolution the image claims, and a photo taken sideways comes out upright. Fit-to-image, A4 or Letter, with an optional margin. |
-| **Organize PDF** | Drop any number of PDFs, then reorder, rotate, delete and duplicate pages. Bookmarks come with their pages. Save the result as one file or as one file per page. |
+| **Organize PDF** | Drop any number of PDFs, then reorder, rotate, delete and duplicate pages, and put them all on one sheet if you like. Bookmarks come with their pages. Save the result as one file or as one file per page. |
 | **Clean PDF** | Lists what the file says about whoever made it, then takes it out: the information dictionary, the XMP packet, and the custom keys the software that wrote it added. |
 | **Redact PDF** | Drag a rectangle, or search for a word and black out every occurrence. What is covered is then removed rather than hidden: the pages are rebuilt from pixels, so nothing survives underneath to be selected or copied. |
 | **Stamp PDF** | A watermark across the pages, or page numbers on them. One file lets you select tiles; a pile gets stamped through. |
@@ -259,6 +259,7 @@ convert.in merge part-1.pdf part-2.pdf -o whole.pdf
 convert.in select scan.pdf 1-3,7   # -> scan-selected.pdf
 convert.in rotate scan.pdf 90 --pages 2-4
 convert.in rotate scan.pdf 180 --pages even   # the half a duplex feeder flipped
+convert.in resize report.pdf a4    # every page on one sheet, scaled to fit
 convert.in split book.pdf 10       # -> book-pages/
 convert.in protect scan.pdf        # asks for the password, never takes it from argv
 convert.in unlock locked.pdf
@@ -514,6 +515,21 @@ before writing the first file, and the warnings printed alongside.
 
 Their two Python packages are pinned in `test/requirements.txt`. Nothing else in
 the project needs Python.
+
+### One sheet for every page
+
+A PDF does not require one page size: every page carries its own box, and a
+document assembled from a scan, an export and a downloaded form quite legally
+holds three. That is fine on screen and chaos on paper, where the printer
+rescales, shifts the margins or changes tray at every size change.
+
+`resize`, and the **Sheet** control in Organize, put them all on one. The
+content is scaled to fit and centred rather than stretched, so nothing changes
+shape and nothing is cropped, and annotations are scaled with it — a comment
+that stays where it was is a comment pointing at the wrong line. The default
+turns the sheet to match each page, so a landscape chart does not come back
+letterboxed between two white bands, and a page stored sideways is measured the
+way it is looked at rather than the way its box happens to be written.
 
 ### Bookmarks come with their pages
 

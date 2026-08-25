@@ -24,6 +24,7 @@ import {
   mergePdfs,
   pageCount,
   parseRanges,
+  resizePages,
   resolvePages,
   rotatePages,
   selectPages,
@@ -288,6 +289,91 @@ test('odd and even name the halves a duplex scan gets wrong', async () => {
   const pdf = await rotatePages(await makePdf(3), [0, 0, 2], 90)
   const angles = (await PDFDocument.load(pdf)).getPages().map((page) => page.getRotation().angle)
   assert.deepEqual(angles, [90, 0, 90])
+})
+
+/* ---------- page size ---------- */
+
+/** Every page's size, as the reader sees it rather than as the box stores it. */
+async function shownSizes(file: Uint8Array): Promise<string[]> {
+  const pdf = await PDFDocument.load(file)
+  return pdf.getPages().map((page) => {
+    const { width, height } = page.getSize()
+    const turned = Math.abs(page.getRotation().angle / 90) % 2 === 1
+    const [w, h] = turned ? [height, width] : [width, height]
+    return `${Math.round(w)}x${Math.round(h)}`
+  })
+}
+
+/**
+ * A PDF does not require one page size, and a document assembled from a scan,
+ * an export and a downloaded form quite legally holds three. That is fine on
+ * screen and chaos on paper, where the printer rescales, shifts the margins or
+ * changes tray at every size change.
+ */
+test('every page can be put on the same sheet', async () => {
+  const pdf = await PDFDocument.create()
+  pdf.addPage([612, 792]) // letter, upright
+  pdf.addPage([842, 595]) // A4, on its side
+  pdf.addPage([200, 1000]) // a tall strip
+  pdf.addPage([400, 300]).setRotation(degrees(90)) // stored wide, shown tall
+  const mixed = await pdf.save()
+
+  assert.deepEqual(await shownSizes(mixed), ['612x792', '842x595', '200x1000', '300x400'])
+  assert.deepEqual(
+    await shownSizes(await resizePages(mixed, { paper: 'a4' })),
+    ['595x842', '842x595', '595x842', '595x842'],
+    'auto turns the sheet to match each page, so nothing is letterboxed',
+  )
+  assert.deepEqual(
+    await shownSizes(await resizePages(mixed, { paper: 'a4', orientation: 'portrait' })),
+    ['595x842', '595x842', '595x842', '595x842'],
+  )
+  assert.deepEqual(
+    await shownSizes(await resizePages(mixed, { paper: 'letter', orientation: 'landscape' })),
+    ['792x612', '792x612', '792x612', '792x612'],
+  )
+
+  await assert.rejects(
+    () => resizePages(mixed, { paper: 'a4', marginPt: 400 }),
+    /margin is larger/,
+  )
+  await assert.rejects(() => resizePages(mixed, { paper: 'a4', marginPt: -1 }), /margin/)
+})
+
+/**
+ * Changing the box without moving the content leaves the page the wrong size
+ * and the drawing in the corner of it, which is the failure this has to be
+ * checked against rather than assumed away.
+ */
+test('resizing moves the content with the box, in proportion and centred', async () => {
+  const pdf = await PDFDocument.create()
+  pdf.addPage([300, 300])
+  const square = await pdf.save()
+
+  const fitted = await resizePages(square, {
+    paper: 'a4',
+    orientation: 'portrait',
+    marginPt: 36,
+  })
+  const drawn = await operatorsOf(fitted)
+  const matrices = [...drawn.matchAll(/([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+) cm/g)]
+    .map((found) => found.slice(1).map(Number))
+
+  // 300 points of content into 595.28 minus two 36-point margins.
+  const factor = (595.28 - 72) / 300
+  const scaling = matrices.find((m) => m[0] !== 1 || m[3] !== 1)
+  assert.ok(scaling, 'the content should have been scaled at all')
+  assert.ok(Math.abs(scaling[0]! - factor) < 0.001, `scaled by ${scaling[0]}, wanted ${factor}`)
+  assert.equal(scaling[0], scaling[3], 'one factor for both axes, so nothing changes shape')
+
+  // Centred: all of the spare width is the margin, and the spare height is
+  // split evenly above and below.
+  const moving = matrices.find((m) => m[4] === 36)
+  assert.ok(moving, 'the content should have been moved onto the sheet')
+  assert.ok(
+    Math.abs(moving[5]! - (841.89 - 300 * factor) / 2) < 0.01,
+    `moved up ${moving[5]}, wanted it centred`,
+  )
 })
 
 /* ---------- bookmarks ---------- */

@@ -220,6 +220,25 @@ def smoke(work):
           'and split gives each half its own')
 
     print()
+    print('== one sheet for every page ==')
+    # A document can legally hold three page sizes, which is fine on screen and
+    # chaos on paper. The rotated page is the one worth checking: it is stored
+    # wide and shown tall, so the sheet has to be turned to match what a reader
+    # sees rather than what the box says.
+    code, said = run('resize', work / 'album.pdf', 'a4', '-o', work / 'a4.pdf')
+    sizes = [f'{round(float(p.mediabox.width))}x{round(float(p.mediabox.height))}'
+             for p in PdfReader(str(work / 'a4.pdf')).pages]
+    check(code == 0 and sizes == ['842x595'] * 3,
+          f'a landscape album goes on landscape A4, not letterboxed ({sizes})')
+    code, _ = run('resize', work / 'album.pdf', '--size', 'letter', '--orientation', 'portrait',
+                  '-o', work / 'lt.pdf')
+    sizes = [f'{round(float(p.mediabox.width))}x{round(float(p.mediabox.height))}'
+             for p in PdfReader(str(work / 'lt.pdf')).pages]
+    check(code == 0 and sizes == ['612x792'] * 3, f'and the sheet can be forced ({sizes})')
+    code, said = run('resize', work / 'album.pdf', '--size', 'a9', '-o', work / 'no.pdf', expect=1)
+    check(code == 1 and 'a4' in said, 'a paper size nobody has is refused by name')
+
+    print()
     print('== stamping ==')
     code, _ = run('watermark', source, 'CONFIDENTIAL', '-o', work / 'marked.pdf')
     check(code == 0 and pages_of(work / 'marked.pdf') == 3, 'watermark keeps the pages')

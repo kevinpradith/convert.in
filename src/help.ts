@@ -40,6 +40,7 @@ COMMANDS
   watermark <pdf...> <text>   Stamp text diagonally across the pages
   number  <pdf...>            Print page numbers
   clean   <pdf...>            Strip what the file says about who made it
+  resize  <pdf...> [paper]    Put every page on one sheet, a4 by default
   info    <pdf...>            Pages, file size, dimensions, whether it is locked
 
 OUTPUT
@@ -61,6 +62,7 @@ OUTPUT
     watermark scan.pdf X   ->  scan-watermarked.pdf
     number  scan.pdf       ->  scan-numbered.pdf
     clean   scan.pdf       ->  scan-clean.pdf
+    resize  scan.pdf a4    ->  scan-a4.pdf
 
   Nothing is ever overwritten without --force.
 
@@ -98,6 +100,7 @@ OPTIONS
       --max-size <size>  Squeeze until it fits, e.g. 500kb, 2mb    compress
       --signature <file> Same as the second positional             sign
       --size <mode>      fit (default), a4, letter                 images
+                         a4, letter, legal, a3, a5                 resize
       --orientation <o>  auto (default), portrait, landscape       images
       --dpi <n>          Pixels per inch a fit page is sized by    images
       --margin <pt>      White border, 0 for images, 28 for number
@@ -283,6 +286,23 @@ PAGE ORDER
 
     rotate scan.pdf 180 --pages even
 
+  A PDF does not require one page size: every page carries its own box, and a
+  document assembled from a scan, an export and a downloaded form quite legally
+  holds three. That is fine on screen and chaos on paper, where the printer
+  rescales, shifts the margins or changes tray at every size change. resize puts
+  them all on one sheet, scaling to fit and centring rather than stretching, so
+  nothing changes shape and nothing is cropped. Annotations are scaled with the
+  content, since a comment that stays where it was is a comment pointing at the
+  wrong line.
+
+    resize report.pdf                   every page on A4
+    resize scan.pdf letter --margin 18  and leave a border
+    resize chart.pdf a4 --orientation landscape
+
+  --orientation auto, the default, turns the sheet to match each page, so a
+  landscape chart does not come back letterboxed between two white bands. A page
+  stored sideways is measured the way it is looked at.
+
   Bookmarks come with their pages. An outline names each page by reference, so
   copying pages leaves the whole table of contents pointing at objects that came
   nowhere, which is why most tools drop it. merge lays the sources' outlines end
@@ -390,6 +410,7 @@ PERINTAH
   watermark <pdf...> <teks>    Cap teks miring melintasi halaman
   number  <pdf...>             Cetak nomor halaman
   clean   <pdf...>             Buang keterangan siapa yang membuat berkasnya
+  resize  <pdf...> [kertas]    Samakan ukuran halaman, bawaannya a4
   info    <pdf...>             Jumlah halaman, ukuran, dimensi, status kunci
 
 HASIL
@@ -411,6 +432,7 @@ HASIL
     watermark scan.pdf X   ->  scan-watermarked.pdf
     number  scan.pdf       ->  scan-numbered.pdf
     clean   scan.pdf       ->  scan-clean.pdf
+    resize  scan.pdf a4    ->  scan-a4.pdf
 
   Tidak ada yang pernah ditimpa tanpa --force.
 
@@ -449,6 +471,7 @@ OPSI
       --max-size <size>  Peras sampai muat, misal 500kb, 2mb       compress
       --signature <file> Sama dengan posisi kedua                  sign
       --size <mode>      fit (bawaan), a4, letter                  images
+                         a4, letter, legal, a3, a5                 resize
       --orientation <o>  auto (bawaan), portrait, landscape        images
       --dpi <n>          Piksel per inci penentu ukuran halaman fit images
       --margin <pt>      Bingkai putih, 0 untuk images, 28 untuk number
@@ -641,6 +664,24 @@ URUTAN HALAMAN
   2,4,6 sampai 300 bukan rentang halaman yang pantas diketik siapa pun.
 
     rotate scan.pdf 180 --pages even
+
+  PDF tidak mengharuskan satu ukuran halaman: tiap halaman membawa kotaknya
+  sendiri, dan dokumen yang disusun dari hasil pindaian, ekspor, dan formulir
+  unduhan sah-sah saja memuat tiga ukuran sekaligus. Di layar tidak masalah, di
+  kertas berantakan, karena printer menskala ulang, menggeser margin, atau ganti
+  baki tiap kali ukurannya berubah. resize menaruh semuanya di satu kertas,
+  diskalakan agar muat lalu ditengahkan, bukan direnggangkan, jadi tidak ada
+  yang berubah bentuk dan tidak ada yang terpotong. Anotasi ikut diskalakan,
+  karena komentar yang tidak ikut pindah adalah komentar yang menunjuk baris
+  yang salah.
+
+    resize laporan.pdf                  semua halaman jadi A4
+    resize scan.pdf letter --margin 18  sekalian diberi bingkai
+    resize grafik.pdf a4 --orientation landscape
+
+  --orientation auto, yang jadi bawaan, memutar kertasnya mengikuti tiap
+  halaman, jadi grafik mendatar tidak kembali terjepit di antara dua pita putih.
+  Halaman yang tersimpan miring diukur sebagaimana ia dilihat.
 
   Bookmark ikut bersama halamannya. Sebuah outline menyebut tiap halaman lewat
   rujukan, jadi menyalin halaman meninggalkan seluruh daftar isinya menunjuk ke
