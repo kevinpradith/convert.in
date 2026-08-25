@@ -26,6 +26,7 @@ import {
   parseRanges,
   resizePages,
   resolvePages,
+  visibleBox,
   rotatePages,
   selectPages,
   splitPdf,
@@ -44,7 +45,12 @@ import { signPdf } from '../src/core/pdf-sign.ts'
 import { decodeImage } from '../src/core/images-node.ts'
 import {
   IMAGE_FORMATS,
+  READ_ONLY_FORMATS,
   defaultQuality,
+  extensionFor,
+  hasLosslessOption,
+  isImageFormat,
+  mimeType,
   encodeImage,
   resize,
   resizedTo,
@@ -291,6 +297,46 @@ test('odd and even name the halves a duplex scan gets wrong', async () => {
   assert.deepEqual(angles, [90, 0, 90])
 })
 
+/* ---------- what a reader actually shows ---------- */
+
+/**
+ * A page carries a MediaBox saying how big the sheet is and, often, a CropBox
+ * saying how much of it to display. Where they differ the CropBox wins, and
+ * everything outside it is simply not drawn. Nothing here read it, so a 600
+ * point page cropped to its middle 300 was measured as 600 and stamped in a
+ * corner nobody can see.
+ */
+test('a cropped page is measured and drawn on as the part that is shown', async () => {
+  const pdf = await PDFDocument.create()
+  const page = pdf.addPage([600, 600])
+  page.node.set(PDFName.of('CropBox'), pdf.context.obj([150, 150, 450, 450]))
+  const cropped = await pdf.save()
+
+  assert.deepEqual(visibleBox(page), { x: 150, y: 150, width: 300, height: 300 })
+  assert.deepEqual(displayedSize(page), { width: 300, height: 300 })
+  // The bottom-left of what the reader sees is 150,150 on the sheet.
+  assert.deepEqual(placeOnPage(page, 0, 0), { x: 150, y: 150 })
+
+  assert.deepEqual(
+    await describePdf(cropped),
+    { pages: 1, width: 300, height: 300 },
+    'info reports the page a person is looking at',
+  )
+
+  // A page number asked for the bottom right corner has to land inside the
+  // crop, or it is drawn onto part of the sheet no reader displays.
+  const numbered = await numberPages(cropped, { position: 'bottom-right', margin: 28 })
+  const where = drawnAt(await operatorsOf(numbered), 'Tm')
+  assert.ok(where.x > 150 && where.x < 450, `x ${where.x} is inside the crop`)
+  assert.ok(where.y > 150 && where.y < 450, `y ${where.y} is inside the crop`)
+
+  // A crop that does not overlap the sheet is not a crop a reader honours.
+  const nonsense = await PDFDocument.create()
+  const odd = nonsense.addPage([100, 100])
+  odd.node.set(PDFName.of('CropBox'), nonsense.context.obj([500, 500, 600, 600]))
+  assert.deepEqual(visibleBox(odd), { x: 0, y: 0, width: 100, height: 100 })
+})
+
 /* ---------- page size ---------- */
 
 /** Every page's size, as the reader sees it rather than as the box stores it. */
@@ -376,6 +422,74 @@ test('resizing moves the content with the box, in proportion and centred', async
   )
 })
 
+/**
+ * Neither box has to start at the origin: a cropping tool leaves boxes like
+ * [50 50 645 891]. Scaling happens about the origin, so a page whose content
+ * sits away from it comes out shifted unless the corner is part of the sum.
+ */
+test('resizing a cropped page starting away from the origin lands square', async () => {
+  const pdf = await PDFDocument.create()
+  const page = pdf.addPage([300, 300])
+  page.setMediaBox(50, 50, 300, 300)
+  page.node.set(PDFName.of('CropBox'), pdf.context.obj([100, 100, 250, 250]))
+  // An annotation at a known place, to check it moves with what it points at.
+  page.node.set(
+    PDFName.of('Annots'),
+    pdf.context.obj([
+      pdf.context.obj({
+        Type: 'Annot',
+        Subtype: 'Square',
+        Rect: pdf.context.obj([100, 100, 130, 130]),
+      }),
+    ]),
+  )
+  const source = await pdf.save()
+
+  const fitted = await resizePages(source, { paper: 'a4', orientation: 'portrait' })
+  const out = await PDFDocument.load(fitted)
+  const resized = out.getPage(0)
+
+  assert.deepEqual(resized.getSize(), { width: 595.28, height: 841.89 })
+  assert.deepEqual(
+    visibleBox(resized),
+    { x: 0, y: 0, width: 595.28, height: 841.89 },
+    'the old crop described a page that no longer exists, so it went',
+  )
+
+  // 150 points of visible page onto 595.28 of sheet.
+  const factor = 595.28 / 150
+  const drawn = await operatorsOf(fitted)
+  const matrices = [...drawn.matchAll(/([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+) cm/g)]
+    .map((found) => found.slice(1).map(Number))
+  assert.ok(
+    matrices.some((m) => m[4] === -100 && m[5] === -100),
+    'the visible corner is brought to the origin before anything is scaled',
+  )
+  assert.ok(
+    matrices.some((m) => Math.abs((m[0] ?? 0) - factor) < 0.001 && m[0] === m[3]),
+    `scaled by ${factor} on both axes`,
+  )
+  assert.ok(
+    matrices.some((m) => m[4] === 0 && Math.abs((m[5] ?? 0) - (841.89 - 595.28) / 2) < 0.01),
+    'then centred on the sheet',
+  )
+
+  // The annotation sat in the corner of the crop, so it should now sit in the
+  // corner of the sheet, scaled with everything else.
+  const annotations = resized.node.Annots() as PDFArray
+  const rect = out.context.lookup(annotations.get(0), PDFDict).get(PDFName.of('Rect')) as PDFArray
+  const corners = [0, 1, 2, 3].map((at) => (rect.get(at) as PDFNumber).asNumber())
+  assert.ok(Math.abs(corners[0]!) < 0.01, `annotation x ${corners[0]}, wanted the corner`)
+  assert.ok(
+    Math.abs(corners[1]! - (841.89 - 595.28) / 2) < 0.01,
+    `annotation y ${corners[1]}, wanted it moved with the content`,
+  )
+  assert.ok(
+    Math.abs(corners[2]! - 30 * factor) < 0.01,
+    'and scaled by the same factor, or it points at the wrong line',
+  )
+})
+
 /* ---------- bookmarks ---------- */
 
 /**
@@ -451,12 +565,72 @@ test('bookmarks that name their destination are carried too', async () => {
   ])
 })
 
+/**
+ * An outline is a chain of references, and nothing in the format stops one
+ * pointing back at itself. Walked naively that is a merge that never finishes;
+ * walked with only a counter it is ten thousand copies of the same bookmark.
+ */
+test('an outline that points back at itself does not run away with the merge', async () => {
+  const pdf = await PDFDocument.create()
+  const page = pdf.addPage([200, 200])
+  const root = pdf.context.obj({ Type: 'Outlines' })
+  const rootRef = pdf.context.register(root)
+  const loop = pdf.context.obj({
+    Title: PDFString.of('Round and round'),
+    Parent: rootRef,
+    Dest: pdf.context.obj([page.ref, PDFName.of('XYZ'), PDFNumber.of(0), PDFNumber.of(200), PDFNumber.of(0)]),
+  })
+  const loopRef = pdf.context.register(loop)
+  // Its own sibling, and its own child.
+  loop.set(PDFName.of('Next'), loopRef)
+  loop.set(PDFName.of('First'), loopRef)
+  root.set(PDFName.of('First'), loopRef)
+  root.set(PDFName.of('Last'), loopRef)
+  pdf.catalog.set(PDFName.of('Outlines'), rootRef)
+
+  const started = Date.now()
+  const merged = await mergePdfs([await pdf.save()])
+  assert.ok(Date.now() - started < 5000, 'it finishes')
+  assert.deepEqual(
+    await outlineOf(merged),
+    ['Round and round -> page 1'],
+    'the bookmark is carried once, not once per lap',
+  )
+})
+
 /** A document with nothing to carry should not gain an empty outline. */
 test('a document with no bookmarks does not grow one', async () => {
   const plain = await mergePdfs([await makePdf(3), await makePdf(2)])
   assert.deepEqual(await outlineOf(plain), [])
   const pdf = await PDFDocument.load(plain)
   assert.equal(pdf.catalog.get(PDFName.of('Outlines')), undefined, 'and no root either')
+})
+
+/**
+ * These four tables decide the extension a saved file gets and the type its
+ * Blob carries, which is what the operating system opens it with. Small enough
+ * to be thought obvious, and wrong in a way nobody notices until a PNG will not
+ * open.
+ */
+test('every writable format agrees with itself about what it is called', () => {
+  for (const format of IMAGE_FORMATS) {
+    assert.equal(isImageFormat(format), true)
+    assert.match(mimeType(format), /^image\/[a-z+-]+$/, `${format} has a real media type`)
+    assert.match(extensionFor(format), /^[a-z]+$/, `${format} has a bare extension, no dot`)
+    assert.equal(typeof hasLosslessOption(format), 'boolean')
+  }
+  assert.equal(mimeType('jpeg'), 'image/jpeg')
+  assert.equal(extensionFor('jpeg'), 'jpg', 'the extension people expect, not the format name')
+  assert.equal(extensionFor('png'), 'png')
+  assert.equal(hasLosslessOption('jpeg'), false, 'JPEG has no lossless mode to offer')
+
+  // The read-only ones are not writable, and the two lists must not overlap or
+  // a format would be offered as an output it cannot be written to.
+  for (const format of READ_ONLY_FORMATS) {
+    assert.equal(isImageFormat(format), false, `${format} can be read but not written`)
+  }
+  assert.equal(isImageFormat('pdf'), false)
+  assert.equal(isImageFormat(''), false)
 })
 
 /* ---------- the small shared pieces ---------- */

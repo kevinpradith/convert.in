@@ -125,6 +125,15 @@ export async function redactPdf(
   if (!Number.isFinite(dpi) || dpi < 1 || dpi > MAX_DPI) {
     throw new Error(`the resolution must be between 1 and ${MAX_DPI} dots per inch`)
   }
+  // Refused rather than clamped away. A rectangle whose numbers are not numbers
+  // paints nothing, and a redaction that quietly covers nothing is the one
+  // failure this tool must not have.
+  for (const box of boxes) {
+    const sides = [box.x, box.y, box.width, box.height]
+    if (!sides.every((side) => Number.isFinite(side)) || box.width <= 0 || box.height <= 0) {
+      throw new Error('a redaction rectangle needs a position and a size, given as numbers')
+    }
+  }
 
   const doc = await loadDoc(file)
   const pages: Uint8Array[] = []
