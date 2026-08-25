@@ -19,6 +19,36 @@ npm test
 npm run build
 ```
 
+## Signed commits
+
+Commits on `main` are signed, with an SSH key rather than GPG: Git has
+supported it since 2.34, the key is an `ssh-ed25519` one GitHub verifies the
+same way, and there is no keyring to keep alive. The settings live in this
+repository rather than in a global config, so cloning it does not change how
+you commit anywhere else:
+
+```sh
+ssh-keygen -t ed25519 -C "you@example.com (convert.in signing)" -f ~/.ssh/id_ed25519_signing
+git config gpg.format ssh
+git config user.signingkey ~/.ssh/id_ed25519_signing.pub
+git config commit.gpgsign true
+git config tag.gpgsign true
+```
+
+Add the public key to your account as a **signing key** — the list is separate
+from authentication keys, and a key in the wrong list verifies nothing. Then
+point Git at a file of the keys it should trust, so `git log --show-signature`
+can check them without asking GitHub:
+
+```sh
+printf '%s namespaces="git" %s\n' you@example.com "$(cut -d' ' -f1,2 ~/.ssh/id_ed25519_signing.pub)" \
+  >> ~/.ssh/allowed_signers
+git config gpg.ssh.allowedSignersFile ~/.ssh/allowed_signers
+```
+
+A signature says the commit came from the key it names. It does not say the
+change is correct, and it is not a substitute for reading one.
+
 ## The two languages
 
 The interface and the guide ship in English and Bahasa Indonesia, in
