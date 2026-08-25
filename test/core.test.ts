@@ -268,8 +268,11 @@ test('parseRanges rejects nonsense and out-of-bounds input', () => {
   assert.throws(() => parseRanges('', 10), /empty page range/)
   assert.throws(() => parseRanges('0', 10), /out of bounds/)
   assert.throws(() => parseRanges('11', 10), /out of bounds/)
-  assert.throws(() => parseRanges('5-2', 10), /out of bounds/)
   assert.throws(() => parseRanges('1-99', 10), /out of bounds/)
+  // Backwards is its own mistake. Both ends of "5-2" are inside a ten-page
+  // document, so calling it out of bounds sends the reader to the page count,
+  // which is not where the problem is.
+  assert.throws(() => parseRanges('5-2', 10), /counts backwards/)
 })
 
 test('chunkPages splits into consecutive groups and keeps the short tail', () => {

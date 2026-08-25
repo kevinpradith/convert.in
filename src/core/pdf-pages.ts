@@ -290,7 +290,13 @@ export function parseRanges(spec: string, total: number): number[] {
 
     const from = hasLeft ? Number(left) : 1
     const to = hasRight ? Number(right) : total
-    if (from < 1 || to > total || from > to) {
+    // Backwards is its own mistake and gets its own words. Calling "5-2" out of
+    // bounds when both ends are inside the document sends the reader looking at
+    // the page count, which is not where the problem is.
+    if (from > to) {
+      throw new Error(`page range "${token}" counts backwards: put the lower page first`)
+    }
+    if (from < 1 || to > total) {
       throw new Error(`page range "${token}" is out of bounds (document has ${total} pages)`)
     }
     for (let page = from; page <= to; page++) indices.push(page - 1)
