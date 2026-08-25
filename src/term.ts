@@ -9,7 +9,7 @@ export const dim = (text: string) => (styled ? `\x1b[2m${text}\x1b[0m` : text)
 /**
  * True when this is a WSL shell, where Windows paths need translating.
  * /proc/version names the kernel and is the one check that works on WSL 1 and 2
- * regardless of which shell launched us.
+ * regardless of which shell started the process.
  */
 export const isWsl = (() => {
   try {
