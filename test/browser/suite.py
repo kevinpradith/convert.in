@@ -257,6 +257,12 @@ def main():
 
     (FIXTURES / 'cjk.pdf').write_bytes(cjk_pdf())
     (FIXTURES / 'talkative.pdf').write_bytes(talkative_pdf())
+    # One name changed inside a real encryption dictionary, and the streams it
+    # covers stop being covered. The byte-level proof that this leaves a
+    # readable document behind lives in test/encryption-audit.py; here it only
+    # has to be a file the tool must refuse to call protected.
+    (FIXTURES / 'half-sealed.pdf').write_bytes(
+        (FIXTURES / 'open-only.pdf').read_bytes().replace(b'/StmF /StdCF', b'/StmF /Identity', 1))
     (FIXTURES / 'grey.png').write_bytes(png(240, 180, 40))
     (FIXTURES / 'pale.png').write_bytes(png(180, 240, 200))
     (FIXTURES / 'half-clear.png').write_bytes(png(120, 80, 30, alpha=True))
@@ -814,6 +820,17 @@ def run():
         for secret in ('a.person', 'Acme Holdings', 'Q3 layoffs draft', 'xpacket'):
             check(secret not in text, f'{secret!r} is gone from the bytes')
         check(len(PdfReader(io.BytesIO(cleaned)).pages) == 1, 'and the page survived')
+
+        print('== a file that only pretends to be encrypted ==')
+        current = tool('Protect PDF')
+        current.locator('input[type=file]').set_input_files(str(FIXTURES / 'half-sealed.pdf'))
+        told = current.get_by_role('alert')
+        told.wait_for(timeout=30000)
+        check('does not encrypt everything' in told.inner_text(),
+              'a half-sealed file is called out rather than shown as locked')
+        check('half-sealed.pdf' in told.inner_text(),
+              'and named, because in a pile of twenty it has to be findable')
+        current.get_by_role('button', name='Clear', exact=True).click()
 
         print('== protect ==')
         current = tool('Protect PDF')

@@ -180,6 +180,65 @@ for name, password in (('open-only.pdf', 'hunter2'), ('both.pdf', 'openpw'), ('p
           f'{name}: the only Helvetica in the file is the font name object, which is never encrypted')
 
 print()
+print('== 8. a file that only pretends to be encrypted ==')
+# The other half of PDFex: the format lets ciphertext and plaintext sit side by
+# side, so a document can announce AES-256, prompt for a password, and still
+# carry every page in the clear. Nothing warns about it, because nothing about
+# it breaks the spec. Built here rather than reasoned about, with real R6 key
+# material lifted from a file this project wrote, so a reader would accept the
+# password and show the same document either way.
+real = (D / 'open-only.pdf').read_bytes().decode('latin1')
+
+def keymaterial(key):
+    return re.search(r'/%s <([0-9a-fA-F]+)>' % key, real).group(1).encode()
+
+body = b'BT /F1 14 Tf 20 200 Td (CONFIDENTIAL SALARY DATA) Tj ET\n'
+objects = [
+    b'<< /Type /Catalog /Pages 2 0 R >>',
+    b'<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    b'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 300] '
+    b'/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
+    b'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    b'<< /Length %d >>\nstream\n' % len(body) + body + b'endstream',
+    b'<< /Title (Payroll 2026) /Author (payroll.admin) >>',
+    b'<< /Filter /Standard /V 5 /R 6 /Length 256 '
+    b'/CF << /StdCF << /AuthEvent /DocOpen /CFM /AESV3 /Length 32 >> >> '
+    # The whole trick. Both are legal values, and both mean "encrypt nothing".
+    b'/StmF /Identity /StrF /Identity '
+    b'/U <%s> /O <%s> /UE <%s> /OE <%s> /Perms <%s> /P -4 >>'
+    % tuple(keymaterial(k) for k in ('U', 'O', 'UE', 'OE', 'Perms')),
+]
+out = bytearray(b'%PDF-1.7\n%\xe2\xe3\xcf\xd3\n')
+offsets = []
+for number, obj in enumerate(objects, 1):
+    offsets.append(len(out))
+    out += b'%d 0 obj\n' % number + obj + b'\nendobj\n'
+start = len(out)
+out += b'xref\n0 %d\n0000000000 65535 f \n' % (len(objects) + 1)
+for offset in offsets:
+    out += b'%010d 00000 n \n' % offset
+out += (b'trailer\n<< /Size %d /Root 1 0 R /Info 6 0 R /Encrypt 7 0 R '
+        b'/ID [<0102030405060708090a0b0c0d0e0f10> <0102030405060708090a0b0c0d0e0f10>] >>\n'
+        b'startxref\n%d\n%%%%EOF\n' % (len(objects) + 1, start))
+pretend = D / 'pretends-encrypted.pdf'
+pretend.write_bytes(bytes(out))
+
+# The premise: this really is readable with no password at all.
+raw = pretend.read_bytes()
+check(b'CONFIDENTIAL SALARY DATA' in raw, 'the fixture really does leave its page in the clear')
+check(b'payroll.admin' in raw, 'and its author')
+
+told = subprocess.run(
+    ['node', 'bin/convert.in.mjs', 'info', str(pretend)],
+    capture_output=True, text=True,
+)
+said = told.stdout + told.stderr
+check('encrypted, needs a password' not in said,
+      'info does not call a file protected when its pages are readable')
+check('does not encrypt everything' in said,
+      f'info says what is actually readable ({said.strip()[-60:]!r})')
+
+print()
 print(f'== {len(ok)} passed, {len(bad)} failed ==')
 for b in bad: print('   FAILED:', b)
 sys.exit(1 if bad else 0)

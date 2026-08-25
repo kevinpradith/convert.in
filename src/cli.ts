@@ -36,6 +36,7 @@ import {
 import {
   CHANGES_LEVELS,
   caveat,
+  clearWarning,
   describeSecurity,
   explain,
   PRINTING_LEVELS,
@@ -722,6 +723,8 @@ async function main(): Promise<void> {
 
       return each(files, (input) => `${stem(input)}-unlocked.pdf`, async (file, input) => {
         const security = await describeSecurity(file)
+        const partial = clearWarning(security.inTheClear)
+        if (partial !== null) warn(named(files, input) + partial)
         if (!security.encrypted) {
           const why = 'is not encrypted, so there is nothing to unlock.'
           // Alone it is the whole request and worth failing on; among others it
@@ -830,12 +833,20 @@ async function main(): Promise<void> {
         const { size } = await stat(input)
         const security = await describeSecurity(file)
 
+        // A file that announces encryption and then leaves half of itself
+        // readable is the one thing here nobody would think to check for, and
+        // the answer changes what they do with the file.
+        const partial = clearWarning(security.inTheClear)
+
         // A locked file still has something worth saying about it, so report the
         // lock rather than failing on the read.
         if (security.needsPassword) {
-          console.log(`${input}  ${dim(`${humanSize(size)} · encrypted, needs a password`)}`)
+          const shape = partial === null ? 'encrypted, needs a password' : 'encrypted in part only'
+          console.log(`${input}  ${dim(`${humanSize(size)} · ${shape}`)}`)
+          if (partial !== null) warn(partial)
           continue
         }
+        if (partial !== null) warn(`${basename(input)}: ${partial}`)
 
         const { pages, width, height } = await describe(
           security.encrypted ? await unlockPdf(file, '') : file,

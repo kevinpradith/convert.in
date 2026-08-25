@@ -58,6 +58,17 @@ still change between minor versions.
   Unlinking an XMP packet is not removing it, since an object nothing points at
   is still written out in full and still readable with `strings`, so the object
   itself goes.
+- **info now says what a file's encryption actually covers**, not just that it
+  has some. The format lets ciphertext and plaintext sit side by side: `/StmF`
+  and `/StrF` name the crypt filter each kind of object goes through, and
+  `/Identity` means none. A document can announce AES-256, prompt for a
+  password, and still carry every page in the clear for anyone with a text
+  editor, without breaking the specification, which is the shape the PDFex work
+  (Müller et al., ACM CCS 2019) builds its direct-exfiltration attack on. Such a
+  file is now reported as "encrypted in part only", with the readable parts
+  named, in `info`, in `unlock`, and in the Protect tool. Nothing this project
+  writes is ever partly encrypted; the audit builds one of these and checks the
+  report against the bytes.
 - **`odd` and `even` page ranges**, wherever `--pages` is taken. A duplex feeder
   that flips the back of every sheet leaves one of those halves upside down, and
   `2,4,6` up to 300 is not a page range anybody should have to type.
@@ -70,6 +81,17 @@ still change between minor versions.
 
 ### Fixed
 
+- **A file locked only by a permissions password no longer demands a password
+  that does not exist.** Such a file opens with an empty one, which is what every
+  reader does and what the web app already did, but `protect` on the command line
+  failed with "supply the password to open it" and the only way through was to
+  work out that the answer was `--password ""`. Opening now tries the empty
+  password before giving up. A file that really is locked still refuses.
+- **Three of the library's own error messages no longer reach a person
+  verbatim.** An empty password against a locked file answered `NEEDS PASSWORD`;
+  a damaged encryption dictionary answered `invalid key length: 7` or
+  `unsupported encryption algorithm`, naming a field nobody chose in a file they
+  did not write.
 - **A page named twice is turned once.** `rotate --pages 1,1`, and now any range
   that overlaps `odd` or `even`, rotated that page once per mention.
 - **A photo taken sideways no longer becomes a sideways page.** A phone writes

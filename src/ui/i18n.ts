@@ -183,6 +183,8 @@ const en = {
     emptyHint:
       'Lock them with a password, or hand over locked ones and take the password off. One password covers the whole pile. Encryption is AES-256, the setting Acrobat calls "Acrobat X and later".',
     lockedNotice: 'This file is locked. Give its password to open it up.',
+    partlyOpen: (names: string) =>
+      `${names} asks for a password but does not encrypt everything: its pages, or its title and author, can be read straight out of the file without one. The format allows that, so no reader will warn you. Treat it as unprotected.`,
     restrictedNotice: 'This file is encrypted but opens without a prompt: only its permissions are locked.',
     openPassword: 'Open password',
     openHint: 'Needed to open the file at all. Leave blank to restrict only.',
@@ -420,6 +422,8 @@ const id: Strings = {
     emptyHint:
       'Kunci dengan password, atau serahkan yang sudah terkunci lalu lepas passwordnya. Satu password berlaku untuk seluruh tumpukan. Enkripsinya AES-256, setelan yang Acrobat sebut "Acrobat X and later".',
     lockedNotice: 'Berkas ini terkunci. Masukkan passwordnya untuk membuka.',
+    partlyOpen: (names: string) =>
+      `${names} meminta password tapi tidak mengenkripsi semuanya: halamannya, atau judul dan penulisnya, bisa dibaca langsung dari berkasnya tanpa password. Format PDF memang mengizinkan itu, jadi tidak ada pembaca yang memperingatkan. Anggap saja berkas ini tidak terlindungi.`,
     restrictedNotice: 'Berkas ini terenkripsi tapi terbuka tanpa diminta password: yang dikunci cuma izinnya.',
     openPassword: 'Password buka',
     openHint: 'Dibutuhkan untuk membuka berkasnya. Kosongkan kalau cuma mau membatasi.',
