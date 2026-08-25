@@ -50,6 +50,7 @@ import {
   extensionFor,
   hasLosslessOption,
   isImageFormat,
+  looksTruncated,
   mimeType,
   encodeImage,
   resize,
@@ -295,6 +296,34 @@ test('odd and even name the halves a duplex scan gets wrong', async () => {
   const pdf = await rotatePages(await makePdf(3), [0, 0, 2], 90)
   const angles = (await PDFDocument.load(pdf)).getPages().map((page) => page.getRotation().angle)
   assert.deepEqual(angles, [90, 0, 90])
+})
+
+/**
+ * A decoder handed half a file does not refuse it: libjpeg fills what it never
+ * received with grey, hands back a full-size picture, and prints "Premature end
+ * of JPEG file" to standard error, which names no file and offers no advice.
+ * Without this the run reports success over an image whose bottom is missing.
+ */
+test('a file that stops before its own end is spotted before it is decoded', async () => {
+  const pixels = { width: 40, height: 30, data: new Uint8ClampedArray(40 * 30 * 4).fill(200) }
+  for (const format of ['jpeg', 'png'] as const) {
+    const whole = await encodeImage(pixels, { format })
+    assert.equal(looksTruncated(whole), false, `an intact ${format} is not damaged`)
+    assert.equal(looksTruncated(whole.slice(0, whole.length - 20)), true, `a cut ${format} is`)
+
+    // Trailing padding is common enough that treating it as damage would cry
+    // wolf, which is worse than staying quiet.
+    const padded = new Uint8Array(whole.length + 40)
+    padded.set(whole)
+    assert.equal(looksTruncated(padded), false, `a padded ${format} is not damaged`)
+  }
+
+  // Only the two formats with an unambiguous end are judged. Saying a file is
+  // damaged when nothing here can tell is worse than saying nothing.
+  const webp = await encodeImage(pixels, { format: 'webp' })
+  assert.equal(looksTruncated(webp.slice(0, 40)), false, 'no opinion is offered about a WebP')
+  assert.equal(looksTruncated(new Uint8Array([1, 2, 3])), false)
+  assert.equal(looksTruncated(new Uint8Array(0)), false)
 })
 
 /* ---------- what a reader actually shows ---------- */
@@ -1130,6 +1159,29 @@ test('watermark rejects empty text, bad opacity and characters it cannot draw', 
   await assert.rejects(() => watermarkPdf(plain, { text: '機密' }), /only cover Latin-1/)
   // Curly quotes and dashes are inside WinAnsi, so they must not be refused.
   await watermarkPdf(plain, { text: '“Draft” – 2026' })
+})
+
+/**
+ * sign has always refused a mark that does not fit. number was drawing into the
+ * void: a margin bigger than the page put the label off the edge, and a page
+ * number that is not on the page is the same as no page number at all except
+ * that it looks like it worked.
+ */
+test('a page number that cannot fit where it was asked for is refused', async () => {
+  const a4 = await PDFDocument.create()
+  a4.addPage([595, 842])
+  const sheet = await a4.save()
+
+  await assert.doesNotReject(() => numberPages(sheet, { size: 10, margin: 28 }))
+  await assert.rejects(
+    () => numberPages(sheet, { size: 10, margin: 900 }),
+    /595x842pt.+does not fit/s,
+  )
+
+  const tiny = await PDFDocument.create()
+  tiny.addPage([1, 1])
+  const speck = await tiny.save()
+  await assert.rejects(() => numberPages(speck, {}), /1x1pt.+does not fit/s)
 })
 
 test('numberPages validates its options and honours a page selection', async () => {

@@ -261,6 +261,42 @@ export function sniff(bytes: Uint8Array): SourceFormat | null {
   return null
 }
 
+/**
+ * True when a file stops before its own format says it should.
+ *
+ * A decoder handed half a JPEG does not refuse it: libjpeg fills what it never
+ * received with grey, hands back a full-size picture, and prints "Premature end
+ * of JPEG file" to standard error, which names no file and offers no advice.
+ * The result is a conversion that reports success over an image whose bottom
+ * half is missing.
+ *
+ * Only the two formats with an unambiguous end are checked. A JPEG ends with
+ * the end-of-image marker and a PNG with an IEND chunk, and neither is optional.
+ * The rest are left alone rather than guessed at: saying a sound file is
+ * damaged is worse than saying nothing.
+ */
+export function looksTruncated(bytes: Uint8Array): boolean {
+  const format = sniff(bytes)
+  // Both are looked for in the last stretch of the file rather than at its very
+  // end. Trailing padding after the marker is common enough that treating it as
+  // damage would cry wolf, which is worse than staying quiet.
+  const TAIL = 64
+  const from = Math.max(0, bytes.length - TAIL)
+  if (format === 'jpeg') {
+    for (let at = bytes.length - 2; at >= from; at--) {
+      if (bytes[at] === 0xff && bytes[at + 1] === 0xd9) return false
+    }
+    return true
+  }
+  if (format === 'png') {
+    for (let at = bytes.length - 4; at >= from; at--) {
+      if (ascii(bytes, at, 4) === 'IEND') return false
+    }
+    return true
+  }
+  return false
+}
+
 export function isImageFormat(value: string): value is ImageFormat {
   return (IMAGE_FORMATS as readonly string[]).includes(value)
 }
