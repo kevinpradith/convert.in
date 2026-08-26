@@ -1413,6 +1413,19 @@ test('library failures are translated before anyone sees them', () => {
     explain(new Error('Input document to `PDFDocument.load` is encrypted')),
     'this PDF is password protected: unlock it first',
   )
+  // The other library in the toolkit words the same three failures its own way.
+  assert.equal(
+    explain(new Error('No password given')),
+    'this PDF is password protected: unlock it first',
+  )
+  assert.equal(
+    explain(new Error('Invalid PDF structure.')),
+    'this PDF is damaged past the point where it can be read',
+  )
+  assert.equal(
+    explain(new Error('The PDF file is empty, i.e. its size is zero bytes.')),
+    'this file is not a PDF',
+  )
   // Anything it does not recognise has to survive untouched, or a real message
   // would be replaced by a guess.
   assert.equal(explain(new Error('disk full')), 'disk full')

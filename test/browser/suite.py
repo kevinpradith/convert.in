@@ -709,6 +709,17 @@ def run():
         }""")
         check(ink > 50, f'the page rendered with ink on it rather than blank ({ink} dark pixels)')
 
+        # The rasterising tools go through pdf.js, which words a locked file its
+        # own way. Whichever tool someone picked, the sentence has to be the one
+        # the rest of the app uses.
+        current.locator('input[type=file]').set_input_files(str(FIXTURES / 'open-only.pdf'))
+        told = current.get_by_role('alert')
+        told.wait_for(timeout=30000)
+        check('password protected' in told.inner_text(),
+              f'a locked file is refused in the app\'s own words ({told.inner_text()!r})')
+        check('No password given' not in told.inner_text(),
+              'rather than in the words of the library underneath')
+
         print('== a named Adobe CMap is fetched rather than silently missing ==')
         current.locator('input[type=file]').set_input_files(str(FIXTURES / 'cjk.pdf'))
         page.wait_for_timeout(4000)

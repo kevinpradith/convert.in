@@ -260,13 +260,24 @@ export function clearWarning(parts: InTheClear[]): string | null {
  */
 export function explain(error: unknown): string {
   const message = messageOf(error)
-  if (/document to `PDFDocument.load` is encrypted/i.test(message)) {
+  if (
+    /document to `PDFDocument.load` is encrypted/i.test(message) ||
+    // pdf.js rasterises the previews and the redaction, and it words the same
+    // refusal its own way. A person meets whichever library the tool they
+    // picked happens to use, so both have to arrive as one sentence.
+    /^no password given$/i.test(message)
+  ) {
     return 'this PDF is password protected: unlock it first'
   }
   // A file that is damaged past the point of being read comes back as an
   // internal type complaint. "No PDF header found" is its own case, because
   // that one almost always means the wrong file was picked.
-  if (/no pdf header found/i.test(message)) {
+  if (
+    /no pdf header found/i.test(message) ||
+    // An empty file reaches pdf-lib as a missing header and pdf.js as its own
+    // sentence. Both mean the same thing to whoever picked it.
+    /pdf file is empty/i.test(message)
+  ) {
     return 'this file is not a PDF'
   }
   // An encryption dictionary this cannot work with: a handler nobody
@@ -281,7 +292,9 @@ export function explain(error: unknown): string {
     /cannot read propert(y|ies) of (undefined|null)/i.test(message) ||
     // A page tree that points back at itself walks forever, and what comes back
     // is the stack running out. That is a broken document, not a broken tool.
-    /maximum call stack size exceeded/i.test(message)
+    /maximum call stack size exceeded/i.test(message) ||
+    // pdf.js again, for a file whose cross-reference table leads nowhere.
+    /invalid pdf structure/i.test(message)
   ) {
     return 'this PDF is damaged past the point where it can be read'
   }
