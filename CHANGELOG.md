@@ -20,6 +20,18 @@ still change between minor versions.
   those restrictions live in a flag a reader chooses to honour rather than in
   the cipher, and the document keeps its title and author instead of losing them
   to the decrypting parse.
+- **One sentence for a locked file, whichever tool met it first.** The page work
+  goes through pdf-lib and the previews, exports and redaction through pdf.js,
+  and only the first had its wording translated. A password-protected file
+  dropped into PDF to images, Organize or Redact came back as "No password
+  given", and a broken cross-reference table as "Invalid PDF structure."
+- **A dropped file a tool cannot use is named rather than swallowed.** Dropped
+  files are filtered by extension, since a drop event carries no bytes yet, and
+  a pile that filtered down to nothing was discarded in silence: the file
+  vanished under the pointer and the tool sat there as though nothing had been
+  dropped. Such a pile now goes through whole, so the file lands in the list
+  under its own name and the run says what is wrong with it. A mixed pile is
+  still filtered down to what the tool can use.
 
 ## [0.2.0] - 2026-08-26
 
