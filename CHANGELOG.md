@@ -9,6 +9,18 @@ still change between minor versions.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A PDF locked only by a permissions password can be worked on again.** Such a
+  file is encrypted, but its open password is empty, so every reader opens it
+  without prompting. Every tool here refused it anyway, with a message telling
+  the person to unlock a file they had no password for, and `info` printed the
+  page size and then failed before reaching the metadata. All of them now open
+  it the way a reader does. The output carries no encryption dictionary, because
+  those restrictions live in a flag a reader chooses to honour rather than in
+  the cipher, and the document keeps its title and author instead of losing them
+  to the decrypting parse.
+
 ## [0.2.0] - 2026-08-26
 
 Four new tools, a size limit to compress towards, and a long run of fixes for

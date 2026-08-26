@@ -937,6 +937,19 @@ def run():
             check(secret not in text, f'{secret!r} is gone from the bytes')
         check(len(PdfReader(io.BytesIO(cleaned)).pages) == 1, 'and the page survived')
 
+        # A file locked only by a permissions password opens in every reader
+        # without a prompt, so the window has to work on it too rather than ask
+        # for a secret that was never set.
+        current.get_by_role('button', name='Clear', exact=True).click()
+        current.locator('input[type=file]').set_input_files(str(FIXTURES / 'perms-only.pdf'))
+        titled = current.get_by_text('Audit Source', exact=True)
+        titled.wait_for(timeout=30000)
+        check(titled.count() >= 1, 'a permissions-only file is read rather than refused')
+        freed = PdfReader(io.BytesIO(produced_bytes(current, 'Clean')))
+        check(not freed.is_encrypted, 'and comes back as a document any reader can open')
+        check(freed.metadata is None or len(freed.metadata) == 0,
+              'with what it said about itself taken out')
+
         print('== a file that only pretends to be encrypted ==')
         current = tool('Protect PDF')
         current.locator('input[type=file]').set_input_files(str(FIXTURES / 'half-sealed.pdf'))

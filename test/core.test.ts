@@ -1116,7 +1116,7 @@ test('protect locks a document with AES-256 R6, the setting Acrobat calls "Acrob
     needsPassword: true,
     inTheClear: [],
   })
-  await assert.rejects(() => pageCount(locked), /encrypted/i)
+  await assert.rejects(() => pageCount(locked), /password protected/i)
 
   // The encryption dictionary is not itself encrypted, so the handler it
   // declares can be read straight out of the bytes.
@@ -1151,9 +1151,9 @@ test('protect follows Acrobat rules about the two passwords', async () => {
     { encrypted: true, needsPassword: false, inTheClear: [] },
     'encrypted, but a reader is never prompted',
   )
-  // pdf-lib refuses to open any encrypted document unless it is handed a
-  // password, even the empty one a reader would use, so the rest of the toolkit
-  // reaches such a file through unlock rather than directly.
+  // Such a file opens everywhere else too, because its open password is empty
+  // and that is the password a reader supplies without asking anyone.
+  assert.equal(await pageCount(restricted), 1)
   assert.equal(await pageCount(await unlockPdf(restricted, '')), 1)
 
   await assert.rejects(
@@ -1164,6 +1164,46 @@ test('protect follows Acrobat rules about the two passwords', async () => {
     () => protectPdf(plain, { openPassword: 'x', changes: 'some' as never }),
     /changes must be one of/,
   )
+})
+
+test('a file locked only by a permissions password is worked on like any other', async () => {
+  const source = await PDFDocument.create()
+  source.addPage([300, 400])
+  source.setTitle('Quarterly figures')
+  source.setAuthor('Finance')
+  const restricted = await protectPdf(await source.save(), {
+    permissionsPassword: 'owner',
+    printing: 'none',
+    copying: false,
+  })
+  assert.equal((await describeSecurity(restricted)).needsPassword, false)
+
+  // Every operation, not only the ones that rebuild the document from scratch:
+  // stamping and metadata editing write the same objects back out, and that is
+  // where an encryption dictionary left pointing at the old key would survive.
+  const numbered = await numberPages(restricted, {})
+  const stamped = await watermarkPdf(restricted, { text: 'DRAFT' })
+  const resized = await resizePages(restricted, { paper: 'a4' })
+
+  for (const [name, made] of [
+    ['number', numbered],
+    ['watermark', stamped],
+    ['resize', resized],
+  ] as const) {
+    assert.deepEqual(
+      await describeSecurity(made),
+      { encrypted: false, needsPassword: false, inTheClear: [] },
+      `${name} writes a document a reader can open, with no orphan /Encrypt left behind`,
+    )
+    assert.equal(await pageCount(made), 1, `${name} keeps the page`)
+  }
+
+  // The trailer's /Info survives the decrypting parse, so the document still
+  // says who wrote it, and clean still has something to take out.
+  const said = await describeMetadata(numbered)
+  const named = said.entries.find((entry) => entry.name === 'Title')
+  assert.equal(named?.value, 'Quarterly figures')
+  assert.equal((await describeMetadata(await stripMetadata(restricted))).any, false)
 })
 
 test('unlock refuses a wrong password', async () => {

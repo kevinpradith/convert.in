@@ -8,6 +8,7 @@ import {
   type PDFPage,
 } from '@cantoo/pdf-lib'
 import { carryOutline } from './pdf-outline.ts'
+import { openPdf } from './pdf-security.ts'
 
 /** Page indices here are 0-based; the ranges people type are 1-based. */
 
@@ -30,7 +31,7 @@ export interface Description {
 }
 
 export async function describe(file: Uint8Array): Promise<Description> {
-  const pdf = await PDFDocument.load(file)
+  const pdf = await openPdf(file)
   const pages = pdf.getPageCount()
   if (pages === 0) throw new Error('this PDF has no pages')
   const { width, height } = visibleBox(pdf.getPage(0))
@@ -83,7 +84,7 @@ export function visibleBox(page: PDFPage): Box {
  * fields stop working. Callers warn rather than let that happen quietly.
  */
 export async function hasFormFields(file: Uint8Array): Promise<boolean> {
-  return (await PDFDocument.load(file)).getForm().getFields().length > 0
+  return (await openPdf(file)).getForm().getFields().length > 0
 }
 
 /** Carry the document information dictionary across, since copyPages does not. */
@@ -138,7 +139,7 @@ export async function assemblePages(
   picks: PagePick[],
 ): Promise<Uint8Array> {
   if (picks.length === 0) throw new Error('no pages selected')
-  const docs = await Promise.all(sources.map((source) => PDFDocument.load(source)))
+  const docs = await Promise.all(sources.map((source) => openPdf(source)))
   const out = await PDFDocument.create()
 
   // Group by source so each one is copied in a single copyPages call. pdf-lib
@@ -234,7 +235,7 @@ export async function rotatePages(
   if (!Number.isInteger(deltaDegrees) || deltaDegrees % 90 !== 0) {
     throw new Error('rotation must be a whole multiple of 90 degrees')
   }
-  const pdf = await PDFDocument.load(file)
+  const pdf = await openPdf(file)
   const total = pdf.getPageCount()
   if (indices.length === 0) throw new Error('no pages selected')
   // Turning is not something a page can be asked for twice: "1,1" or a range
@@ -392,7 +393,7 @@ export async function resizePages(
   if (sheet === undefined) throw new Error(`page size must be one of: ${PAPERS.join(', ')}`)
   if (!Number.isFinite(marginPt) || marginPt < 0) throw new Error('margin must be a number >= 0')
 
-  const pdf = await PDFDocument.load(file)
+  const pdf = await openPdf(file)
   for (const page of pdf.getPages()) {
     const source = visibleBox(page)
     const { width, height } = source

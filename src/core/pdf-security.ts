@@ -47,6 +47,49 @@ export interface ProtectOptions {
 const REFUSALS = [/password incorrect/i, /^needs password$/i, /no password given/i]
 
 /**
+ * Repair what a decrypting parse leaves behind, so the document can be written
+ * back out in the clear.
+ *
+ * Two things need doing by hand. The re-parse loses the trailer's /Info
+ * reference, so title, author, subject and keywords would silently vanish. And
+ * the library only stops pointing at the encryption dictionary; the object
+ * itself stays in the context and is written out as an orphan, which is enough
+ * for a reader that scans for /Encrypt to call the file locked, and for this
+ * tool's own info command to report a document nobody can open. Both are read
+ * back from an undecrypted parse of the same bytes, where the object numbers
+ * are identical.
+ */
+async function unseal(clear: PDFDocument, file: Uint8Array): Promise<PDFDocument> {
+  const sealed = await PDFDocument.load(file, { ignoreEncryption: true, updateMetadata: false })
+
+  // The document's own information dictionary, by the object number it has in
+  // both parses. Its decrypted contents are in the context already; only the
+  // trailer's way of naming it went missing.
+  const original = sealed.context.trailerInfo.Info
+  const restored = original instanceof PDFRef ? clear.context.lookup(original) : undefined
+  if (original instanceof PDFRef && restored instanceof PDFDict) {
+    // Having found no /Info to update, the library will have written its
+    // Producer and ModDate into a dictionary of its own. Those entries are the
+    // ones it meant to stamp, so they move onto the real dictionary rather than
+    // replacing it, and the stand-in goes.
+    const stray = clear.context.trailerInfo.Info
+    if (stray instanceof PDFRef && stray.toString() !== original.toString()) {
+      const written = clear.context.lookup(stray)
+      if (written instanceof PDFDict) {
+        for (const [key, value] of written.entries()) restored.set(key, value)
+        clear.context.delete(stray)
+      }
+    }
+    clear.context.trailerInfo.Info = original
+  }
+
+  const encryption = sealed.context.trailerInfo.Encrypt
+  if (encryption instanceof PDFRef) clear.context.delete(encryption)
+
+  return clear
+}
+
+/**
  * Open a document, turning the library's encryption errors into readable ones.
  *
  * A file locked only by a permissions password opens with an empty one, which
@@ -58,6 +101,7 @@ async function open(
   file: Uint8Array,
   password?: string,
   extra: { updateMetadata?: boolean } = {},
+  advice = 'supply the password to open it',
 ): Promise<PDFDocument> {
   try {
     return await PDFDocument.load(
@@ -73,13 +117,38 @@ async function open(
     if (!refused) throw error
     if (password === undefined) {
       try {
-        return await PDFDocument.load(file, { ...extra, password: '' })
+        return await unseal(await PDFDocument.load(file, { ...extra, password: '' }), file)
       } catch {
-        throw new Error('this PDF is password protected: supply the password to open it')
+        throw new Error(`this PDF is password protected: ${advice}`)
       }
     }
     throw new Error('that password does not open this PDF')
   }
+}
+
+/**
+ * Open a document for an operation that has no password of its own.
+ *
+ * Merging, stamping or compressing a file never asks for a password, so this is
+ * the loader the rest of the core uses. It matters for one document in
+ * particular: a file locked only by a permissions password is fully encrypted
+ * yet carries an empty open password, so every reader opens it without
+ * prompting. Loading it plainly still raises the library's encryption error,
+ * which used to refuse work on a file the person could open by double-clicking
+ * it. The retry below is what a reader does.
+ *
+ * A file whose open password is a real secret still refuses, and says to unlock
+ * it first, because that is the command that takes a password.
+ *
+ * The output is a document with no encryption of its own, which is what
+ * modifying a permissions-protected file means anywhere: those restrictions
+ * live in a flag a reader chooses to honour, not in the cipher.
+ */
+export function openPdf(
+  file: Uint8Array,
+  extra: { updateMetadata?: boolean } = {},
+): Promise<PDFDocument> {
+  return open(file, undefined, extra, 'unlock it first')
 }
 
 /** A part of the document its own encryption dictionary leaves readable. */
@@ -347,28 +416,8 @@ export async function protectPdf(file: Uint8Array, options: ProtectOptions): Pro
   return pdf.save()
 }
 
-/**
- * Open with the password and write the document back out in the clear.
- *
- * Two things have to be repaired by hand. The decrypting re-parse loses the
- * trailer's /Info reference, so title, author, subject and keywords would
- * silently vanish. And the library only stops pointing at the encryption
- * dictionary; the object itself stays in the context and gets written out as an
- * orphan, which is enough for a reader that scans for /Encrypt to call the
- * unlocked file locked. Both are read back from an undecrypted parse of the same
- * bytes, where the object numbers are identical.
- */
+/** Open with the password and write the document back out in the clear. */
 export async function unlockPdf(file: Uint8Array, password: string): Promise<Uint8Array> {
-  const clear = await open(file, password, { updateMetadata: false })
-  const sealed = await PDFDocument.load(file, { ignoreEncryption: true, updateMetadata: false })
-
-  const info = sealed.context.trailerInfo.Info
-  if (clear.context.trailerInfo.Info === undefined && info !== undefined) {
-    clear.context.trailerInfo.Info = info
-  }
-
-  const encryption = sealed.context.trailerInfo.Encrypt
-  if (encryption instanceof PDFRef) clear.context.delete(encryption)
-
+  const clear = await unseal(await open(file, password, { updateMetadata: false }), file)
   return clear.save()
 }

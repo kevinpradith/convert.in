@@ -1,5 +1,6 @@
-import { PDFDict, PDFDocument, PDFName, PDFRawStream } from '@cantoo/pdf-lib'
+import { PDFDict, PDFName, PDFRawStream } from '@cantoo/pdf-lib'
 import { decodeWithCodec, encodeImage, resize, type Pixels } from './images.ts'
+import { openPdf } from './pdf-security.ts'
 
 /**
  * Making a PDF smaller by re-encoding the pictures inside it.
@@ -107,7 +108,7 @@ export async function compressPdf(
     throw new Error('the longest side must be a whole number of pixels, 1 or more')
   }
 
-  const pdf = await PDFDocument.load(file)
+  const pdf = await openPdf(file)
   let images = 0
   let replaced = 0
   let skipped = 0
