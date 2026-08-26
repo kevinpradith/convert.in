@@ -116,6 +116,17 @@ npm run audit:fixtures -- ./fixtures
 python3 test/encryption-audit.py ./fixtures
 ```
 
+If you touch anything that reads a file it did not write, run the fuzz suite.
+It damages the fixtures on purpose and asks how the result is refused: a
+sentence about the file and exit 1 pass, a stack trace, an unexpected exit code
+or a run that never finishes do not. The mutations are seeded, so a failure
+reproduces exactly from the seed printed in its header:
+
+```sh
+npm run test:fuzz -- ./fixtures
+npm run test:fuzz -- ./fixtures --rounds 400 --seed 12
+```
+
 If you touch the interface, the response headers or anything pdf.js loads, run
 the browser suite. It serves the real `dist/` with the real `public/_headers`,
 so a change that only works without the Content-Security-Policy fails here
@@ -126,7 +137,7 @@ npm run build
 npm run test:browser
 ```
 
-All three Python suites install from one pinned file:
+All four Python suites install from one pinned file:
 
 ```sh
 pip install -r test/requirements.txt
@@ -145,7 +156,11 @@ python3 -m playwright install chromium   # once, for the browser suite
 ## Adding a dependency
 
 Anything that ends up in the browser bundle also ends up in the licence notices.
-Add it to the list in `scripts/notices.mjs` and run `npm run notices`. If it
+Run `npm run notices` and commit the result: the script builds the bundle, reads
+the packages back out of the sourcemaps and reproduces the licence of every one
+it finds, so there is no list to keep in step by hand. A package that ships no
+licence file stops the script rather than being skipped quietly, and CI fails if
+the committed notices differ from what the bundle now needs. If a dependency
 ships loose files rather than bundled code, copy the directory whole so its
 licence file travels with it, the way the pdf.js assets are handled in
 `vite.config.ts`. A dependency under a copyleft licence needs discussing first,

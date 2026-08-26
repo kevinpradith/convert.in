@@ -99,6 +99,16 @@ jobs:
       # between a typed command and src/core that neither other suite touches.
       - run: npm run test:cli
 
+      # Files nobody wrote on purpose. A parser over input it did not produce
+      # is the shape of software that fails badly, so this asks how a damaged
+      # file is refused rather than whether. Sixty rounds on a push and four
+      # hundred on the weekly run: the value is in the rare mutation, and a
+      # pull request should not wait for it.
+      - name: Damaged files are refused rather than crashed on
+        run: >-
+          python3 test/fuzz-cli.py ./fixtures
+          --rounds ${{ github.event_name == 'schedule' && 400 || 60 }}
+
       # Serves the real dist/ with the real headers, drives every tool, and
       # fails if a single request leaves the origin or the CSP is violated.
       - run: npm run test:browser

@@ -49,6 +49,7 @@
     "audit:fixtures": "node --import tsx test/encryption-fixtures.mts",
     "test:browser": "python3 test/browser/suite.py dist fixtures",
     "test:cli": "python3 test/cli-smoke.py",
+    "test:fuzz": "python3 test/fuzz-cli.py",
     "notices": "node scripts/notices.mjs"
   },
   "dependencies": {

@@ -139,6 +139,14 @@ tree. There is no `eval`, no `innerHTML`, no shell invocation anywhere in the
 source. `localStorage` holds the theme and the language and nothing else; a
 password is never written to it.
 
+Every GitHub Actions step is pinned to a commit rather than a tag, because a tag
+is a moving pointer and moving one is exactly how `tj-actions/changed-files` was
+turned into a secret exfiltrator across 23,000 repositories in March 2025
+(CVE-2025-30066). The workflow token is read-only at the top level, and the
+checkout step is told not to leave it in `.git/config`. CodeQL analyses every
+push and pull request with the `security-extended` pack, and Dependabot watches
+npm, the actions themselves and the two Python packages the suites install.
+
 The browser suite asserts that the page makes **no off-origin request at all**
 while running a full convert, stamp, lock and unlock cycle. Only the origin it
 was served from, plus `blob:` and `data:`, are allowed; anything else fails the
@@ -484,6 +492,7 @@ test/         node:test over core, no framework.
 test/browser/   the built app driven in a real browser, under the shipped headers.
 test/encryption-audit.py  the produced PDFs read back by pypdf, not by pdf-lib.
 test/cli-smoke.py         every command driven once, end to end.
+test/fuzz-cli.py          damaged files, to see how they are refused.
 ```
 
 `src/core/` does not know whether it is running in a browser or a terminal, which is
@@ -503,7 +512,7 @@ npm run cli -- --help
 Everything runs from a clean checkout with no configuration: no environment
 variables, no services, no accounts.
 
-Three suites reach past the core and need Python, because the point of each is
+Four suites reach past the core and need Python, because the point of each is
 to check the work with something other than the library that produced it:
 
 ```sh
@@ -515,6 +524,7 @@ npm run audit:fixtures -- ./fixtures   # documents with something to lose
 python3 test/encryption-audit.py ./fixtures   # pypdf reads the encryption back
 npm run test:cli                       # every command, once, end to end
 npm run test:browser                   # the built app, driven in Chromium
+npm run test:fuzz -- ./fixtures        # damaged files, seeded so they repeat
 ```
 
 `npm run test:browser` serves `dist/` with the contents of `public/_headers` and
@@ -527,6 +537,15 @@ nothing is refused by the Content-Security-Policy.
 `npm run test:cli` covers the layer between a typed command and `src/core`:
 argument parsing, output naming, the check that works out every output path
 before writing the first file, and the warnings printed alongside.
+
+`npm run test:fuzz` hands the CLI files nobody wrote on purpose: bytes flipped
+inside an object, a document cut off halfway, a header with a digit changed. A
+PDF reader is a parser over input it did not produce, so the question is not
+whether a damaged file is refused but how. A sentence about the file and exit 1
+pass; a stack trace, an exit code that is neither 0 nor 1, or a run that never
+finishes fail. The mutations are seeded, so anything it finds reproduces from
+the seed in its header. CI runs sixty rounds on a push and four hundred on the
+weekly schedule, since the value is in the rare mutation.
 
 Their two Python packages are pinned in `test/requirements.txt`. Nothing else in
 the project needs Python.
