@@ -45,13 +45,17 @@ export function useBatch() {
   async function add(files: File[]): Promise<Item[]> {
     setError(null)
     const loaded: Item[] = []
+    let reading: File | undefined
     try {
       for (const file of files) {
+        reading = file
         loaded.push({ id: newId(), name: file.name, bytes: await readBytes(file) })
       }
     } catch (failure) {
-      // A file can go away between being dropped and being read.
-      setError(message(failure))
+      // A file can go away between being dropped and being read, and in a
+      // folder of forty the name is the only part of that worth reading.
+      const said = message(failure)
+      setError(files.length > 1 && reading ? `${reading.name}: ${said}` : said)
     }
     setItems((previous) => [...previous, ...loaded])
     return loaded
@@ -91,13 +95,20 @@ export function useBatch() {
     await once(async () => {
       setError(null)
       const done: Record<string, { result?: Output; note?: string }> = {}
+      // Named so a failure can say which file it came from. In a folder of
+      // forty, "this PDF is damaged past the point where it can be read" with
+      // no name attached leaves somebody opening files one at a time to find
+      // out which one it meant.
+      let reached: Item | undefined
       try {
         for (const [index, item] of items.entries()) {
+          reached = item
           setBusy(items.length === 1 ? label : t.progress(index + 1, items.length))
           done[item.id] = await work(item)
         }
       } catch (failure) {
-        setError(message(failure))
+        const said = message(failure)
+        setError(items.length > 1 && reached ? `${reached.name}: ${said}` : said)
       } finally {
         setItems((previous) =>
           previous.map((item) => {
