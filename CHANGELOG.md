@@ -9,6 +9,10 @@ still change between minor versions.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-08-26
+
+Three fixes for files the toolkit refused, or failed at without saying so.
+
 ### Fixed
 
 - **A PDF locked only by a permissions password can be worked on again.** Such a
@@ -418,6 +422,7 @@ line, and one `src/core` shared by both so a change lands in both at once.
 - `convert photo.png webp --to avif` is refused instead of quietly picking one of
   the two answers.
 
-[Unreleased]: https://github.com/kevinpradith/convert.in/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/kevinpradith/convert.in/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/kevinpradith/convert.in/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/kevinpradith/convert.in/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/kevinpradith/convert.in/releases/tag/v0.1.0
