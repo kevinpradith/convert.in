@@ -805,6 +805,29 @@ def run():
         check(where['y'] > where['h'] / 2,
               f"and in the bottom half ({where['y']:.0f} of {where['h']})")
 
+        print('== a failure in a pile says which file ==')
+        # Three files where the middle one is not a PDF at all. The message
+        # from the core names the problem; without the file it came from, a
+        # folder of forty leaves somebody opening them one at a time.
+        (FIXTURES / 'not-really.pdf').write_bytes(b'this is not a PDF at all\n' * 30)
+        current = tool('Compress PDF')
+        # Emptied first: this tool still holds the pile the compression block
+        # left in it, and a run over five files where two are large scans takes
+        # long enough to time out waiting for the failure.
+        current.get_by_role('button', name='Clear', exact=True).click()
+        current.locator('input[type=file]').set_input_files([
+            str(FIXTURES / 'plain.pdf'),
+            str(FIXTURES / 'not-really.pdf'),
+            str(FIXTURES / 'scan.pdf'),
+        ])
+        current.get_by_role('button', name='Compress', exact=True).click()
+        told = current.get_by_role('alert')
+        told.wait_for(timeout=120000)
+        said = told.inner_text()
+        check('not-really.pdf' in said, f'the failure names the file ({said[:70]!r})')
+        check('not a PDF' in said or 'damaged' in said, 'and still says what was wrong')
+        current.get_by_role('button', name='Clear', exact=True).click()
+
         print('== a page range that will not do ==')
         # The reason used to live in a title attribute, which reaches a mouse
         # and nothing else. A range typed wrongly has to say what is wrong with
