@@ -901,9 +901,7 @@ async function main(): Promise<void> {
         }
         if (partial !== null) warn(`${basename(input)}: ${partial}`)
 
-        const { pages, width, height } = await describe(
-          security.encrypted ? await unlockPdf(file, '') : file,
-        )
+        const { pages, width, height } = await describe(file)
         const inches = `${(width / 72).toFixed(2)} × ${(height / 72).toFixed(2)} in`
         const lock = security.encrypted ? ' · encrypted, opens without a password' : ''
         console.log(

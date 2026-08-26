@@ -1,5 +1,6 @@
-import { degrees, PDFDocument, rgb, StandardFonts, type PDFPage } from '@cantoo/pdf-lib'
+import { degrees, rgb, StandardFonts, type PDFPage } from '@cantoo/pdf-lib'
 import { resolvePages, visibleBox } from './pdf-pages.ts'
+import { openPdf } from './pdf-security.ts'
 
 /**
  * Text drawn over existing pages. Both operations use the built-in Helvetica so
@@ -93,7 +94,7 @@ export async function watermarkPdf(
   if (!(opacity > 0 && opacity <= 1)) throw new Error('opacity must be above 0 and at most 1')
   if (size !== undefined && !(size > 0)) throw new Error('size must be above 0')
 
-  const pdf = await PDFDocument.load(file)
+  const pdf = await openPdf(file)
   const font = await pdf.embedFont(StandardFonts.HelveticaBold)
   const perUnit = font.widthOfTextAtSize(text, 1)
 
@@ -174,7 +175,7 @@ export async function numberPages(
     throw new Error(`position must be one of: ${CORNERS.join(', ')}`)
   }
 
-  const pdf = await PDFDocument.load(file)
+  const pdf = await openPdf(file)
   const font = await pdf.embedFont(StandardFonts.Helvetica)
   const targets = resolvePages(pdf.getPageCount(), pages)
   const [vertical, horizontal] = position.split('-')

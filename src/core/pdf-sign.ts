@@ -1,6 +1,7 @@
-import { degrees, PDFDocument } from '@cantoo/pdf-lib'
+import { degrees } from '@cantoo/pdf-lib'
 import { CORNERS, displayedSize, placeOnPage, turnOf, type Corner } from './pdf-stamp.ts'
 import { resolvePages } from './pdf-pages.ts'
+import { openPdf } from './pdf-security.ts'
 import { sniff } from './images.ts'
 
 /**
@@ -54,7 +55,7 @@ export async function signPdf(file: Uint8Array, options: SignOptions): Promise<U
   if (!(width > 0)) throw new Error('the signature width must be above 0')
   if (!(margin >= 0)) throw new Error('margin must be 0 or more')
 
-  const pdf = await PDFDocument.load(file)
+  const pdf = await openPdf(file)
   const image = kind === 'png' ? await pdf.embedPng(signature) : await pdf.embedJpg(signature)
   const total = pdf.getPageCount()
   const targets = resolvePages(total, pages ?? [total - 1])

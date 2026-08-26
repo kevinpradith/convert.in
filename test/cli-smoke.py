@@ -279,6 +279,17 @@ def smoke(work):
                      '-o', work / 'perms-locked.pdf')
     check(code == 0, 'and re-protecting it does not demand a password that does not exist')
 
+    # Nor should any other command: a reader opens this file by double-clicking
+    # it, and refusing to work on it would be refusing a file nobody locked.
+    code, said = run('info', work / 'perms.pdf')
+    check(code == 0 and 'opens without a password' in said,
+          'info reads a permissions-only file rather than refusing it')
+    code, said = run('number', work / 'perms.pdf', '-o', work / 'perms-numbered.pdf')
+    check(code == 0, 'and so does an operation that writes the document back out')
+    code, said = run('info', work / 'perms-numbered.pdf')
+    check(code == 0 and 'encrypted' not in said,
+          'whose output carries no encryption dictionary at all')
+
     print()
     print('== metadata ==')
     code, said = run('info', source)

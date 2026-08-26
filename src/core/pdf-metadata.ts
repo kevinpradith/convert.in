@@ -11,7 +11,8 @@
  * None of that is visible while reading the file, and cleaning one copy leaves
  * the others. This reports every copy and removes every copy.
  */
-import { PDFDocument, PDFDict, PDFName, PDFHexString, PDFStream, PDFString } from '@cantoo/pdf-lib'
+import { PDFDict, PDFDocument, PDFName, PDFHexString, PDFStream, PDFString } from '@cantoo/pdf-lib'
+import { openPdf } from './pdf-security.ts'
 
 /** The information dictionary keys the format defines. Anything else is custom. */
 const STANDARD = [
@@ -76,7 +77,7 @@ function xmpBytes(pdf: PDFDocument): number {
 export async function describeMetadata(file: Uint8Array): Promise<MetadataReport> {
   // updateMetadata: false, or loading the file to look at it would stamp a new
   // ModDate and Producer on it and this would report its own footprints.
-  const pdf = await PDFDocument.load(file, { updateMetadata: false })
+  const pdf = await openPdf(file, { updateMetadata: false })
   const entries: MetadataEntry[] = []
   const info = infoDict(pdf)
   if (info !== undefined) {
@@ -100,7 +101,7 @@ export async function describeMetadata(file: Uint8Array): Promise<MetadataReport
  * file says about itself, not what it says.
  */
 export async function stripMetadata(file: Uint8Array): Promise<Uint8Array> {
-  const pdf = await PDFDocument.load(file, { updateMetadata: false })
+  const pdf = await openPdf(file, { updateMetadata: false })
 
   const info = infoDict(pdf)
   if (info !== undefined) {
