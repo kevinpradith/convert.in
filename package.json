@@ -1,6 +1,6 @@
 {
   "name": "convert-in",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Image and PDF tools that run entirely on your own machine: a browser app that never uploads a file, and a CLI sharing the same core.",
   "license": "MIT",
