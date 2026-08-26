@@ -839,6 +839,35 @@ def run():
         check('not a PDF' in said or 'damaged' in said, 'and still says what was wrong')
         current.get_by_role('button', name='Clear', exact=True).click()
 
+        print('== dropping something a tool cannot use ==')
+        # A dropped pile is filtered by name, and a pile that filtered down to
+        # nothing used to be dropped on the floor: the file vanished under the
+        # pointer and the tool sat there as though nothing had happened. A real
+        # drag has to be simulated, because setting the file input directly
+        # never reaches the drop handler.
+        current = tool('Compress PDF')
+        drop = """
+          (root, names) => {
+            const carried = new DataTransfer()
+            for (const name of names) carried.items.add(new File(['minutes'], name))
+            const zone = root.querySelector('div') ?? root
+            zone.dispatchEvent(new DragEvent('drop', { dataTransfer: carried, bubbles: true }))
+          }
+        """
+        current.evaluate(drop, ['minutes.docx'])
+        landed = current.get_by_title('minutes.docx')
+        landed.wait_for(timeout=30000)
+        check(landed.count() == 1, 'a file the tool cannot use is loaded and named, not swallowed')
+        current.get_by_role('button', name='Clear', exact=True).click()
+
+        # The filtering still has to happen when there is something to filter
+        # to, or dropping a folder would load every stray file in it.
+        current.evaluate(drop, ['notes.docx', 'plain.pdf'])
+        current.get_by_title('plain.pdf').wait_for(timeout=30000)
+        check(current.get_by_title('notes.docx').count() == 0,
+              'a mixed pile still loads only what the tool can use')
+        current.get_by_role('button', name='Clear', exact=True).click()
+
         print('== a page range that will not do ==')
         # The reason used to live in a title attribute, which reaches a mouse
         # and nothing else. A range typed wrongly has to say what is wrong with

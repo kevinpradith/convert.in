@@ -48,8 +48,15 @@ export function Dropzone({
   function drop(event: DragEvent) {
     event.preventDefault()
     reset()
-    const files = matching([...event.dataTransfer.files], accept)
-    if (files.length > 0) onFiles(files)
+    const dropped = [...event.dataTransfer.files]
+    if (dropped.length === 0) return
+    // A pile with anything usable in it is filtered down to that, which is what
+    // dropping a folder of mixed files means. A pile with nothing usable goes
+    // through whole, so the tool can name the file and say what is wrong with
+    // it: dropping a document on a PDF tool and watching nothing happen at all
+    // is the same as the tool being broken.
+    const wanted = matching(dropped, accept)
+    onFiles(wanted.length > 0 ? wanted : dropped)
   }
 
   return (
