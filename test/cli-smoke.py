@@ -21,7 +21,7 @@ import sys
 import tempfile
 import zlib
 
-from pypdf import PdfReader
+from pypdf import PdfReader, PdfWriter
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CLI = ['node', str(ROOT / 'bin' / 'convert.in.mjs')]
@@ -297,6 +297,27 @@ def smoke(work):
     code, said = run('clean', source, '-o', work / 'clean.pdf')
     check(code == 0, 'clean runs')
     check(b'Producer' not in (work / 'clean.pdf').read_bytes(), 'and leaves no Producer behind')
+
+    # A title is text out of somebody else's file, and printing it hands that
+    # text to the terminal. ESC [ 2K erases the line being written and the
+    # carriage return puts the cursor back at its start, so a title carrying
+    # both can overwrite what was printed above and show what it likes.
+    writer = PdfWriter(clone_from=str(source))
+    writer.add_metadata({
+        '/Title': '\x1b[2K\rHIJACKED\x07\x1b]0;renamed\x07',
+        '/Author': 'a' * 4000,
+        '/Subject': 'first\nsecond',
+    })
+    with open(work / 'hostile.pdf', 'wb') as out:
+        writer.write(out)
+
+    code, said = run('info', work / 'hostile.pdf')
+    check(code == 0 and '\x1b' not in said, 'no escape sequence from a file reaches the terminal')
+    check('\r' not in said, 'nor a carriage return, which is the other half of the trick')
+    check('HIJACKED' in said, 'the text itself is still shown, as text')
+    check('first second' in said, 'a value with a newline stays on its own row')
+    longest = max(len(line) for line in said.splitlines())
+    check(longest < 300, f'and a four-thousand-character author is cut short ({longest})')
 
     print()
     print('== nothing is overwritten by accident ==')

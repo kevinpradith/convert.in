@@ -42,6 +42,16 @@ export function useOnce(): (job: () => Promise<void>) => Promise<void> {
 // eslint-disable-next-line no-control-regex
 const UNWANTED = /[\u0000-\u001f\u007f-\u009f\u200e\u200f\u202a-\u202e\u2066-\u2069<>:"|?*]/g
 
+/**
+ * The names Windows keeps for devices rather than files. Microsoft's own naming
+ * rules say to avoid them "followed immediately by an extension" as well,
+ * because NUL.txt and NUL.tar.gz are both still the null device; the superscript
+ * digits are there because Windows reads them as digits in COM# and LPT#. A
+ * download offered under one of these either fails or writes to a device, so it
+ * gets a prefix, which is what Chromium does with them too.
+ */
+const RESERVED = /^(con|prn|aux|nul|com[0-9\u00b9\u00b2\u00b3]|lpt[0-9\u00b9\u00b2\u00b3])$/i
+
 /** Longest name handed to the downloader, well inside every filesystem's limit. */
 const NAME_LIMIT = 200
 
@@ -69,12 +79,14 @@ export function safeName(name: string): string {
     // which leaves the two disagreeing about what the file is called.
     .replace(/[\s.]+$/, '')
   if (cleaned === '') return 'convert.in.pdf'
-  if (cleaned.length <= NAME_LIMIT) return cleaned
-  const dot = cleaned.lastIndexOf('.')
+  const stem = cleaned.split('.')[0] ?? ''
+  const safe = RESERVED.test(stem) ? `_${cleaned}` : cleaned
+  if (safe.length <= NAME_LIMIT) return safe
+  const dot = safe.lastIndexOf('.')
   // A dot two thirds of the way through a 300-character name is part of the
   // name, not an extension.
-  const extension = dot > 0 && cleaned.length - dot <= 16 ? cleaned.slice(dot) : ''
-  return cleaned.slice(0, NAME_LIMIT - extension.length) + extension
+  const extension = dot > 0 && safe.length - dot <= 16 ? safe.slice(dot) : ''
+  return safe.slice(0, NAME_LIMIT - extension.length) + extension
 }
 
 /** Hand a blob to the browser's downloader. */
