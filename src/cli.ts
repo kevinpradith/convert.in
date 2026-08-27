@@ -4,7 +4,7 @@ import { basename, dirname, extname, join } from 'node:path'
 
 import { guide, type Lang } from './help.ts'
 import { askSecret } from './prompt.ts'
-import { dim, isWsl } from './term.ts'
+import { cap, dim, isWsl, oneLine, tame } from './term.ts'
 import { humanSize, sizeChange } from './core/units.ts'
 import { imagesToPdf, type Orientation, type PageSize } from './core/images-to-pdf.ts'
 import { decodeImage } from './core/images-node.ts'
@@ -185,7 +185,9 @@ async function report(target: string, detail: string): Promise<void> {
       )
     : [info.size]
   const total = sizes.reduce((sum, size) => sum + size, 0)
-  console.log(`✓ ${target}  ${dim(`${detail} · ${humanSize(total)}`)}`)
+  // Both halves can carry text out of a file: the target is named after the
+  // input, and the detail quotes what was done to it.
+  console.log(`✓ ${tame(target)}  ${dim(`${tame(detail)} · ${humanSize(total)}`)}`)
 }
 
 /** What a one-in, one-out command hands back for {@link each} to write. */
@@ -239,7 +241,8 @@ function bytes(value: string, flag: string): number {
 /** Something worth knowing that is not a reason to stop. Goes to stderr, so a
  *  redirected stdout still carries only the result. */
 function warn(text: string): void {
-  console.error(dim(`convert.in: ${text}`))
+  // Warnings name files and quote the library, and both come from outside.
+  console.error(dim(`convert.in: ${tame(text)}`))
 }
 
 async function warnFormLoss(files: Uint8Array[], about = ''): Promise<void> {
@@ -807,7 +810,7 @@ async function main(): Promise<void> {
         const pages = values.pages === undefined ? undefined : parseRanges(values.pages, total)
         return {
           bytes: await watermarkPdf(file, { ...settings, pages }),
-          detail: `"${text}" on ${plural(pages?.length ?? total, 'page')}`,
+          detail: `"${cap(text, 60)}" on ${plural(pages?.length ?? total, 'page')}`,
         }
       })
     }
@@ -870,7 +873,9 @@ async function main(): Promise<void> {
         return {
           bytes: await stripMetadata(file),
           detail: [
-            named_.length > 0 ? `${plural(named_.length, 'field')} removed (${named_.join(', ')})` : '',
+            named_.length > 0
+              ? `${plural(named_.length, 'field')} removed (${cap(oneLine(named_.join(', ')))})`
+              : '',
             before.xmp > 0 ? `${humanSize(before.xmp)} of XMP removed` : '',
           ]
             .filter(Boolean)
@@ -895,7 +900,7 @@ async function main(): Promise<void> {
         // lock rather than failing on the read.
         if (security.needsPassword) {
           const shape = partial === null ? 'encrypted, needs a password' : 'encrypted in part only'
-          console.log(`${input}  ${dim(`${humanSize(size)} · ${shape}`)}`)
+          console.log(`${tame(input)}  ${dim(`${humanSize(size)} · ${shape}`)}`)
           if (partial !== null) warn(partial)
           continue
         }
@@ -905,7 +910,7 @@ async function main(): Promise<void> {
         const inches = `${(width / 72).toFixed(2)} × ${(height / 72).toFixed(2)} in`
         const lock = security.encrypted ? ' · encrypted, opens without a password' : ''
         console.log(
-          `${input}  ${dim(`${plural(pages, 'page')} · ${humanSize(size)} · ` +
+          `${tame(input)}  ${dim(`${plural(pages, 'page')} · ${humanSize(size)} · ` +
             `${Math.round(width)} × ${Math.round(height)} pt · ${inches}${lock}`)}`,
         )
 
@@ -915,7 +920,10 @@ async function main(): Promise<void> {
         const meta = await describeMetadata(file)
         for (const entry of meta.entries) {
           const mark = entry.custom ? dim(' (custom)') : ''
-          console.log(`  ${entry.name.padEnd(16)} ${entry.value}${mark}`)
+          // The most direct path in this tool from somebody else's file to a
+          // terminal: both the key and its value are whatever the document says.
+          const name = cap(oneLine(tame(entry.name)), 24).padEnd(16)
+          console.log(`  ${name} ${cap(oneLine(tame(entry.value)), 200)}${mark}`)
         }
         if (meta.xmp > 0) console.log(`  ${'XMP'.padEnd(16)} ${dim(`${humanSize(meta.xmp)} of XML`)}`)
         if (meta.any) console.log(dim('  Run "convert.in clean" to take all of that out.'))
@@ -937,6 +945,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  console.error(`convert.in: ${explain(error)}`)
+  console.error(`convert.in: ${tame(explain(error))}`)
   process.exitCode = 1
 })

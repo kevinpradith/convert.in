@@ -42,6 +42,7 @@ import {
 import { compressPdf, compressToFit } from '../src/core/pdf-compress.ts'
 import { describeMetadata, stripMetadata } from '../src/core/pdf-metadata.ts'
 import { signPdf } from '../src/core/pdf-sign.ts'
+import { cap, oneLine, tame } from '../src/term.ts'
 import { decodeImage } from '../src/core/images-node.ts'
 import {
   IMAGE_FORMATS,
@@ -751,6 +752,13 @@ test('a download name cannot carry anything but a name', () => {
   // by the browser as ending in ".png" while the bytes end in ".exe". The
   // source-code form of the same trick is CVE-2021-42574.
   assert.equal(safeName('report\u202Egnp.exe'), 'reportgnp.exe')
+  // Windows keeps these names for devices, extension and all: NUL.pdf is still
+  // the null device, so the download either fails or writes to nothing.
+  assert.equal(safeName('NUL.pdf'), '_NUL.pdf')
+  assert.equal(safeName('com1.tar.gz'), '_com1.tar.gz')
+  assert.equal(safeName('CON'), '_CON')
+  assert.equal(safeName('console.pdf'), 'console.pdf', 'only the name itself is reserved')
+  assert.equal(safeName('nullify.pdf'), 'nullify.pdf')
   assert.equal(safeName('\u2066hidden\u2069.pdf'), 'hidden.pdf')
 
   // Truncation keeps the extension, or the file stops being openable.
@@ -1204,6 +1212,29 @@ test('a file locked only by a permissions password is worked on like any other',
   const named = said.entries.find((entry) => entry.name === 'Title')
   assert.equal(named?.value, 'Quarterly figures')
   assert.equal((await describeMetadata(await stripMetadata(restricted))).any, false)
+})
+
+test('what a document says about itself is text, not instructions to a terminal', () => {
+  // ESC [ 2K erases the line being written and the carriage return puts the
+  // cursor back at its start, so a title carrying both overwrites whatever was
+  // printed and shows what it likes instead. ESC ] 0 renames the window.
+  const hostile = '\u001b[31mred\u001b[0m\u001b[2K\rHIJACKED\u0007\u001b]0;renamed\u0007'
+  const printed = tame(hostile)
+  assert.ok(!printed.includes('\u001b'), 'no escape reaches the terminal')
+  assert.ok(!printed.includes('\r'), 'nor a carriage return, which is half the trick')
+  assert.ok(printed.includes('HIJACKED'), 'the text itself survives, as text')
+  assert.equal(tame('report\u202Egnp.exe'), 'reportgnp.exe', 'and the reordering overrides go')
+
+  // Written with newlines on purpose, so those stay: warnings here wrap.
+  assert.equal(tame('two\nlines\there'), 'two\nlines\there')
+
+  // The rows of the info table are aligned by padding, so a value carrying a
+  // newline and enough spaces would print what looks like a row of its own.
+  assert.equal(oneLine('one\n   two \t three '), 'one two three')
+
+  assert.equal(cap('short', 10), 'short')
+  assert.equal(cap('x'.repeat(20), 10), `${'x'.repeat(9)}\u2026`)
+  assert.equal(cap('x'.repeat(20), 10).length, 10, 'the limit counts the ellipsis')
 })
 
 test('unlock refuses a wrong password', async () => {

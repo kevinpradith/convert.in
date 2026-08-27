@@ -116,11 +116,17 @@ async function open(
       (error instanceof Error && REFUSALS.some((shape) => shape.test(error.message)))
     if (!refused) throw error
     if (password === undefined) {
+      // Only the empty password is being tried here, so only that attempt may
+      // be reported as a password problem. Repairing the document afterwards
+      // has nothing to do with passwords, and a fault there wearing this
+      // message would send someone hunting for a secret that already worked.
+      let opened: PDFDocument
       try {
-        return await unseal(await PDFDocument.load(file, { ...extra, password: '' }), file)
+        opened = await PDFDocument.load(file, { ...extra, password: '' })
       } catch {
         throw new Error(`this PDF is password protected: ${advice}`)
       }
+      return await unseal(opened, file)
     }
     throw new Error('that password does not open this PDF')
   }
