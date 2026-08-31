@@ -1,0 +1,11 @@
+# convert.in
+
+> Image and PDF tools that run entirely in the browser. Files are read, converted and written on the visitor's own machine; nothing is uploaded, and there is no server behind the app.
+
+## Docs
+
+- [README](https://github.com/kevinpradith/convert.in#readme): what the tools do, how the browser app and the CLI share one core, and how to run either.
+- [Contributing](https://github.com/kevinpradith/convert.in/blob/main/CONTRIBUTING.md): how to build, test and send a change.
+- [Security policy](https://github.com/kevinpradith/convert.in/blob/main/SECURITY.md): how to report a vulnerability.
+- [Changelog](https://github.com/kevinpradith/convert.in/blob/main/CHANGELOG.md): what changed in each release.
+- [Licence](https://github.com/kevinpradith/convert.in/blob/main/LICENSE): MIT.

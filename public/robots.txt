@@ -1,0 +1,3 @@
+# Everything here is a static page; there is nothing to keep a crawler out of.
+User-agent: *
+Allow: /
