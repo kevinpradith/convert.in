@@ -185,7 +185,7 @@ export function FileList({
             type="button"
             aria-label={`${t.remove} ${item.name}`}
             onClick={() => onRemove(item.id)}
-            className="text-muted hover:text-ink shrink-0 rounded-inner p-1"
+            className="text-muted hover:text-ink grid h-6 w-6 shrink-0 place-items-center rounded-inner touch:h-10 touch:w-10"
           >
             <svg
               viewBox="0 0 16 16"

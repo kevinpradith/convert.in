@@ -303,7 +303,7 @@ export function Stamp() {
       }
     >
       <>
-        <p className="text-muted text-footnote px-5 pt-4">
+        <p className="text-muted text-footnote mx-auto w-full max-w-[720px] px-5 pt-4">
           {thumbnails.length === 0
             ? t.batch.everyPage
             : selected.size === 0

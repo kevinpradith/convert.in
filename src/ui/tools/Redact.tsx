@@ -363,7 +363,7 @@ function PageSheet({
         <span>{t.export.pageLabel(page.number)}</span>
         <button
           type="button"
-          className="underline underline-offset-2"
+          className="py-1 underline underline-offset-2"
           onClick={() => onAdd({ page: page.number, x: 0, y: 0, width: 1, height: 1 })}
         >
           {t.redact.wholePage}

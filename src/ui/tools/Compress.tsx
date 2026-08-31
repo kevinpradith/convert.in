@@ -158,7 +158,7 @@ export function Compress() {
     >
       {loaded && (
         <>
-          <p className="text-muted text-footnote px-5 pt-4 sm:px-8">
+          <p className="text-muted text-footnote mx-auto w-full max-w-[720px] px-5 pt-4 sm:px-8">
             {target === 0 ? t.compress.hint : t.compress.targetHint}
           </p>
           <FileList items={batch.items} onRemove={batch.remove} />

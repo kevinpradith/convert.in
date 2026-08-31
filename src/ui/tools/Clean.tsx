@@ -96,7 +96,7 @@ export function Clean() {
     >
       {loaded && (
         <>
-          <p className="text-muted text-footnote px-5 pt-4 sm:px-8">{t.clean.hint}</p>
+          <p className="text-muted text-footnote mx-auto w-full max-w-[720px] px-5 pt-4 sm:px-8">{t.clean.hint}</p>
           <FileList items={batch.items} onRemove={batch.remove} />
           <Sheets items={batch.items} found={found} />
         </>
@@ -121,10 +121,10 @@ function Sheets({ items, found }: { items: Item[]; found: Record<string, Metadat
         return (
           <section key={item.id} className="border-line mt-5 border-t pt-4">
             <h3 className="text-footnote text-muted truncate">{item.name}</h3>
-            <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+            <dl className="mt-2 grid grid-cols-[minmax(0,auto)_1fr] gap-x-4 gap-y-1">
               {report.entries.map((entry) => (
                 <div key={entry.name} className="contents">
-                  <dt className="text-footnote text-muted">
+                  <dt className="text-footnote text-muted break-words">
                     {entry.name}
                     {entry.custom && <span className="opacity-60"> · {t.clean.custom}</span>}
                   </dt>

@@ -107,7 +107,7 @@ export function PageGrid({
                     onRemove(tile.id)
                   }}
                   className={cx(
-                    'absolute top-1.5 right-1.5 grid h-[18px] w-[18px] place-items-center rounded-capsule',
+                    'absolute top-1.5 right-1.5 grid h-6 w-6 place-items-center rounded-capsule',
                     'glass-strong text-muted opacity-0 ring-1 ring-line transition-opacity duration-150',
                     'group-hover:opacity-100 hover:text-ink focus-visible:opacity-100',
                     // Nothing reveals on hover when there is no hover.

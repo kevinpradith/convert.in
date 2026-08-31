@@ -233,7 +233,7 @@ export function Protect() {
                 </Field>
               </div>
 
-              <label className="text-body flex items-center gap-2">
+              <label className="text-body flex min-h-6 items-center gap-2 touch:min-h-11">
                 <input
                   type="checkbox"
                   checked={copying}

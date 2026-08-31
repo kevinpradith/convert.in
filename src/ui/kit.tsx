@@ -12,12 +12,16 @@ export function cx(...parts: (string | false | null | undefined)[]): string {
 type Variant = 'primary' | 'plain' | 'ghost'
 
 const VARIANTS: Record<Variant, string> = {
-  primary: 'bg-accent text-on-accent shadow-accent hover:brightness-110',
+  primary: 'bg-accent text-on-accent shadow-accent hover:brightness-[1.08]',
   plain: 'glass-strong specular text-ink ring-1 ring-line shadow-tile hover:brightness-[1.04]',
   ghost: 'text-muted hover:bg-fill hover:text-ink',
 }
 
-/** Capsule controls, the shape the current Apple design language settled on. */
+/**
+ * A rounded rectangle, not a capsule. The pill belongs to the landing page
+ * above; inside the window this is a Mac push button, and a Mac push button is
+ * 30 tall with about 7 of corner on it.
+ */
 export function Button({
   variant = 'plain',
   className,
@@ -27,7 +31,7 @@ export function Button({
     <button
       type="button"
       className={cx(
-        'inline-flex h-control shrink-0 items-center gap-1.5 rounded-capsule px-3.5 text-body',
+        'inline-flex h-control shrink-0 items-center gap-1.5 rounded-inner px-3.5 text-body',
         'font-medium whitespace-nowrap transition-all duration-200 ease-glass select-none',
         // Fingers need a bigger target than a cursor does.
         'touch:h-touch touch:px-4',
@@ -64,7 +68,7 @@ export function Segmented<T extends string>({
     <div
       role="radiogroup"
       aria-label={label}
-      className="relative grid rounded-capsule bg-fill p-[2px]"
+      className="relative grid max-w-full shrink-0 rounded-capsule bg-fill p-[2px]"
       style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
     >
       <span
@@ -137,7 +141,14 @@ export function Slider({
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
         className={cx(
-          'h-1.5 w-24 cursor-pointer appearance-none rounded-capsule bg-fill sm:w-32',
+          // 24 tall, which is the pointer target floor in WCAG 2.2 SC 2.5.8.
+          // The rail keeps its 6px, painted on the track rather than on the box.
+          'h-6 w-24 cursor-pointer appearance-none bg-transparent sm:w-32',
+          '[&::-webkit-slider-runnable-track]:h-1.5 [&::-webkit-slider-runnable-track]:rounded-capsule',
+          '[&::-webkit-slider-runnable-track]:bg-fill',
+          '[&::-moz-range-track]:h-1.5 [&::-moz-range-track]:rounded-capsule [&::-moz-range-track]:bg-fill',
+          // A webkit thumb sits on top of the track it is given; this centres it.
+          '[&::-webkit-slider-thumb]:mt-[-4px]',
           '[&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5',
           '[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full',
           '[&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:shadow-thumb',
@@ -165,7 +176,7 @@ export function Toggle({
   onChange: (checked: boolean) => void
 }) {
   return (
-    <label className="text-body flex cursor-pointer items-center gap-1.5 select-none">
+    <label className="text-body flex min-h-6 cursor-pointer items-center gap-1.5 select-none touch:min-h-11">
       <input
         type="checkbox"
         checked={checked}
@@ -194,10 +205,15 @@ export function Select({ className, ...rest }: SelectHTMLAttributes<HTMLSelectEl
 /**
  * A caption beside a control. Deliberately not a <label>: most of these wrap a
  * group of buttons, and a label pointing at several controls names none of them.
+ *
+ * It wraps, so on a narrow bar the caption sits above the control it names
+ * rather than beside it. Held on one line it was the last thing in the footer
+ * that could not give way: a three-option segmented control with a word in
+ * front of it is wider than a 320 screen, and the control ran off the edge.
  */
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div role="group" aria-label={label} className="flex items-center gap-2">
+    <div role="group" aria-label={label} className="flex min-w-0 flex-wrap items-center gap-2">
       <span className="text-[11px] font-medium tracking-wide text-muted uppercase">{label}</span>
       {children}
     </div>
@@ -241,24 +257,6 @@ export const MenuIcon = () => (
 interface IconProps {
   size?: number
   stroke?: number
-}
-
-/** The app logo matching the light/dark mode preference. */
-export function Logo({ className = 'h-6 w-auto' }: { className?: string }) {
-  return (
-    <span className="inline-flex items-center">
-      <img
-        src="./images/logo/light-mode/logo-while-lightmode.webp"
-        alt="convert.in"
-        className={cx('theme-logo-light object-contain', className)}
-      />
-      <img
-        src="./images/logo/dark-mode/logo-while-darkmode.webp"
-        alt="convert.in"
-        className={cx('theme-logo-dark object-contain', className)}
-      />
-    </span>
-  )
 }
 
 export const PlusIcon = () => (

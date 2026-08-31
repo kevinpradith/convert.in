@@ -274,7 +274,7 @@ export function Organize() {
                   ? t.organize.nothingSelected
                   : t.organize.someSelected(selected.size)}
             </span>
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
               <Field label={t.organize.paper}>
                 <Select
                   aria-label={t.organize.paperLabel}
