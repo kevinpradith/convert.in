@@ -19,21 +19,6 @@ npm test
 npm run build
 ```
 
-## Adding a runtime dependency
-
-Its licence has to travel with the build. `npm run notices` reads the module
-graph out of the bundle and reproduces the licence of everything it finds, so
-there is no list to remember to update:
-
-```sh
-npm run notices
-```
-
-`npm run build` runs it first, and CI fails if the committed
-`public/THIRD-PARTY-NOTICES.txt` does not match what the bundle actually
-contains. A package that ships no licence file stops the script rather than
-being skipped.
-
 ## Signed commits
 
 Commits on `main` are signed, with an SSH key rather than GPG: Git has
@@ -144,27 +129,36 @@ pip install -r test/requirements.txt
 python3 -m playwright install chromium
 ```
 
-They need `playwright` and `pypdf`, and the encryption one needs pypdf's
-crypto extra, since every fixture it reads back is AES-256 and pypdf leaves that
-dependency optional:
-
-```sh
-pip install playwright 'pypdf[crypto]'
-python3 -m playwright install chromium   # once, for the browser suite
-```
+That file is `playwright` and `pypdf`, both pinned. The encryption audit needs
+pypdf's crypto extra, since every fixture it reads back is AES-256 and pypdf
+leaves that dependency optional, so the extra is pinned with it.
 
 ## Adding a dependency
 
 Anything that ends up in the browser bundle also ends up in the licence notices.
 Run `npm run notices` and commit the result: the script builds the bundle, reads
 the packages back out of the sourcemaps and reproduces the licence of every one
-it finds, so there is no list to keep in step by hand. A package that ships no
-licence file stops the script rather than being skipped quietly, and CI fails if
-the committed notices differ from what the bundle now needs. If a dependency
-ships loose files rather than bundled code, copy the directory whole so its
-licence file travels with it, the way the pdf.js assets are handled in
-`vite.config.ts`. A dependency under a copyleft licence needs discussing first,
-since it would change the terms the whole project can ship under.
+it finds, so there is no list to keep in step by hand.
+
+```sh
+npm run notices
+```
+
+`npm run build` runs it first, and CI fails if the committed
+`public/THIRD-PARTY-NOTICES.txt` does not match what the bundle now needs. A
+package that ships no licence file stops the script rather than being skipped
+quietly. If a dependency ships loose files rather than bundled code, copy the
+directory whole so its licence file travels with it, the way the pdf.js assets
+are handled in `vite.config.ts`. A dependency under a copyleft licence needs
+discussing first, since it would change the terms the whole project can ship
+under.
+
+A font is the one thing the sourcemap sweep cannot see, because the files in
+`public/fonts/` are served rather than imported. Add its notice by hand in
+`scripts/notices.mjs`, put its licence beside it in `public/fonts/`, and check
+whether the family reserves its name: under the SIL Open Font License a subset
+is a modified version, and clause 3 forbids a modified version from keeping a
+reserved font name.
 
 ## Scope
 
