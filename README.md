@@ -3,6 +3,7 @@
 [![CI](https://github.com/kevinpradith/convert.in/actions/workflows/ci.yml/badge.svg)](https://github.com/kevinpradith/convert.in/actions/workflows/ci.yml)
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20.19-brightgreen.svg)](package.json)
+[![Release](https://img.shields.io/github/v/release/kevinpradith/convert.in?label=release)](https://github.com/kevinpradith/convert.in/releases/latest)
 
 Local image and PDF tools. The web app does all of its work inside the browser and
 the CLI does all of its work on your machine, so no file is ever uploaded anywhere.
@@ -21,13 +22,46 @@ the CLI does all of its work on your machine, so no file is ever uploaded anywhe
 <code>convert.in convert --to webp</code>. They are pictures of the thing that ships,
 not mock-ups.</sup>
 
-## Web app
+## Contents
+
+- [Quick start](#quick-start)
+- [What it does](#what-it-does)
+- [Design](#design)
+- [Performance](#performance)
+- [Security](#security)
+- [Hosting it](#hosting-it)
+- [Command line](#command-line)
+- [How it works](#how-it-works)
+- [Development](#development)
+- [Deliberate limits](#deliberate-limits)
+- [Licence](#licence)
+- [Project](#project)
+
+## Quick start
+
+Node 20.19 or newer, and nothing else. Nothing here needs an account, a server,
+or a network connection once the page has loaded.
+
+**In a browser.** Run it, or build the static output and host it anywhere:
 
 ```sh
 npm install
 npm run dev       # http://localhost:5173
 npm run build     # static files in dist/, host them anywhere or open them locally
 ```
+
+**On the command line.** From the project folder:
+
+```sh
+npm link
+convert.in --help
+```
+
+`npm link` writes the shims Windows, macOS and Linux each need. The alternative
+for a machine where npm's global prefix wants root is under
+[Command line](#command-line).
+
+## What it does
 
 One page: a headline that says what this is, and the window with the tools in
 it directly under it. There is no second page and no route to navigate to, so
@@ -101,6 +135,11 @@ Language (English, Indonesia) sits at the bottom of the sidebar and is
 remembered in `localStorage`. There is one appearance and it is light: the
 window is glass over a photograph, which a dark palette has nothing to be.
 
+## Design
+
+Three sections: what the interface is made of, the type and spacing it is set
+on, and how both survive a phone.
+
 ### Look
 
 Apple's current design language: translucent layers over a backdrop, radii that
@@ -136,42 +175,6 @@ The golden ratio is used where it does real work and not as a grid: the display
 step is body x 1.618, and the empty-state icon nests 40 inside 64. Line length is
 capped in `ch` rather than pixels, because that is what readability depends on.
 
-### Security sweep
-
-`npm audit` reports no vulnerabilities in either the runtime or the development
-tree. There is no `eval`, no `innerHTML`, no shell invocation anywhere in the
-source. `localStorage` holds the chosen language and nothing else; a
-password is never written to it.
-
-Every GitHub Actions step is pinned to a commit rather than a tag, because a tag
-is a moving pointer and moving one is exactly how `tj-actions/changed-files` was
-turned into a secret exfiltrator across 23,000 repositories in March 2025
-(CVE-2025-30066). The workflow token is read-only at the top level, and the
-checkout step is told not to leave it in `.git/config`. CodeQL analyses every
-push and pull request with the `security-extended` pack, and Dependabot watches
-npm, the actions themselves and the two Python packages the suites install.
-
-The browser suite asserts that the page makes **no off-origin request at all**
-while running a full convert, stamp, lock and unlock cycle. Only the origin it
-was served from, plus `blob:` and `data:`, are allowed; anything else fails the
-test. That is the claim on the sidebar, kept honest by a test rather than a
-promise.
-
-Three defects this sweep turned up, all fixed:
-
-- **The page-range parser backtracked quadratically.** One regex held two
-  optional `\d+` groups, so a hundred thousand digits followed by one stray
-  character took 11.6 seconds to reject. Splitting on the dash first leaves only
-  anchored `/^\d+$/` tests: the same input is now rejected in 0.2 ms, and a
-  million characters take 1.1 ms. A test holds the line.
-- **The password prompt could have started echoing.** Hiding what is typed
-  relies on replacing a readline internal. If a future Node drops it, the prompt
-  now refuses and points at the piped form instead of printing the password
-  across the terminal.
-- **`crypto.randomUUID` is only defined in a secure context**, so the built app
-  served over plain http from another machine would have crashed on the first
-  dropped file. The ids are React keys, not secrets, so there is a fallback.
-
 ### Responsive
 
 One layout, three shapes:
@@ -194,7 +197,7 @@ the per-tile remove button stops hiding behind hover, since there is no hover to
 reveal it. The viewport uses `dvh` so a phone's disappearing toolbar cannot crop
 the footer, and `env(safe-area-inset-*)` keeps the interface clear of notches.
 
-### First paint
+## Performance
 
 The page has to be a page before the application is one. Everything below is
 measured against `dist/`, served gzipped with the headers this project ships.
@@ -231,6 +234,42 @@ measured against `dist/`, served gzipped with the headers this project ships.
 Lighthouse against that build, emulated mobile, throttled: **99** performance,
 **100** accessibility, **100** best practices, **100** SEO. Largest paint 2.1 s,
 total blocking time 0 ms, layout shift 0.018.
+
+## Security
+
+`npm audit` reports no vulnerabilities in either the runtime or the development
+tree. There is no `eval`, no `innerHTML`, no shell invocation anywhere in the
+source. `localStorage` holds the chosen language and nothing else; a
+password is never written to it.
+
+Every GitHub Actions step is pinned to a commit rather than a tag, because a tag
+is a moving pointer and moving one is exactly how `tj-actions/changed-files` was
+turned into a secret exfiltrator across 23,000 repositories in March 2025
+(CVE-2025-30066). The workflow token is read-only at the top level, and the
+checkout step is told not to leave it in `.git/config`. CodeQL analyses every
+push and pull request with the `security-extended` pack, and Dependabot watches
+npm, the actions themselves and the two Python packages the suites install.
+
+The browser suite asserts that the page makes **no off-origin request at all**
+while running a full convert, stamp, lock and unlock cycle. Only the origin it
+was served from, plus `blob:` and `data:`, are allowed; anything else fails the
+test. That is the claim on the sidebar, kept honest by a test rather than a
+promise.
+
+Three defects this sweep turned up, all fixed:
+
+- **The page-range parser backtracked quadratically.** One regex held two
+  optional `\d+` groups, so a hundred thousand digits followed by one stray
+  character took 11.6 seconds to reject. Splitting on the dash first leaves only
+  anchored `/^\d+$/` tests: the same input is now rejected in 0.2 ms, and a
+  million characters take 1.1 ms. A test holds the line.
+- **The password prompt could have started echoing.** Hiding what is typed
+  relies on replacing a readline internal. If a future Node drops it, the prompt
+  now refuses and points at the piped form instead of printing the password
+  across the terminal.
+- **`crypto.randomUUID` is only defined in a secure context**, so the built app
+  served over plain http from another machine would have crashed on the first
+  dropped file. The ids are React keys, not secrets, so there is a fallback.
 
 ## Hosting it
 
@@ -291,21 +330,16 @@ Two things to keep in mind:
   "nothing leaves this browser" less true than it is now, and it would be the
   first thing to fail the off-origin test.
 
-## CLI
+## Command line
 
-Put it on your PATH once, from the project folder:
+`npm link` works the same on Windows, macOS and Linux: npm writes `convert.in`
+shims into its own bin directory, including the `.cmd` and `.ps1` ones Windows
+needs. The launcher is a Node script rather than a shell script for exactly
+that reason, and because a shell script's executable bit does not survive a
+checkout on Windows.
 
-```sh
-npm link
-```
-
-That works the same on Windows, macOS and Linux: npm writes `convert.in` shims
-into its own bin directory, including the `.cmd` and `.ps1` ones Windows needs.
-The launcher is a Node script rather than a shell script for exactly that
-reason, and because a shell script's executable bit does not survive a checkout
-on Windows.
-
-If npm's global prefix needs root on your machine, point a symlink at it instead:
+If npm's global prefix needs root on your machine, point a symlink at it
+instead:
 
 ```sh
 ln -s "$PWD/bin/convert.in.mjs" ~/.local/bin/convert.in
@@ -521,81 +555,9 @@ Two defects it caught, both now fixed:
 `pdf to images` has no CLI equivalent: pdf.js rasterises onto a canvas, which the
 browser has and Node does not.
 
-## Layout
+## How it works
 
-```
-src/core/     plain TypeScript, no UI imports. Uint8Array in, Uint8Array out.
-src/prompt.ts   hidden password prompt, plus the piped-stdin path for scripts.
-src/cli.ts    argument parsing over that core, via node:util parseArgs.
-src/help.ts   banner and the guide, English and Bahasa Indonesia.
-src/term.ts   TTY dimming, WSL detection, byte sizes.
-bin/convert.in  POSIX launcher, symlink it onto your PATH.
-src/ui/       React components. The tools are thin wrappers around core.
-src/ui/i18n.ts   Both languages in one object; `id` must match `en` or the build fails.
-src/ui/Landing.tsx  The hero above the window, and the clouds layered around it.
-src/ui/prefs.ts  The chosen language, persisted, with storage failures swallowed.
-scripts/prerender.mts  Writes the hero into dist/index.html at build time.
-test/         node:test over core, no framework.
-test/browser/   the built app driven in a real browser, under the shipped headers.
-test/encryption-audit.py  the produced PDFs read back by pypdf, not by pdf-lib.
-test/cli-smoke.py         every command driven once, end to end.
-test/fuzz-cli.py          damaged files, to see how they are refused.
-```
-
-`src/core/` does not know whether it is running in a browser or a terminal, which is
-the only reason one implementation can serve both. `assemblePages` is the primitive
-underneath merge, reorder, delete, extract and split: they are all just a list of
-pages in an order.
-
-```sh
-npm install
-npm run dev         # the web app on http://localhost:5173
-npm run build       # static output in dist/
-npm test            # node:test over the core, no framework
-npm run typecheck
-npm run cli -- --help
-```
-
-Everything runs from a clean checkout with no configuration: no environment
-variables, no services, no accounts.
-
-Four suites reach past the core and need Python, because the point of each is
-to check the work with something other than the library that produced it:
-
-```sh
-pip install -r test/requirements.txt
-python3 -m playwright install chromium
-
-npm run build
-npm run audit:fixtures -- ./fixtures   # documents with something to lose
-python3 test/encryption-audit.py ./fixtures   # pypdf reads the encryption back
-npm run test:cli                       # every command, once, end to end
-npm run test:browser                   # the built app, driven in Chromium
-npm run test:fuzz -- ./fixtures        # damaged files, seeded so they repeat
-```
-
-`npm run test:browser` serves `dist/` with the contents of `public/_headers` and
-drives every tool through the interface: images in, pages out, a watermark that
-has to be findable in the text of the saved file, a password that has to open it
-and a wrong one that must not. It also checks what should *not* happen: no
-request leaves the origin, pdf.js never warns that an asset is missing, and
-nothing is refused by the Content-Security-Policy.
-
-`npm run test:cli` covers the layer between a typed command and `src/core`:
-argument parsing, output naming, the check that works out every output path
-before writing the first file, and the warnings printed alongside.
-
-`npm run test:fuzz` hands the CLI files nobody wrote on purpose: bytes flipped
-inside an object, a document cut off halfway, a header with a digit changed. A
-PDF reader is a parser over input it did not produce, so the question is not
-whether a damaged file is refused but how. A sentence about the file and exit 1
-pass; a stack trace, an exit code that is neither 0 nor 1, or a run that never
-finishes fail. The mutations are seeded, so anything it finds reproduces from
-the seed in its header. CI runs sixty rounds on a push and four hundred on the
-weekly schedule, since the value is in the rare mutation.
-
-Their two Python packages are pinned in `test/requirements.txt`. Nothing else in
-the project needs Python.
+Four decisions inside `src/core` that a person meets only when they are wrong.
 
 ### The page a reader sees, not the page the file describes
 
@@ -676,6 +638,85 @@ rectangle has to be drawn.
 The browser suite proves the claim from the bytes out rather than restating it:
 it redacts a document and then checks that no text can be extracted from any
 page and that none of the original words appear anywhere in the file.
+
+## Development
+
+```
+src/core/     plain TypeScript, no UI imports. Uint8Array in, Uint8Array out.
+src/core/pdf-errors.ts  a library's failure read into a sentence, no library needed.
+src/prompt.ts   hidden password prompt, plus the piped-stdin path for scripts.
+src/cli.ts    argument parsing over that core, via node:util parseArgs.
+src/help.ts   banner and the guide, English and Bahasa Indonesia.
+src/term.ts   TTY dimming, WSL detection, byte sizes.
+bin/convert.in.mjs  Node launcher, symlink it onto your PATH.
+src/ui/       React components. The tools are thin wrappers around core.
+src/ui/i18n.ts   Both languages in one object; `id` must match `en` or the build fails.
+src/ui/Landing.tsx  The hero above the window, and the clouds layered around it.
+src/ui/prefs.ts  The chosen language, persisted, with storage failures swallowed.
+scripts/prerender.mts  Writes the hero into dist/index.html at build time.
+test/         node:test over core, no framework.
+test/browser/   the built app driven in a real browser, under the shipped headers.
+test/encryption-audit.py  the produced PDFs read back by pypdf, not by pdf-lib.
+test/cli-smoke.py         every command driven once, end to end.
+test/fuzz-cli.py          damaged files, to see how they are refused.
+public/fonts/ the two subset typefaces, and the licence they ship under.
+docs/images/  the README's screenshots, kept out of public/ so they are not served.
+```
+
+`src/core/` does not know whether it is running in a browser or a terminal, which is
+the only reason one implementation can serve both. `assemblePages` is the primitive
+underneath merge, reorder, delete, extract and split: they are all just a list of
+pages in an order.
+
+```sh
+npm install
+npm run dev         # the web app on http://localhost:5173
+npm run build       # static output in dist/
+npm test            # node:test over the core, no framework
+npm run typecheck
+npm run cli -- --help
+```
+
+Everything runs from a clean checkout with no configuration: no environment
+variables, no services, no accounts.
+
+Four suites reach past the core and need Python, because the point of each is
+to check the work with something other than the library that produced it:
+
+```sh
+pip install -r test/requirements.txt
+python3 -m playwright install chromium
+
+npm run build
+npm run audit:fixtures -- ./fixtures   # documents with something to lose
+python3 test/encryption-audit.py ./fixtures   # pypdf reads the encryption back
+npm run test:cli                       # every command, once, end to end
+npm run test:browser                   # the built app, driven in Chromium
+npm run test:fuzz -- ./fixtures        # damaged files, seeded so they repeat
+```
+
+`npm run test:browser` serves `dist/` with the contents of `public/_headers` and
+drives every tool through the interface: images in, pages out, a watermark that
+has to be findable in the text of the saved file, a password that has to open it
+and a wrong one that must not. It also checks what should *not* happen: no
+request leaves the origin, pdf.js never warns that an asset is missing, and
+nothing is refused by the Content-Security-Policy.
+
+`npm run test:cli` covers the layer between a typed command and `src/core`:
+argument parsing, output naming, the check that works out every output path
+before writing the first file, and the warnings printed alongside.
+
+`npm run test:fuzz` hands the CLI files nobody wrote on purpose: bytes flipped
+inside an object, a document cut off halfway, a header with a digit changed. A
+PDF reader is a parser over input it did not produce, so the question is not
+whether a damaged file is refused but how. A sentence about the file and exit 1
+pass; a stack trace, an exit code that is neither 0 nor 1, or a run that never
+finishes fail. The mutations are seeded, so anything it finds reproduces from
+the seed in its header. CI runs sixty rounds on a push and four hundred on the
+weekly schedule, since the value is in the rare mutation.
+
+Their two Python packages are pinned in `test/requirements.txt`. Nothing else in
+the project needs Python.
 
 ## Deliberate limits
 
@@ -778,3 +819,12 @@ under.
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Below
 1.0.0 the CLI flags and the `src/core` exports may still change between minor
 versions; the changelog says when they do.
+
+### Support
+
+Questions and ideas belong in
+[Discussions](https://github.com/kevinpradith/convert.in/discussions).
+A failure that reproduces belongs in
+[Issues](https://github.com/kevinpradith/convert.in/issues), through whichever
+of the two forms fits. A suspected vulnerability goes privately through
+[SECURITY.md](SECURITY.md) rather than either of them.
