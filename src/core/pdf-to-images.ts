@@ -1,5 +1,16 @@
-import { getDocument, type PDFDocumentProxy } from 'pdfjs-dist'
+import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from 'pdfjs-dist'
+import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { checkSize } from './images-browser.ts'
+
+/*
+  Configured here rather than at start-up. pdf.js is the largest thing this app
+  imports, and naming it in the entry module put the whole of it in the first
+  response, for every visitor, including the ones who only ever read the page.
+  This module is already the only door to pdf.js and is only reached from a
+  tool that rasterises, so the worker is set the moment that door opens and not
+  a moment earlier.
+*/
+GlobalWorkerOptions.workerSrc = workerSrc
 
 /**
  * Browser-only: pdf.js rasterises through a real <canvas>. The page-level tools

@@ -41,7 +41,7 @@
   },
   "scripts": {
     "dev": "node node_modules/vite/bin/vite.js",
-    "build": "npm run notices && node node_modules/vite/bin/vite.js build",
+    "build": "npm run notices && node node_modules/vite/bin/vite.js build && node --import tsx scripts/prerender.mts",
     "preview": "node node_modules/vite/bin/vite.js preview",
     "test": "node --import tsx --test test/*.test.ts",
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit",

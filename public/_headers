@@ -10,3 +10,24 @@
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# Not content-hashed, so a year is too long to promise. A week is long enough
+# that a return visit re-reads none of it, and short enough that replacing one
+# of these files reaches people who have already been here.
+/fonts/*
+  Cache-Control: public, max-age=604800
+
+/images/*
+  Cache-Control: public, max-age=604800
+
+/pdfjs/*
+  Cache-Control: public, max-age=604800
+
+/sky.webp
+  Cache-Control: public, max-age=604800
+
+/sky-portrait.webp
+  Cache-Control: public, max-age=604800
+
+/cloud.webp
+  Cache-Control: public, max-age=604800
