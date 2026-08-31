@@ -74,6 +74,8 @@ async function licenceOf(name) {
   )
 }
 
+const rule = '='.repeat(78)
+
 const packages = await bundledPackages()
 const sections = []
 for (const name of packages) {
@@ -81,7 +83,6 @@ for (const name of packages) {
   // points, because a package is free to keep ./package.json out of its
   // "exports" and several do.
   const manifest = JSON.parse(await readFile(`node_modules/${name}/package.json`, 'utf8'))
-  const rule = '='.repeat(78)
   const home = manifest.homepage ?? manifest.repository?.url ?? ''
   sections.push(
     `${rule}\n${name} ${manifest.version} — ${manifest.license}\n${home}\n${rule}\n\n` +
@@ -89,11 +90,23 @@ for (const name of packages) {
   )
 }
 
+/*
+  The typefaces are served as files from public/fonts, so they never enter the
+  module graph and the sweep above cannot see them. Their licence is reproduced
+  from the copy that ships beside them, which is also the copy the SIL Open Font
+  License asks to travel with the font itself.
+*/
+const fonts =
+  `${rule}\nInter 4.001, Convert Display 1.203 (public/fonts) \u2014 OFL-1.1\n` +
+  `https://github.com/rsms/inter\nhttps://github.com/clauseggers/Playfair-Display\n${rule}\n\n` +
+  `${(await readFile('public/fonts/OFL.txt', 'utf8')).trim()}\n`
+
 const header = `THIRD-PARTY NOTICES
 
 convert.in itself is MIT licensed; see LICENSE. The built application bundles
 the libraries below, and their licences require the copyright notices to travel
-with any copy, so they are reproduced here in full.
+with any copy, so they are reproduced here in full. The two typefaces it serves
+are covered by the same obligation and are reproduced with them.
 
 The list is read out of the bundle itself by scripts/notices.mjs rather than
 written down, so it cannot fall behind what is actually shipped. Run
@@ -102,5 +115,5 @@ fails if this file is out of date.
 
 `
 
-await writeFile('public/THIRD-PARTY-NOTICES.txt', header + sections.join('\n'))
-console.log(`wrote notices for ${packages.length} bundled packages`)
+await writeFile('public/THIRD-PARTY-NOTICES.txt', header + [...sections, fonts].join('\n'))
+console.log(`wrote notices for ${packages.length} bundled packages and 2 typefaces`)

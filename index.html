@@ -3,8 +3,32 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="light dark" />
+    <meta name="color-scheme" content="light" />
     <title>convert.in</title>
+    <meta
+      name="description"
+      content="Convert, compress, merge, sign, protect and redact a PDF or an image. Your browser does the work, and there is no server behind it."
+    />
+
+    <!--
+      The stylesheet is what names the fonts, so without this the browser only
+      learns about them after it has parsed the CSS, and the first paint is set
+      in a fallback that then swaps. This is the face every line on the page is
+      set in; the display italic in the headline is one line and can wait.
+    -->
+    <link
+      rel="preload"
+      href="./fonts/inter-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+
+    <!-- Inline, so a visit does not spend a request finding out there is none. -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='4' fill='%231b1b1b'/%3E%3Cpath d='M4.5 6.5h4.5M4.5 9.5h7' stroke='white' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E"
+    />
   </head>
   <body>
     <div id="root"></div>

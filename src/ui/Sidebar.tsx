@@ -6,16 +6,14 @@ import {
   ImageIcon,
   LockIcon,
   MarkerIcon,
-  Logo,
   PagesIcon,
-  Segmented,
   SignIcon,
   StampIcon,
   SwapIcon,
   TagIcon,
 } from './kit.tsx'
 import { STRINGS } from './i18n.ts'
-import type { Lang, Theme } from './prefs.ts'
+import type { Lang } from './prefs.ts'
 
 export const TOOL_IDS = [
   'convert',
@@ -50,30 +48,68 @@ const TOOL_ICONS: Record<ToolId, typeof ImageIcon> = {
  */
 export const ShellContext = createContext<{ openNav: () => void } | null>(null)
 
+/**
+ * The three lights a Mac window wears in its top left corner, at the size and
+ * spacing the real ones use: 12 across, 8 between, and the group set 20 in from
+ * the edge of the window. The fills are the measured approximations of Big
+ * Sur's own, each with the half-pixel darker rim that keeps a light circle from
+ * dissolving into a light titlebar.
+ *
+ * Decoration, and honest about it. There is no window to close, so these take
+ * no pointer, offer no hover, and are hidden from a screen reader rather than
+ * announced as three buttons that do nothing.
+ */
+function TrafficLights() {
+  const lights = [
+    { fill: '#ed6a5f', rim: '#e24b41' },
+    { fill: '#f6be50', rim: '#e1a73e' },
+    { fill: '#61c555', rim: '#2dac2f' },
+  ]
+  return (
+    <div
+      aria-hidden="true"
+      // The lights belong to a window, and the drawer this list is also the
+      // inside of is not one. Hiding the three circles and keeping the bar they
+      // sit in left 52px of nothing above the first row of the drawer, so the
+      // whole strip goes rather than its contents.
+      className="pointer-events-none hidden h-bar shrink-0 items-center gap-2 pl-5 select-none lg:flex"
+    >
+      {lights.map(({ fill, rim }) => (
+        <span
+          key={fill}
+          className="h-3 w-3 rounded-full"
+          style={{ backgroundColor: fill, boxShadow: `inset 0 0 0 0.5px ${rim}` }}
+        />
+      ))}
+    </div>
+  )
+}
+
 export function Sidebar({
   active,
   onSelect,
   lang,
-  onLang,
-  theme,
-  onTheme,
 }: {
   active: ToolId
   onSelect: (id: ToolId) => void
   lang: Lang
-  onLang: (lang: Lang) => void
-  theme: Theme
-  onTheme: (theme: Theme) => void
 }) {
   const t = STRINGS[lang]
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto">
-      <div className="flex h-bar shrink-0 items-center px-4">
-        <Logo className="h-6 w-auto" />
-      </div>
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <TrafficLights />
 
-      <nav className="flex flex-col gap-1 px-2.5">
+      {/*
+          One line a row, an unboxed glyph, and a flat fill for the selection.
+          A sidebar is a list of places, and the three things that were here
+          instead of that were all noise: a second line under every one of ten
+          rows, a grey tile around every icon, and a raised card under the
+          selected one. macOS marks the row you are on by filling it, not by
+          lifting it off the surface. What the hint used to say is on the tool's
+          own screen the moment the row is picked, and on hover in the meantime.
+      */}
+      <nav className="flex flex-col gap-0.5 px-2 pt-1">
         {TOOL_IDS.map((id) => {
           const ToolIcon = TOOL_ICONS[id]
           const current = id === active
@@ -83,82 +119,45 @@ export function Sidebar({
               type="button"
               onClick={() => onSelect(id)}
               aria-current={current ? 'page' : undefined}
+              title={t.tools[id].hint}
               className={cx(
-                'flex items-center gap-2.5 rounded-card px-2.5 py-2 text-left',
-                'transition-all duration-200 ease-glass',
-                current ? 'glass-strong specular ring-line shadow-tile ring-1' : 'hover:bg-fill',
+                // 8 of nav padding and 8 of row padding put the glyph on the
+                // same 16 the logo above it starts at. Two different insets in
+                // one column is the kind of misalignment nobody names and
+                // everybody sees.
+                'flex items-center gap-2 rounded-inner px-2 py-2 text-left',
+                'transition-colors duration-150 ease-glass',
+                current ? 'bg-accent text-on-accent' : 'hover:bg-fill',
               )}
             >
+              {/*
+                  Tinted, not filled. The sidebar glyph takes the text colour in
+                  macOS; an accent-coloured chip on a translucent panel reads as
+                  a badge, and ten badges read as ten alerts.
+              */}
               <span
                 className={cx(
-                  'grid h-7 w-7 shrink-0 place-items-center rounded-inner transition-colors duration-200',
-                  current ? 'bg-accent text-on-accent shadow-accent' : 'bg-fill text-muted',
+                  'shrink-0 transition-colors duration-150',
+                  current ? 'text-on-accent' : 'text-muted',
                 )}
               >
-                <ToolIcon size={15} stroke={1.35} />
+                <ToolIcon size={16} stroke={current ? 1.7 : 1.45} />
               </span>
-              <span className="min-w-0">
-                <span className={cx('text-body block', current ? 'font-semibold' : 'font-medium')}>
-                  {t.tools[id].label}
-                </span>
-                <span className="text-muted text-caption mt-0.5 block truncate">
-                  {t.tools[id].hint}
-                </span>
+              <span className={cx('text-body truncate', current ? 'font-semibold' : 'font-medium')}>
+                {t.tools[id].label}
               </span>
             </button>
           )
         })}
       </nav>
 
-      <div className="min-h-8 flex-1" />
-
-      <div className="flex flex-col gap-4 px-3.5 pb-4">
-        <div className="flex flex-col gap-1.5">
-          <span className="text-muted text-caption px-0.5 font-medium tracking-wide uppercase">
-            {t.appearance}
-          </span>
-          <Segmented
-            label={t.appearance}
-            value={theme}
-            onChange={onTheme}
-            options={[
-              { value: 'system', label: t.theme.system },
-              { value: 'light', label: t.theme.light },
-              { value: 'dark', label: t.theme.dark },
-            ]}
-          />
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <span className="text-muted text-caption px-0.5 font-medium tracking-wide uppercase">
-            {t.language}
-          </span>
-          <Segmented
-            label={t.language}
-            value={lang}
-            onChange={onLang}
-            options={[
-              { value: 'en', label: 'English' },
-              { value: 'id', label: 'Indonesia' },
-            ]}
-          />
-        </div>
-
-        <p className="text-muted text-caption px-0.5 leading-relaxed">
-          {t.tagline}{' '}
-          {/* The bundle carries Apache-2.0 and MIT code whose notices have to
-              travel with it. Shipping the file is the requirement; linking it is
-              what makes it reachable by the people it is meant for. */}
-          <a
-            href="./THIRD-PARTY-NOTICES.txt"
-            target="_blank"
-            rel="noreferrer"
-            className="hover:text-ink underline underline-offset-2"
-          >
-            {t.licences}
-          </a>
-        </p>
-      </div>
+      {/*
+        Nothing under the list. The notices this bundle has to carry are linked
+        from the page's own footer, and one link in one place is the whole of
+        that obligation; a second copy in here was only ever a second thing to
+        keep in step.
+      */}
+      <div className="pb-4" />
     </div>
   )
 }

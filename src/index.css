@@ -1,12 +1,61 @@
 @import 'tailwindcss';
 
 /*
+  Both faces are served from here rather than from a font CDN: a page that
+  promises nothing leaves the machine cannot go and ask Google for a typeface on
+  every load. The unicode-range keeps the extended subset unfetched until a
+  filename actually contains a character that needs it.
+*/
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url('/fonts/inter-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url('/fonts/inter-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308,
+    U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113,
+    U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* Italic only: it is the only cut the hero ever asks for. */
+/*
+  One line of the page is set in this: the italic half of the hero's headline,
+  in English and in Indonesian. The Google latin subset is 39 KiB for 312
+  glyphs, of which the two headlines use twenty-two, and it is the longest
+  request on the critical path because the browser cannot start it until it has
+  laid the headline out. Cut to what those two lines spell it is 7 KiB.
+
+  The range below is that alphabet and nothing else, so a character the subset
+  does not carry falls through to the next serif in the stack rather than
+  arriving as a blank box. test/display-font.test.ts is what notices when the
+  headline is reworded past it.
+*/
+@font-face {
+  font-family: 'Convert Display';
+  font-style: italic;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/playfair-italic-headline.woff2') format('woff2');
+  unicode-range: U+0020, U+002E, U+0061-0062, U+0064-0069, U+006B-0070, U+0072-0076, U+0079;
+}
+
+/*
   A monochrome reading of Apple's current design language: translucent layers
   over a soft backdrop, capsule controls, radii that nest concentrically, and a
   single ink colour doing the work a brand colour usually does.
 
-  Every colour is written once, with light-dark(). The theme switch only has to
-  change `color-scheme`, so there is no second palette to keep in sync.
+  One palette, light only. There is no second one to keep in sync and no switch
+  to keep them both honest under.
 */
 
 /* Touch devices: no hover to reveal anything, and bigger targets. */
@@ -34,11 +83,16 @@
   --spacing-control: 1.875rem; /* 30 */
   --spacing-control-sm: 1.625rem; /* 26 */
   --spacing-touch: 2.75rem; /* 44, the minimum touch target */
-  --spacing-sidebar: 15rem; /* 240 */
+  /* Wide enough that no tool's one-line hint has to be cut short in either
+     language, which is what decided the number. */
+  --spacing-sidebar: 17rem; /* 272 */
 
   --font-sans:
-    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display',
+    Inter, -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display',
     'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+
+  /* Only the hero's emphasised words reach for this, and only in italic. */
+  --font-serif: 'Convert Display', 'Iowan Old Style', Palatino, Georgia, serif;
 
   /* Concentric set: an inner radius is its parent minus the padding between them. */
   --radius-window: 22px;
@@ -52,52 +106,67 @@
 }
 
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
 
-  --c-ink: light-dark(#1b1b1b, #f2f2f2);
-  --c-muted: light-dark(#6d6d6d, #999999);
-  --c-invert: light-dark(#ffffff, #171717);
+  --c-ink: #1b1b1b;
+  --c-muted: #6d6d6d;
+  --c-invert: #ffffff;
 
   /*
-    Emphasis is ink, not a hue: the primary button, the current selection, the
-    active tool and the focus ring all reach for it. Keeping it a token rather
-    than a hard-coded colour means one line here changes every one of them.
+    The system blue every Mac control reaches for: the default button, the
+    selected row, the focus ring. Not Apple's own #007AFF, which carries white
+    text at 4.02:1 and misses the 4.5 a 15px label has to clear. This is the
+    nearest blue that clears it, measured at 4.86:1, and it sits in the same
+    family as the blue in the mark.
   */
-  --c-accent: light-dark(#1b1b1b, #f2f2f2);
-  --c-accent-soft: light-dark(rgb(0 0 0 / 0.07), rgb(255 255 255 / 0.1));
-  --c-accent-ring: light-dark(rgb(0 0 0 / 0.32), rgb(255 255 255 / 0.34));
-  --c-on-accent: light-dark(#ffffff, #171717);
+  --c-accent: #0d6ee0;
+  --c-accent-soft: rgb(13 110 224 / 0.1);
+  --c-accent-ring: rgb(13 110 224 / 0.4);
+  --c-on-accent: #ffffff;
 
-  --c-glass: light-dark(rgb(255 255 255 / 0.5), rgb(64 64 64 / 0.42));
-  --c-glass-strong: light-dark(rgb(255 255 255 / 0.72), rgb(88 88 88 / 0.42));
-  --c-surface: light-dark(rgb(253 253 253 / 0.66), rgb(25 25 25 / 0.7));
-  --c-raised: light-dark(rgb(0 0 0 / 0.045), rgb(255 255 255 / 0.07));
+  --c-glass: rgb(255 255 255 / 0.5);
+  --c-glass-strong: rgb(255 255 255 / 0.72);
+  --c-surface: rgb(253 253 253 / 0.66);
+  --c-raised: rgb(0 0 0 / 0.045);
 
-  --c-line: light-dark(rgb(0 0 0 / 0.09), rgb(255 255 255 / 0.1));
-  --c-fill: light-dark(rgb(0 0 0 / 0.05), rgb(255 255 255 / 0.07));
+  --c-line: rgb(0 0 0 / 0.09);
+  --c-fill: rgb(0 0 0 / 0.05);
 
   /* The lit top edge that reads as thickness on a pane of glass. */
-  --c-specular: light-dark(rgb(255 255 255 / 0.75), rgb(255 255 255 / 0.16));
+  --c-specular: rgb(255 255 255 / 0.75);
+
+  /*
+    The only hue in the palette, and it is not a brand colour: it is the deep
+    blue at the top of the photograph. Everything that has to sit on the sky and
+    still be read borrows it, so a chip and a button and a shadow are all tinted
+    out of the same picture rather than three shades of nearly-navy.
+  */
+  --c-sky-shade: #0a2a56;
 
   --glass-blur: 30px;
   --glass-saturate: 180%;
+  /*
+    The third term the current Apple material adds to the older frosted one:
+    glass does not only blur and enrich what is behind it, it lifts it. Kept
+    low, because the backdrop here is already a bright photograph.
+  */
+  --glass-brightness: 1.06;
 
-  --s-window: 0 32px 70px -24px light-dark(rgb(0 0 0 / 0.4), rgb(0 0 0 / 0.75)),
-    0 2px 10px light-dark(rgb(0 0 0 / 0.08), rgb(0 0 0 / 0.4));
-  --s-tile: 0 1px 3px light-dark(rgb(0 0 0 / 0.08), rgb(0 0 0 / 0.45));
-  --s-thumb: 0 1px 3px light-dark(rgb(0 0 0 / 0.12), rgb(0 0 0 / 0.5)),
-    0 0 0 0.5px light-dark(rgb(0 0 0 / 0.06), rgb(255 255 255 / 0.08));
-  --s-accent: 0 8px 20px -8px light-dark(rgb(0 0 0 / 0.4), rgb(0 0 0 / 0.75)),
-    inset 0 1px 0 light-dark(rgb(255 255 255 / 0.2), rgb(255 255 255 / 0.4));
-}
+  /* The photograph the glass sits on. */
+  --backdrop-photo: url('/sky.webp');
 
-/* The switch changes only which side of every light-dark() pair is picked. */
-:root[data-theme='light'] {
-  color-scheme: light;
-}
-
-:root[data-theme='dark'] {
-  color-scheme: dark;
+  /*
+    Kept deliberately soft. This shadow lands on white cloud now rather than on
+    a grey backdrop, and at the weight it used to carry it read as a smudge
+    under the window instead of as the window standing off the page.
+  */
+  --s-window: 0 22px 46px -30px rgb(0 0 0 / 0.22),
+    0 2px 8px rgb(0 0 0 / 0.06);
+  --s-tile: 0 1px 3px rgb(0 0 0 / 0.08);
+  --s-thumb: 0 1px 3px rgb(0 0 0 / 0.12),
+    0 0 0 0.5px rgb(0 0 0 / 0.06);
+  --s-accent: 0 8px 20px -8px rgb(0 0 0 / 0.4),
+    inset 0 1px 0 rgb(255 255 255 / 0.2);
 }
 
 @theme inline {
@@ -109,6 +178,7 @@
   --color-line: var(--c-line);
   --color-fill: var(--c-fill);
   --color-specular: var(--c-specular);
+  --color-sky-shade: var(--c-sky-shade);
   --color-accent: var(--c-accent);
   --color-accent-soft: var(--c-accent-soft);
   --color-accent-ring: var(--c-accent-ring);
@@ -121,81 +191,173 @@
 
 @utility glass {
   background-color: var(--c-glass);
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  /*
+    Written once, unprefixed. Declaring the -webkit- twin by hand here made the
+    minifier collapse the pair down to the prefixed one alone, and Chrome has
+    since dropped that alias: the panel, the sidebar and every bar in this app
+    were being painted with no blur at all. The build adds whatever prefix the
+    browser targets actually need.
+  */
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate))
+    brightness(var(--glass-brightness));
 }
 
 @utility glass-strong {
   background-color: var(--c-glass-strong);
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate))
+    brightness(var(--glass-brightness));
 }
 
 /* Light catching the top edge, the way a real bevel would. */
 /* The content pane: still glass, just far less of it, so text stays readable. */
 @utility pane {
   background-color: var(--c-surface);
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-}
-
-/*
-  Toolbars scroll sideways on a phone rather than growing a second row, so the
-  bar keeps one height everywhere. The fade is the only honest way to say there
-  is more to the right, and it is only applied where the overflow happens.
-*/
-@utility bar-scroll {
-  overflow-x: auto;
-  scrollbar-width: none;
-
-  &::-webkit-scrollbar {
-    display: none;
-  }
-
-  @media (width < 40rem) {
-    mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
-  }
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate))
+    brightness(var(--glass-brightness));
 }
 
 @utility specular {
   box-shadow: inset 0 1px 0 0 var(--c-specular);
 }
 
-.theme-logo-light {
-  display: block;
-}
-.theme-logo-dark {
-  display: none;
-}
+/*
+  The two things the current material adds to a frosted panel, and the two that
+  can be had without asking the GPU for anything it is not already doing:
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .theme-logo-light {
-    display: none;
+    the rim   a bright edge along the top, a dimmer one underneath and fainter
+              ones down the sides, which is what light does to the bevel of a
+              real piece of glass rather than to a rectangle of blur
+    the sheen one diagonal gloss falling from the top-left corner, the fixed
+              light source Apple's own glass is lit by
+
+  Written as a pseudo-element rather than a box-shadow so it composes with
+  whatever shadow the element already carries, and the host names its own
+  `relative` so this can never overwrite the position of something already
+  placed. Refraction, the third part of that material, is deliberately absent;
+  see the note by `--glass-brightness` in the tokens above.
+*/
+@utility liquid {
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.7),
+      inset 0 -1px 0 rgb(255 255 255 / 0.28),
+      inset 1px 0 0 rgb(255 255 255 / 0.2),
+      inset -1px 0 0 rgb(255 255 255 / 0.2);
+    background-image: linear-gradient(
+      135deg,
+      rgb(255 255 255 / 0.28),
+      rgb(255 255 255 / 0.05) 26%,
+      transparent 56%
+    );
   }
-  :root:not([data-theme='light']) .theme-logo-dark {
-    display: block;
+}
+
+html {
+  scroll-behavior: smooth;
+
+  /*
+    Anchors land with a little air above them rather than flush against the top
+    edge of the window, which reads as the page having been cut off there. It is
+    set here rather than on the one section that has an anchor today, so the
+    next one gets it without anybody remembering to ask.
+  */
+  scroll-padding-top: 1.5rem;
+
+  /*
+    The sky lives here rather than in an element of its own. A fixed element is
+    painted inside the layout viewport, which stops at the scrollbar; the strip
+    the scrollbar sits in is painted from the canvas instead, and the canvas
+    takes its background from this rule. Put the picture anywhere else and that
+    strip stays the flat colour underneath, which next to a photograph reads as
+    a seam down the right of the page.
+  */
+  /*
+    The colour underneath is the photograph's own right-hand edge, averaged. A
+    fixed background is painted inside the layout viewport, so the strip the
+    scrollbar sits in is left to the background colour: without one it is the
+    browser's white, which is the brightest thing on the page and sits right
+    next to a sky.
+  */
+  background: var(--backdrop-photo) #d7e6f9 center / cover no-repeat fixed;
+}
+
+/*
+  One step up the scale below the small breakpoint.
+
+  The sizes above are macOS text styles, and they are read on a screen held at
+  arm's length by someone whose pointer is a mouse. Apple's own answer to the
+  same text on a phone is not 13 either: iOS sets Body at 17pt against macOS's
+  13, and the reason is the device rather than the taste. This is that shift,
+  taken one step of the system scale rather than the whole way, so the interface
+  is not a Mac window shrunk onto a phone.
+
+  Only the type steps move. The control heights beside them are already handled
+  by the `touch` variant, which takes a button to the 44px target, and scaling
+  both at once would put a 68px bar on a 568px screen.
+
+  The one relation the scale is built on holds at the new base: display is body
+  times 1.618, which is 24 here as it was 21 above.
+*/
+@media (width < 40rem) {
+  :root {
+    --text-caption: 0.75rem; /* 12 */
+    --text-footnote: 0.8125rem; /* 13 */
+    --text-body: 0.9375rem; /* 15 */
+    --text-headline: 1.0625rem; /* 17 */
+    --text-title: 1.1875rem; /* 19 */
+    --text-display: 1.5rem; /* 24 = 15 x 1.618 */
   }
 }
 
-:root[data-theme='dark'] .theme-logo-light {
-  display: none;
-}
-:root[data-theme='dark'] .theme-logo-dark {
-  display: block;
-}
-:root[data-theme='light'] .theme-logo-light {
-  display: block;
-}
-:root[data-theme='light'] .theme-logo-dark {
-  display: none;
+/*
+  The same photograph, cut to what a phone held upright actually sees.
+
+  `cover` scales the picture until it fills the viewport, and a 1920 by 1047
+  landscape against a portrait screen is scaled by height: two thirds of its
+  width is cropped away before anything is drawn, so most of those 32 KiB were
+  downloaded to be thrown out. This is the strip that survives, at the height it
+  is drawn at, which makes it a quarter of the size and not one pixel softer.
+  Held sideways the full picture is the right shape again, so the switch is on
+  orientation as well as width.
+*/
+@media (max-width: 640px) and (orientation: portrait) {
+  :root {
+    --backdrop-photo: url('/sky-portrait.webp');
+  }
 }
 
-html,
-body,
-#root {
-  height: 100%;
+/*
+  The page scrolls: the hero, the window itself, then the cloud line into the
+  footer. Only the window keeps a fixed height, so the tools inside it still
+  get the definite parent their own scrolling areas measure against.
+*/
+body {
   /* Mobile browsers shrink the viewport as their toolbars slide away. */
-  height: 100dvh;
+  min-height: 100dvh;
+  /*
+    `clip`, not `hidden`. The clouds are placed past both edges on purpose, and
+    either value hides the overflow, but `hidden` also turns the body into a
+    scroll container: overflow-y computes to auto, the body reserves a gutter of
+    its own next to the page's real scrollbar, and a strip of it shows down the
+    right-hand side of the hero. `clip` hides the overflow without any of that.
+  */
+  overflow-x: clip;
+}
+
+/*
+  showModal() makes the page behind a dialog inert, which stops it being
+  clicked, tabbed into or read, but not scrolled: a wheel or a drag over the
+  backdrop still ran the whole page past underneath the open drawer. There is
+  no state to track for this, so it is a rule rather than an effect.
+*/
+body:has(dialog[open]) {
+  overflow: hidden;
 }
 
 /* Keep the interface clear of notches and home indicators. */
@@ -205,30 +367,11 @@ body,
 }
 
 body {
-  /* Glass needs something behind it, so the page carries a quiet backdrop. */
-  background-color: light-dark(#dedede, #0a0a0a);
-  background-image:
-    radial-gradient(
-      75% 60% at 6% -8%,
-      light-dark(rgb(255 255 255 / 0.95), rgb(155 155 155 / 0.24)) 0%,
-      transparent 62%
-    ),
-    radial-gradient(
-      70% 60% at 96% 8%,
-      light-dark(rgb(255 255 255 / 0.6), rgb(120 120 120 / 0.15)) 0%,
-      transparent 64%
-    ),
-    radial-gradient(
-      85% 75% at 88% 105%,
-      light-dark(rgb(72 72 72 / 0.26), rgb(96 96 96 / 0.2)) 0%,
-      transparent 66%
-    ),
-    radial-gradient(
-      60% 55% at 18% 100%,
-      light-dark(rgb(122 122 122 / 0.3), rgb(28 28 28 / 0.6)) 0%,
-      transparent 68%
-    );
-  background-attachment: fixed;
+  /*
+    Deliberately transparent. The photograph is on the root element so that it
+    reaches the canvas, and a background here would be painted straight over it.
+  */
+  background: transparent;
   color: var(--c-ink);
   font-family: var(--font-sans);
   font-size: 13px;
@@ -247,10 +390,35 @@ h2 {
   letter-spacing: -0.02em;
 }
 
+/*
+  A selection colour, because the default is the browser's blue and this design
+  does not otherwise contain one.
+*/
+::selection {
+  background-color: var(--c-accent);
+  color: var(--c-on-accent);
+}
+
+/*
+  Only the italic cut of the display face is shipped. Without this the browser
+  would slant the fallback itself when something asks for an upright one, and a
+  mechanically sloped Georgia is worse than an honest Georgia.
+*/
+html {
+  font-synthesis: none;
+}
+
 /* One keyboard focus ring for everything, so no control can quietly lack one. */
 :where(button, [role='radio'], a, input, [tabindex]):focus-visible {
   outline: 2px solid var(--c-accent);
   outline-offset: 2px;
+  /*
+    A light halo outside the ink ring. Two tones rather than one, because the
+    same ring has to be found on white glass, on a photograph of a sky and on
+    the dark button, and a single colour is invisible against one of them
+    whichever colour is picked.
+  */
+  box-shadow: 0 0 0 6px var(--c-invert);
 }
 
 /*
@@ -267,6 +435,36 @@ body::before {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
+/*
+  The hero's one motion. The reduced-motion rule below collapses it to nothing.
+
+  It moves and does not fade. The fade used to be the other half of it, and the
+  paragraph it runs on is the largest thing painted on the page: a browser does
+  not count text it cannot see, so starting at zero opacity moved the largest
+  paint from the moment the text arrived to the moment the animation finished,
+  three quarters of a second later, for an effect that reads much the same
+  without it.
+*/
+@keyframes rise {
+  from {
+    transform: translateY(20px);
+  }
+  to {
+    transform: none;
+  }
+}
+
+.rise {
+  animation: rise 0.6s var(--ease-glass) forwards;
+}
+
+/* Set by main.tsx once React has taken the prerendered hero over; see the note
+   there. The animation has already run on the markup being replaced. */
+[data-prerendered] .rise {
+  animation: none;
+  opacity: 1;
+}
+
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--c-line) transparent;
@@ -277,22 +475,31 @@ body::before {
   them costs a few lines and is the difference between a look and a usable one.
 */
 @media (prefers-reduced-transparency: reduce) {
+  .liquid::after {
+    display: none;
+  }
+
   :root {
     --glass-blur: 0px;
-    --c-glass: light-dark(#f4f4f4, #1e1e1e);
-    --c-glass-strong: light-dark(#f8f8f8, #232323);
-    --c-surface: light-dark(#ffffff, #171717);
+    --glass-brightness: 1;
+    --c-glass: #f4f4f4;
+    --c-glass-strong: #f8f8f8;
+    --c-surface: #ffffff;
   }
 }
 
 @media (prefers-contrast: more) {
   :root {
-    --c-line: light-dark(rgb(0 0 0 / 0.4), rgb(255 255 255 / 0.4));
-    --c-muted: light-dark(#3a3a3a, #c9c9c9);
+    --c-line: rgb(0 0 0 / 0.4);
+    --c-muted: #3a3a3a;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
   *,
   *::before,
   *::after {

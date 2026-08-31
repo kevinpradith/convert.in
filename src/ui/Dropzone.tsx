@@ -86,14 +86,23 @@ export function Dropzone({
   )
 }
 
-/** The button half of the same job, for people who would rather not drag. */
+/**
+ * The button half of the same job, for people who would rather not drag.
+ *
+ * The wrapper is an inline span, which is right for the toolbar buttons that
+ * are most of its callers and wrong for anything that needs a width of its own:
+ * a shrink-to-fit box makes a percentage width inside it circular. `className`
+ * is how a caller that wraps something larger fixes that.
+ */
 export function FilePicker({
   accept,
   onFiles,
+  className,
   children,
 }: {
   accept: string
   onFiles: (files: File[]) => void
+  className?: string
   children: ReactNode
 }) {
   const input = useRef<HTMLInputElement>(null)
@@ -112,7 +121,9 @@ export function FilePicker({
           if (files.length > 0) onFiles(files)
         }}
       />
-      <span onClick={() => input.current?.click()}>{children}</span>
+      <span className={className} onClick={() => input.current?.click()}>
+        {children}
+      </span>
     </>
   )
 }

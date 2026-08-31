@@ -7,8 +7,26 @@ import type { Lang } from './prefs.ts'
  * blank label.
  */
 const en = {
-  tagline: 'Everything runs in this browser. Nothing is uploaded, so nothing can leak.',
-  appearance: 'Appearance',
+  /**
+   * The page around the window. The headline names the thing and its one real
+   * difference, because a visitor who reads only that line should still know
+   * what this is; the sentence under it is the list of what you can actually do
+   * here. Neither says anything the app cannot back up.
+   */
+  hero: {
+    badge: 'Free and open source',
+    title: 'PDF and image tools',
+    titleEm: 'that never upload a file.',
+    sub: 'Convert, compress, merge, sign, protect and redact a PDF or an image. Your browser does the work, and there is no server behind it.',
+    start: 'Open the tools',
+    /** The risk-reversal line every no-signup product owes its primary button:
+     *  the three objections someone weighs before clicking, answered where
+     *  they are weighed rather than in a footer nobody scrolls to. */
+    assure: 'No account, no install, no tracking.',
+    repo: 'View on GitHub',
+    docs: 'Documentation',
+    tools: 'Tools',
+  },
   /** Shown while a long render works through a document, so a ten-second wait
    *  on a five-hundred-page file reads as progress rather than a hang. */
   progress: (done: number, total: number) => `${done} of ${total}…`,
@@ -18,9 +36,9 @@ const en = {
   brokeRetry: 'Try again',
   licences: 'Licences',
   language: 'Language',
-  theme: { system: 'Auto', light: 'Light', dark: 'Dark' },
   chooseFiles: 'Choose files',
   menu: 'Menu',
+  closeMenu: 'Close the menu',
   selectRange: 'Select pages by number',
   rangePlaceholder: '1-3,7',
   applyRange: 'Select',
@@ -283,8 +301,17 @@ const en = {
 type Strings = typeof en
 
 const id: Strings = {
-  tagline: 'Semua diproses di peramban ini. Tidak ada yang diunggah, jadi tidak ada yang bocor.',
-  appearance: 'Tampilan',
+  hero: {
+    badge: 'Gratis dan sumber terbuka',
+    title: 'Alat PDF dan gambar',
+    titleEm: 'yang tak pernah mengunggah berkas.',
+    sub: 'Konversi, kompres, gabung, tanda tangan, kunci dan sensor PDF atau gambar. Peramban kamu yang bekerja, dan tidak ada server di baliknya.',
+    start: 'Buka alatnya',
+    assure: 'Tanpa akun, tanpa instal, tanpa pelacakan.',
+    repo: 'Lihat di GitHub',
+    docs: 'Dokumentasi',
+    tools: 'Alat',
+  },
   progress: (done: number, total: number) => `${done} dari ${total}…`,
   brokeTitle: 'Alat ini berhenti bekerja',
   brokeHint:
@@ -292,9 +319,9 @@ const id: Strings = {
   brokeRetry: 'Coba lagi',
   licences: 'Lisensi',
   language: 'Bahasa',
-  theme: { system: 'Otomatis', light: 'Terang', dark: 'Gelap' },
   chooseFiles: 'Pilih berkas',
   menu: 'Menu',
+  closeMenu: 'Tutup menu',
   selectRange: 'Pilih halaman lewat nomor',
   rangePlaceholder: '1-3,7',
   applyRange: 'Pilih',
