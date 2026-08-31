@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { explain } from '../core/pdf-security.ts'
+import { explain } from '../core/pdf-errors.ts'
 
 /**
  * Run something at most once at a time, however many times the button is
