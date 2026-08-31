@@ -7,20 +7,19 @@
 Local image and PDF tools. The web app does all of its work inside the browser and
 the CLI does all of its work on your machine, so no file is ever uploaded anywhere.
 
-<picture>
-  <source
-    media="(prefers-color-scheme: dark)"
-    srcset="public/images/screenshots/convert-dark.webp"
-  />
-  <img
-    alt="The convert.in window: ten tools down the left, three images loaded, and the conversion settings along the bottom."
-    src="public/images/screenshots/convert-light.webp"
-  />
-</picture>
+<img
+  alt="The convert.in landing page: the headline PDF and image tools that never upload a file, over a photograph of a sky, with the tool window rising into the bottom of the screen."
+  src="docs/images/landing.webp"
+/>
 
-<sup>Taken from the built application by <code>test/browser</code>'s own driver, then
-shrunk by <code>convert.in convert --to webp</code>. It is a picture of the thing that
-ships, not a mock-up.</sup>
+<img
+  alt="The convert.in window: ten tools down the left, three images loaded, and the conversion settings along the bottom."
+  src="docs/images/tools.webp"
+/>
+
+<sup>Both are captures of the built application in Chromium, shrunk by
+<code>convert.in convert --to webp</code>. They are pictures of the thing that ships,
+not mock-ups.</sup>
 
 ## Web app
 
@@ -29,6 +28,10 @@ npm install
 npm run dev       # http://localhost:5173
 npm run build     # static files in dist/, host them anywhere or open them locally
 ```
+
+One page: a headline that says what this is, and the window with the tools in
+it directly under it. There is no second page and no route to navigate to, so
+opening the tools is a scroll rather than a load.
 
 Ten tools, all in one window:
 
@@ -94,28 +97,29 @@ Two flags are deliberately CLI-only. `--force` has no meaning in a browser, wher
 a download never overwrites anything. `--sort natural` has none either, because
 there you drag the tiles into the order you want.
 
-Appearance (Auto, Light, Dark) and language (English, Indonesia) sit at the
-bottom of the sidebar and are remembered in `localStorage`. Auto follows the
-system, live, with no reload.
+Language (English, Indonesia) sits at the bottom of the sidebar and is
+remembered in `localStorage`. There is one appearance and it is light: the
+window is glass over a photograph, which a dark palette has nothing to be.
 
 ### Look
 
-Apple's current design language read in greyscale: translucent layers over a soft
-backdrop, capsule controls, and radii that nest concentrically (an inner radius
-is its parent's minus the padding between them).
+Apple's current design language: translucent layers over a backdrop, radii that
+nest concentrically (an inner radius is its parent's minus the padding between
+them), and controls sized the way a Mac sizes them.
 
-Black, white and grey only, every channel equal. Emphasis is carried by ink
-rather than a hue, and it is spent only on the things a person acts on: the
-primary button, the current selection, the active tool, the focus ring. It is
-still a single `--c-accent` token, so one line brings a colour back if that is
-ever wanted.
+The backdrop is a photograph of a sky, which is what the glass has to refract.
+Everything above it is white at partial opacity, so the surfaces take their
+colour from what is behind them rather than from a token. One accent, `#0d6ee0`,
+is spent only on what a person acts on: the primary button, the current
+selection, the active tool, the focus ring. It measures 4.87:1 against the white
+it carries, which clears WCAG 2.2 AA for text of any size.
 
-Depth does the work colour would: four large luminance blobs behind the glass so
-it has something to refract, layered shadows, a lit top edge on every pane, and a
-4.5% film of SVG noise to stop those gradients banding on 8-bit displays.
+Depth does the rest: layered shadows, a lit top edge on every pane, and a 4.5%
+film of SVG noise so the large soft gradients do not band on 8-bit displays.
 
-Every colour is declared once with CSS `light-dark()`, so the theme switch only
-changes `color-scheme` and there is no second palette to keep in sync.
+One palette, declared once. There is no dark variant to keep in sync and no
+switch to keep both honest under: the window is glass over a photograph, and a
+dark palette has nothing to be underneath it.
 
 The three accessibility settings Apple's own glass was criticised for ignoring
 are honoured: `prefers-reduced-transparency` drops the blur and makes surfaces
@@ -136,7 +140,7 @@ capped in `ch` rather than pixels, because that is what readability depends on.
 
 `npm audit` reports no vulnerabilities in either the runtime or the development
 tree. There is no `eval`, no `innerHTML`, no shell invocation anywhere in the
-source. `localStorage` holds the theme and the language and nothing else; a
+source. `localStorage` holds the chosen language and nothing else; a
 password is never written to it.
 
 Every GitHub Actions step is pinned to a commit rather than a tag, because a tag
@@ -179,13 +183,54 @@ One layout, three shapes:
 | `>= 1024px` | Sidebar pinned open |
 
 Below 1024px the sidebar becomes a drawer rather than a second navigation: it is
-the same component, so there is one thing to keep correct. Escape closes it, and
-so does picking a tool.
+the same component, so there is one thing to keep correct. The drawer is a
+native `<dialog>` opened with `showModal()`, which is where the modal role, the
+focus trap, the inert background, Escape and the return of focus to the button
+that opened it all come from without being written. Picking a tool closes it,
+and so does crossing back above 1024px.
 
 On a coarse pointer every control grows to the 44px minimum touch target, and
 the per-tile remove button stops hiding behind hover, since there is no hover to
 reveal it. The viewport uses `dvh` so a phone's disappearing toolbar cannot crop
 the footer, and `env(safe-area-inset-*)` keeps the interface clear of notches.
+
+### First paint
+
+The page has to be a page before the application is one. Everything below is
+measured against `dist/`, served gzipped with the headers this project ships.
+
+- **The hero is in the HTML.** `scripts/prerender.mts` renders the same
+  component the app mounts and writes it into `dist/index.html`, so the largest
+  paint is text the browser already has rather than something React has yet to
+  produce. React mounts over the top and replaces those nodes with its own; the
+  two agree because they are the same component, and the entrance animation is
+  suppressed on the replacements so nothing moves twice.
+- **The stylesheet is inlined.** It is 9.9 kB gzipped and it blocks the first
+  paint, so as a separate file it cost a round trip before the browser knew what
+  the page looked like, and another before it learned the fonts existed. There
+  is one HTML page here and the CSS is rebuilt with it, so there was nothing to
+  lose by giving up its cache entry. The first response is 12.2 kB gzipped and
+  carries the whole first screen.
+- **The bundle waits for it.** The 76 kB gzipped entry chunk is loaded from
+  `boot.js` on `load`, with a two-second timer behind it in case `load` never
+  fires. It is a file rather than an inline script because the CSP allows
+  neither inline script nor `eval`, and three lines are not worth weakening it
+  for.
+- **A PDF writer is not downloaded to convert a PNG.** pdf-lib is 278 kB
+  gzipped and shared by seven of the ten tools, so it landed in the chunk they
+  have in common, which is also the one the image converter needs. It is named
+  as its own group in `vite.config.ts` instead. pdf.js is larger still, and its
+  worker is now configured inside the module that opens it rather than at
+  start-up, so it is fetched by the tools that rasterise and by nobody else.
+- **Two typefaces, both cut down and served from here.** No third-party font
+  host, which the CSP would refuse anyway. The display italic exists for one
+  line of the page, so it is subset to the twenty-two characters the two
+  headlines spell: 39 KiB becomes 7 KiB, and `test/display-font.test.ts` fails
+  if the headline is ever reworded past that alphabet.
+
+Lighthouse against that build, emulated mobile, throttled: **99** performance,
+**100** accessibility, **100** best practices, **100** SEO. Largest paint 2.1 s,
+total blocking time 0 ms, layout shift 0.018.
 
 ## Hosting it
 
@@ -487,7 +532,9 @@ src/term.ts   TTY dimming, WSL detection, byte sizes.
 bin/convert.in  POSIX launcher, symlink it onto your PATH.
 src/ui/       React components. The tools are thin wrappers around core.
 src/ui/i18n.ts   Both languages in one object; `id` must match `en` or the build fails.
-src/ui/prefs.ts  Theme and language, persisted, with storage failures swallowed.
+src/ui/Landing.tsx  The hero above the window, and the clouds layered around it.
+src/ui/prefs.ts  The chosen language, persisted, with storage failures swallowed.
+scripts/prerender.mts  Writes the hero into dist/index.html at build time.
 test/         node:test over core, no framework.
 test/browser/   the built app driven in a real browser, under the shipped headers.
 test/encryption-audit.py  the produced PDFs read back by pypdf, not by pdf-lib.
@@ -698,9 +745,18 @@ served them too. It is generated from what is actually installed:
 npm run notices     # runs automatically as part of npm run build
 ```
 
-pdf.js is the one to keep an eye on: it is Apache-2.0, whose attribution clause
-is stricter than MIT's. Adding a runtime dependency means adding it to the list
-in `scripts/notices.mjs`.
+The list is read out of the bundle's own sourcemaps rather than written down, so
+it cannot fall behind what is shipped, and CI fails on a tree where the two
+disagree. pdf.js is the one to keep an eye on: it is Apache-2.0, whose
+attribution clause is stricter than MIT's.
+
+The two typefaces are served as files rather than imported, so they are outside
+that graph and are named by hand in the same script. Both are under the
+[SIL Open Font License 1.1](https://openfontlicense.org), reproduced in
+[`public/fonts/OFL.txt`](public/fonts/OFL.txt). The display face is a subset of
+Playfair Display, which reserves its own name; clause 3 of that licence forbids
+a modified version from carrying a reserved font name, and a subset is a
+modified version, so the file ships as **Convert Display**.
 
 Two things this repository cannot settle for you. Whether the name **convert.in**
 collides with an existing trademark is worth checking before putting it on a
