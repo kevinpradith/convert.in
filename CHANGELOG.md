@@ -9,6 +9,76 @@ still change between minor versions.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-01
+
+A page in front of the tools, one palette instead of two, and a first paint that
+no longer waits for the application to arrive.
+
+### Added
+
+- **A landing page above the window.** A headline, what the tools do, and the
+  two things a visitor decides between: open them, or go and read the source.
+  It is the same page, not a route, so opening the tools is a scroll rather
+  than a load. English and Indonesian both.
+- **The first screen is in the HTML response.** `scripts/prerender.mts` renders
+  the hero at build time with the component the app itself mounts, so the
+  largest paint is text the browser already holds. React mounts over the top
+  and replaces those nodes with its own, and the entrance animation is
+  suppressed on the replacements so nothing plays twice.
+- **Two typefaces, served from the origin.** Inter for the interface and a
+  display italic for one line of the headline, both cut to the characters they
+  are actually asked for: the display face is 7 KiB where the full Latin subset
+  is 39 KiB. No third-party font host, which the Content-Security-Policy would
+  refuse in any case. Both are under the SIL Open Font License 1.1, reproduced
+  in `public/fonts/OFL.txt` and copied into the notices the application serves.
+  The display face is a subset of Playfair Display, which reserves its name, so
+  it ships renamed as Convert Display, as clause 3 of that licence requires.
+
+### Changed
+
+- **Converting a PNG no longer downloads a PDF writer.** pdf-lib is shared by
+  seven of the ten tools, so it settled into the chunk they have in common,
+  which is also the one the image converter needs; it is now a chunk of its own
+  that only a PDF tool asks for. pdf.js is larger again, and its worker is
+  configured inside the module that opens it rather than at start-up, so it is
+  fetched by the tools that rasterise and by nobody else.
+- **The stylesheet is inlined into the HTML.** It blocks the first paint, and as
+  a separate file it cost a round trip before the browser knew what the page
+  looked like and another before it learned the fonts existed. The entry bundle
+  is loaded after that first screen instead of alongside it.
+- **The navigation drawer is a native `<dialog>` opened with `showModal()`.**
+  The modal role, the focus trap, the inert background, Escape and the return
+  of focus to the button that opened it now come from the element rather than
+  from hand-written state, and the drawer closes when the viewport crosses back
+  above 1024px instead of staying stuck open behind the pinned sidebar.
+- **Pointer targets meet WCAG 2.2 SC 2.5.8.** The range slider, the per-tile
+  and per-row remove buttons and the checkbox rows are all at least 24 by 24
+  CSS pixels, and grow to 44 on a coarse pointer.
+- **Toolbar captions wrap rather than push a control off the screen.** A
+  three-option segmented control with a word in front of it is wider than a
+  320-pixel viewport; the caption now sits above the control it names.
+- **Static assets carry a cache lifetime on every host.** Fonts, images, the
+  pdf.js assets and the backdrop photographs get a week in both `vercel.json`
+  and `public/_headers`, which previously disagreed.
+- **The screenshots left `public/`.** They are documentation, and being under
+  `public/` meant every visitor was served 160 KiB of pictures of the page they
+  were already looking at. They live in `docs/images/` now.
+
+### Removed
+
+- **The dark theme.** The window is glass over a photograph, which a dark
+  palette has nothing to be underneath. The appearance control, the second set
+  of `light-dark()` values and the stored `convert.in:theme` key are all gone;
+  the language setting is untouched.
+
+### Fixed
+
+- **The dev server sees edits again on a Windows drive mounted into WSL.** Such
+  a mount delivers no inotify events, so Vite went on serving the version of a
+  file it read at start-up and hot reloading silently stopped happening.
+  Polling is switched on for that case and nowhere else.
+- **A long metadata key in Clean PDF wraps instead of stretching its column.**
+
 ## [0.2.1] - 2026-08-26
 
 Three fixes for files the toolkit refused, or failed at without saying so.
@@ -422,7 +492,8 @@ line, and one `src/core` shared by both so a change lands in both at once.
 - `convert photo.png webp --to avif` is refused instead of quietly picking one of
   the two answers.
 
-[Unreleased]: https://github.com/kevinpradith/convert.in/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/kevinpradith/convert.in/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/kevinpradith/convert.in/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/kevinpradith/convert.in/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/kevinpradith/convert.in/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/kevinpradith/convert.in/releases/tag/v0.1.0
