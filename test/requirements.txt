@@ -5,4 +5,4 @@
 # pypdf reads an AES-encrypted file only with the crypto extra, and every
 # fixture test/encryption-audit.py checks is AES-256.
 playwright==1.62.0
-pypdf[crypto]==6.16.1
+pypdf[crypto]==6.16.2
