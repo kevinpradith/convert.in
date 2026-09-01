@@ -20,10 +20,6 @@ concurrency:
 jobs:
   analyse:
     name: Analyse TypeScript
-    # Code scanning is free on public repositories and needs GitHub Advanced
-    # Security on private ones. Guarded rather than left to fail, so this waits
-    # quietly until the repository is public instead of painting every run red.
-    if: github.event.repository.visibility == 'public'
     runs-on: ubuntu-latest
     permissions:
       # Uploading the results is the whole point of the run.
