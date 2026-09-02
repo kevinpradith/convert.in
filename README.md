@@ -433,15 +433,16 @@ under.
 
 ## Project
 
-|                                          |                                          |
-| ---------------------------------------- | ---------------------------------------- |
-| Every command and flag                   | [docs/cli.md](docs/cli.md)               |
-| Hosting a copy, and its headers          | [docs/hosting.md](docs/hosting.md)       |
-| How it is built, and why                 | [docs/internals.md](docs/internals.md)   |
-| What changed, and when                   | [CHANGELOG.md](CHANGELOG.md)             |
-| Reporting a vulnerability                | [SECURITY.md](SECURITY.md)               |
-| Running the checks before a pull request | [CONTRIBUTING.md](CONTRIBUTING.md)       |
-| How people are expected to behave here   | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
+|                                          |                                                                  |
+| ---------------------------------------- | ---------------------------------------------------------------- |
+| Who wrote it                             | [Kevin Praditiansyah](https://www.linkedin.com/in/kevinpradith/) |
+| Every command and flag                   | [docs/cli.md](docs/cli.md)                                       |
+| Hosting a copy, and its headers          | [docs/hosting.md](docs/hosting.md)                               |
+| How it is built, and why                 | [docs/internals.md](docs/internals.md)                           |
+| What changed, and when                   | [CHANGELOG.md](CHANGELOG.md)                                     |
+| Reporting a vulnerability                | [SECURITY.md](SECURITY.md)                                       |
+| Running the checks before a pull request | [CONTRIBUTING.md](CONTRIBUTING.md)                               |
+| How people are expected to behave here   | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)                         |
 
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Below
 1.0.0 the CLI flags and the `src/core` exports may still change between minor

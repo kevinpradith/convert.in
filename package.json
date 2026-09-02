@@ -3,7 +3,11 @@
   "version": "0.4.0",
   "description": "Image and PDF tools that run entirely on your own machine: a browser app that never uploads a file, and a CLI sharing the same core.",
   "license": "MIT",
-  "author": "Kevin Praditiansyah <kevinpradithh@gmail.com>",
+  "author": {
+    "name": "Kevin Praditiansyah",
+    "email": "kevinpradithh@gmail.com",
+    "url": "https://www.linkedin.com/in/kevinpradith/"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/kevinpradith/convert.in.git"

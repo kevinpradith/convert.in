@@ -317,6 +317,17 @@ export function CloudFooter() {
           <span>© 2026 Kevin Praditiansyah</span>
 
           <span className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3">
+            {/* Who made this, in the row a reader scans for links rather than
+                folded into the copyright notice, where it would look like the
+                rest of the sentence and be found by nobody. */}
+            <a
+              href="https://www.linkedin.com/in/kevinpradith/"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-ink py-1 transition-colors"
+            >
+              LinkedIn
+            </a>
             <a
               href="https://github.com/kevinpradith/convert.in"
               target="_blank"
