@@ -1,0 +1,53 @@
+# Publish the command line tool to npm when a release is published.
+#
+# There is no NPM_TOKEN. npm trusted publishing mints a short-lived OIDC token
+# for this one workflow run, so there is no long-lived secret in this repository
+# to leak, and the package carries a provenance attestation tying the tarball to
+# this commit and this workflow. The trust relationship is configured once, in
+# the package's settings on npmjs.com, and it names the file below by its own
+# filename: renaming this workflow breaks publishing until the setting follows.
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  npm:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Mints the OIDC token npm exchanges for publishing rights, and the one
+      # the provenance attestation is signed with.
+      id-token: write
+    steps:
+      # Pinned to a commit for the reason spelled out in ci.yml.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          # Trusted publishing needs npm 11.5.1 and Node 22.14 at the least. The
+          # package itself still supports 20.19; this is only what builds it.
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - run: npm ci
+
+      # The tag is the source of truth for what is being released, so a release
+      # cut from a tree whose package.json says something else stops here rather
+      # than publishing a version nobody asked for.
+      - name: The tag and package.json agree
+        run: |
+          tag='${{ github.event.release.tag_name }}'
+          test "v$(node -p 'require("./package.json").version')" = "$tag"
+
+      # prepack builds dist-cli/, so the tarball carries JavaScript rather than
+      # the TypeScript sources and the compiler that would be needed to run them.
+      - run: npm publish

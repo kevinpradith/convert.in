@@ -7,13 +7,24 @@
  * cmd, Git Bash, macOS and Linux. A #!/bin/sh launcher only works where there is
  * a POSIX shell, and its executable bit does not survive a Windows checkout.
  *
- * tsx compiles the TypeScript in memory, so there is no build step to forget.
+ * Two ways in, and which one runs is decided by what is on disk rather than by
+ * a flag. An installed package carries dist-cli/, built by prepack, and runs
+ * plain JavaScript with no compiler anywhere near it. A clone does not, so tsx
+ * compiles the TypeScript in memory and there is still no build step to forget
+ * while working on it.
  */
-import { register } from 'tsx/esm/api'
+import { existsSync } from 'node:fs'
 
-const unregister = register()
-try {
-  await import(new URL('../src/cli.ts', import.meta.url).href)
-} finally {
-  await unregister()
+const bundle = new URL('../dist-cli/cli.mjs', import.meta.url)
+
+if (existsSync(bundle)) {
+  await import(bundle.href)
+} else {
+  const { register } = await import('tsx/esm/api')
+  const unregister = register()
+  try {
+    await import(new URL('../src/cli.ts', import.meta.url).href)
+  } finally {
+    await unregister()
+  }
 }

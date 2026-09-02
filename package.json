@@ -1,7 +1,6 @@
 {
   "name": "convert-in",
   "version": "0.3.0",
-  "private": true,
   "description": "Image and PDF tools that run entirely on your own machine: a browser app that never uploads a file, and a CLI sharing the same core.",
   "license": "MIT",
   "author": "Kevin Praditiansyah <kevinpradithh@gmail.com>",
@@ -36,6 +35,10 @@
     "cli"
   ],
   "type": "module",
+  "files": [
+    "bin/",
+    "dist-cli/"
+  ],
   "engines": {
     "node": ">=20.19"
   },
@@ -47,13 +50,17 @@
     "build": "npm run notices && node node_modules/vite/bin/vite.js build && node --import tsx scripts/prerender.mts",
     "preview": "node node_modules/vite/bin/vite.js preview",
     "test": "node --import tsx --test test/*.test.ts",
+    "format": "node node_modules/prettier/bin/prettier.cjs --write .",
+    "format:check": "node node_modules/prettier/bin/prettier.cjs --check .",
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
     "cli": "node bin/convert.in.mjs",
     "audit:fixtures": "node --import tsx test/encryption-fixtures.mts",
     "test:browser": "python3 test/browser/suite.py dist fixtures",
     "test:cli": "python3 test/cli-smoke.py",
     "test:fuzz": "python3 test/fuzz-cli.py",
-    "notices": "node scripts/notices.mjs"
+    "notices": "node scripts/notices.mjs",
+    "build:cli": "node scripts/build-cli.mjs",
+    "prepack": "npm run build:cli"
   },
   "dependencies": {
     "@cantoo/pdf-lib": "^2.9.1",
@@ -63,9 +70,7 @@
     "@jsquash/oxipng": "^2.3.0",
     "@jsquash/png": "^3.1.1",
     "@jsquash/webp": "^1.5.0",
-    "pdfjs-dist": "^6.2.108",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "pdfjs-dist": "^6.2.108"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
@@ -73,6 +78,10 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.1.1",
+    "esbuild": "0.28.2",
+    "prettier": "3.9.6",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.12",
     "typescript": "^7.0.2",

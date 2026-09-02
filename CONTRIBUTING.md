@@ -15,9 +15,17 @@ has no clear right to ship it.
 ```sh
 npm install
 npm run typecheck
+npm run format:check
 npm test
 npm run build
 ```
+
+Formatting is Prettier's, pinned to an exact version and configured in
+`.prettierrc.json`: 100 columns, single quotes, no semicolons. `npm run format`
+writes it. CI runs `format:check` rather than `format`, so a pull request is
+told what to run instead of having its diff rewritten underneath it.
+`src/help.ts` is excluded, because the guide is laid out in columns by hand and
+a formatter cannot see them.
 
 ## Signed commits
 
@@ -57,7 +65,7 @@ register, following the same rules Mozilla's Indonesian localisation team works
 to: `you` is **Anda**, singular and plural; conversational forms, slang and
 regional expressions are not used; and spelling follows
 [EYD Edisi V](https://ejaan.kemendikdasmen.go.id/eyd/), the Badan Bahasa
-standard. Where KBBI marks a word *cak* — the colloquial register — the standard
+standard. Where KBBI marks a word _cak_ — the colloquial register — the standard
 form is the one that belongs here: `hanya` rather than `cuma`, `tetapi` rather
 than `tapi`, `jika` rather than `kalau`.
 
@@ -159,6 +167,24 @@ A font is the one thing the sourcemap sweep cannot see, because the files in
 whether the family reserves its name: under the SIL Open Font License a subset
 is a modified version, and clause 3 forbids a modified version from keeping a
 reserved font name.
+
+## Releasing
+
+The tarball npm receives is not this tree. `prepack` runs `scripts/build-cli.mjs`,
+which bundles `src/cli.ts` into `dist-cli/cli.mjs` with everything in
+`dependencies` left external, so an installed copy runs JavaScript and never
+sees tsx or esbuild. `npm pack --dry-run` shows exactly what would go: five
+files, the sources not among them.
+
+Publishing happens in `.github/workflows/release.yml` when a release is
+published, over npm trusted publishing. There is no token in this repository:
+the workflow mints a short-lived OIDC one and npm attaches a provenance
+attestation naming the commit it was built from. That trust relationship is
+configured in the package's settings on npmjs.com and names the workflow by its
+filename, so renaming that file stops publishing until the setting follows.
+
+A release therefore needs three things to agree: `package.json`, the tag, and
+`CITATION.cff`. The workflow refuses to publish if the first two disagree.
 
 ## Scope
 

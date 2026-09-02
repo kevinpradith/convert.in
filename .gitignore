@@ -55,3 +55,6 @@ probe*.ts
 probe*.py
 *-tmp.ts
 *-tmp.py
+
+# Built by "npm run build:cli", and by prepack on the way to npm.
+dist-cli/
