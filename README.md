@@ -14,6 +14,10 @@ That is the static build in `dist/` on a CDN and nothing else, so it keeps worki
 after the network goes away and there is no server on the other end to send a file
 to.
 
+Version 0.3.0, and every tool in it works. Below 1.0.0 the CLI flags and the
+`src/core` exports can still change between minor versions, and
+[CHANGELOG.md](CHANGELOG.md) says when they do.
+
 <img
   alt="The convert.in landing page: the headline PDF and image tools that never upload a file, over a photograph of a sky, with the tool window rising into the bottom of the screen."
   src="docs/images/landing.webp"
@@ -30,6 +34,7 @@ not mock-ups.</sup>
 
 ## Contents
 
+- [Why](#why)
 - [Quick start](#quick-start)
 - [What it does](#what-it-does)
 - [Design](#design)
@@ -42,6 +47,29 @@ not mock-ups.</sup>
 - [Deliberate limits](#deliberate-limits)
 - [Licence](#licence)
 - [Project](#project)
+
+## Why
+
+Converting a file is not a hard problem and has not been one for years. What
+changed is the price. The tools a search turns up now meter the thing they do:
+three files a day, ten megabytes each, sign in for more, subscribe for a batch.
+The work itself is a fraction of a second of somebody's CPU. The limit is not
+there because the work is expensive; it is there because it is the only place a
+bill can be attached.
+
+The other half is that the file goes somewhere. Pressing Convert on a page sends
+a scan of a passport, a signed contract, a medical form to a machine nobody
+outside it can inspect, under a retention policy nobody reads. The honest answer
+to where that file went is that you cannot know, and a privacy policy is a
+promise rather than a mechanism.
+
+This does the work in the page, on the machine already in front of you: the
+codecs are WebAssembly and the PDF work is a library in the same tab. There is
+no upload to reason about, so there is nothing to meter, nothing to keep and
+nothing to leak later. That is not a statement of intent either.
+`connect-src 'self'` in the [Content-Security-Policy](#hosting-it) means the page
+cannot reach another origin even if one of its dependencies were compromised,
+and a test in CI fails the build if a single request leaves it.
 
 ## Quick start
 
