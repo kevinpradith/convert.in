@@ -4,9 +4,15 @@
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20.19-brightgreen.svg)](package.json)
 [![Release](https://img.shields.io/github/v/release/kevinpradith/convert.in?label=release)](https://github.com/kevinpradith/convert.in/releases/latest)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/kevinpradith/convert.in/badge)](https://scorecard.dev/viewer/?uri=github.com/kevinpradith/convert.in)
 
 Local image and PDF tools. The web app does all of its work inside the browser and
 the CLI does all of its work on your machine, so no file is ever uploaded anywhere.
+
+Try it at **[convertin.kevinpradith.my.id](https://convertin.kevinpradith.my.id)**.
+That is the static build in `dist/` on a CDN and nothing else, so it keeps working
+after the network goes away and there is no server on the other end to send a file
+to.
 
 <img
   alt="The convert.in landing page: the headline PDF and image tools that never upload a file, over a photograph of a sky, with the tool window rising into the bottom of the screen."
@@ -50,15 +56,24 @@ npm run dev       # http://localhost:5173
 npm run build     # static files in dist/, host them anywhere or open them locally
 ```
 
-**On the command line.** From the project folder:
+**On the command line.** Nothing to clone:
+
+```sh
+npx convert-in --help
+npm install -g convert-in     # or keep it around as convert.in
+```
+
+The published package is the tool compiled to JavaScript and nothing else: no
+TypeScript sources, no compiler, five files. From a clone, `npm link` writes the
+same shims Windows, macOS and Linux each need, and runs the TypeScript directly
+so there is no build step to forget:
 
 ```sh
 npm link
 convert.in --help
 ```
 
-`npm link` writes the shims Windows, macOS and Linux each need. The alternative
-for a machine where npm's global prefix wants root is under
+The alternative for a machine where npm's global prefix wants root is under
 [Command line](#command-line).
 
 ## What it does
@@ -69,18 +84,18 @@ opening the tools is a scroll rather than a load.
 
 Ten tools, all in one window:
 
-| Tool | What it does |
-| --- | --- |
-| **Convert images** | PNG, JPEG, WebP, AVIF and JPEG XL, in any direction, plus GIF, BMP, TIFF, ICO, HEIC and SVG on the way in. Scales on the way out. Shows what each file cost or saved. |
-| **Compress PDF** | Re-encodes the pictures inside, which is where nearly all the weight of a scan is. Give it the limit the upload form asked for and it works out its own settings. Says so when a file has nothing to shrink. Takes a pile. |
-| **Sign PDF** | Draw a signature or bring a PNG of one, and place it on a page. One signature covers however many files you drop. |
-| **Images to PDF** | Any image in, one image per page, in the order a person would count them. Pages are sized by the resolution the image claims, and a photo taken sideways comes out upright. Fit-to-image, A4 or Letter, with an optional margin. |
-| **Organize PDF** | Drop any number of PDFs, then reorder, rotate, delete and duplicate pages, and put them all on one sheet if you like. Bookmarks come with their pages. Save the result as one file or as one file per page. |
-| **Clean PDF** | Lists what the file says about whoever made it, then takes it out: the information dictionary, the XMP packet, and the custom keys the software that wrote it added. |
-| **Redact PDF** | Drag a rectangle, or search for a word and black out every occurrence. What is covered is then removed rather than hidden: the pages are rebuilt from pixels, so nothing survives underneath to be selected or copied. |
-| **Stamp PDF** | A watermark across the pages, or page numbers on them. One file lets you select tiles; a pile gets stamped through. |
-| **Protect PDF** | Lock with a password, or hand it locked files and take the password off. One password covers the pile. Says so when a file asks for a password but leaves its pages readable anyway. |
-| **PDF to images** | Rasterise pages to PNG or JPEG at 72, 144 or 300 dpi. |
+| Tool               | What it does                                                                                                                                                                                                                     |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Convert images** | PNG, JPEG, WebP, AVIF and JPEG XL, in any direction, plus GIF, BMP, TIFF, ICO, HEIC and SVG on the way in. Scales on the way out. Shows what each file cost or saved.                                                            |
+| **Compress PDF**   | Re-encodes the pictures inside, which is where nearly all the weight of a scan is. Give it the limit the upload form asked for and it works out its own settings. Says so when a file has nothing to shrink. Takes a pile.       |
+| **Sign PDF**       | Draw a signature or bring a PNG of one, and place it on a page. One signature covers however many files you drop.                                                                                                                |
+| **Images to PDF**  | Any image in, one image per page, in the order a person would count them. Pages are sized by the resolution the image claims, and a photo taken sideways comes out upright. Fit-to-image, A4 or Letter, with an optional margin. |
+| **Organize PDF**   | Drop any number of PDFs, then reorder, rotate, delete and duplicate pages, and put them all on one sheet if you like. Bookmarks come with their pages. Save the result as one file or as one file per page.                      |
+| **Clean PDF**      | Lists what the file says about whoever made it, then takes it out: the information dictionary, the XMP packet, and the custom keys the software that wrote it added.                                                             |
+| **Redact PDF**     | Drag a rectangle, or search for a word and black out every occurrence. What is covered is then removed rather than hidden: the pages are rebuilt from pixels, so nothing survives underneath to be selected or copied.           |
+| **Stamp PDF**      | A watermark across the pages, or page numbers on them. One file lets you select tiles; a pile gets stamped through.                                                                                                              |
+| **Protect PDF**    | Lock with a password, or hand it locked files and take the password off. One password covers the pile. Says so when a file asks for a password but leaves its pages readable anyway.                                             |
+| **PDF to images**  | Rasterise pages to PNG or JPEG at 72, 144 or 300 dpi.                                                                                                                                                                            |
 
 Drop files anywhere in the window, drag tiles to reorder, click a tile to select
 it, or type a range like `1-3,7` into the Pages box in the toolbar.
@@ -109,23 +124,23 @@ stops before it has done half the job.
 Both sit on the same `src/core`, so a change lands in both at once, and page
 ranges are parsed by the same function down to the error messages.
 
-| What you want | In the window | On the command line |
-| --- | --- | --- |
-| One image format into another | Convert images | `convert` |
-| Scale an image | Convert images, the size boxes | `convert --width` |
-| Make a scanned PDF smaller | Compress PDF | `compress` |
-| Put a signature on a page | Sign PDF | `sign` |
-| Images into one PDF | Images to PDF | `images` |
-| Join documents | Organize, drop several | `merge` |
-| Reorder, delete, extract | Organize, drag and select | `select` |
-| Turn pages | Organize, the rotate buttons | `rotate` |
-| One file per chunk | Organize, Save pages separately | `split` |
-| Watermark | Stamp, Watermark | `watermark` |
-| Page numbers | Stamp, Page numbers | `number` |
-| Lock with a password | Protect | `protect` |
-| Take a password off | Protect, it detects the lock | `unlock` |
-| What is in this file | the count in the toolbar | `info` |
-| Pages out as images | PDF to images | none: it needs a canvas |
+| What you want                 | In the window                   | On the command line     |
+| ----------------------------- | ------------------------------- | ----------------------- |
+| One image format into another | Convert images                  | `convert`               |
+| Scale an image                | Convert images, the size boxes  | `convert --width`       |
+| Make a scanned PDF smaller    | Compress PDF                    | `compress`              |
+| Put a signature on a page     | Sign PDF                        | `sign`                  |
+| Images into one PDF           | Images to PDF                   | `images`                |
+| Join documents                | Organize, drop several          | `merge`                 |
+| Reorder, delete, extract      | Organize, drag and select       | `select`                |
+| Turn pages                    | Organize, the rotate buttons    | `rotate`                |
+| One file per chunk            | Organize, Save pages separately | `split`                 |
+| Watermark                     | Stamp, Watermark                | `watermark`             |
+| Page numbers                  | Stamp, Page numbers             | `number`                |
+| Lock with a password          | Protect                         | `protect`               |
+| Take a password off           | Protect, it detects the lock    | `unlock`                |
+| What is in this file          | the count in the toolbar        | `info`                  |
+| Pages out as images           | PDF to images                   | none: it needs a canvas |
 
 Two flags are deliberately CLI-only. `--force` has no meaning in a browser, where
 a download never overwrites anything. `--sort natural` has none either, because
@@ -179,11 +194,11 @@ capped in `ch` rather than pixels, because that is what readability depends on.
 
 One layout, three shapes:
 
-| Width | Shape |
-| --- | --- |
-| `< 640px` | Edge to edge, no window chrome, two tile columns, toolbars scroll sideways behind a fade |
-| `640–1023px` | Floating window, sidebar still behind the menu button |
-| `>= 1024px` | Sidebar pinned open |
+| Width        | Shape                                                                                    |
+| ------------ | ---------------------------------------------------------------------------------------- |
+| `< 640px`    | Edge to edge, no window chrome, two tile columns, toolbars scroll sideways behind a fade |
+| `640–1023px` | Floating window, sidebar still behind the menu button                                    |
+| `>= 1024px`  | Sidebar pinned open                                                                      |
 
 Below 1024px the sidebar becomes a drawer rather than a second navigation: it is
 the same component, so there is one thing to keep correct. The drawer is a
@@ -282,7 +297,8 @@ npm run build      # -> dist/
 ```
 
 Drop `dist/` on Vercel, Netlify, Cloudflare Pages, GitHub Pages, or any static
-host. `vercel.json` carries the build settings and the response headers;
+host. [convertin.kevinpradith.my.id](https://convertin.kevinpradith.my.id) is one
+such copy, on Vercel, built from `main` by the settings below and nothing else. `vercel.json` carries the build settings and the response headers;
 `public/_headers` carries the identical headers for Netlify and Cloudflare Pages,
 generated from the same values so the two cannot drift.
 
@@ -331,6 +347,12 @@ Two things to keep in mind:
   first thing to fail the off-origin test.
 
 ## Command line
+
+The command is `convert.in` however it was installed; the package is
+[`convert-in`](https://www.npmjs.com/package/convert-in), because the two are
+named by different rules. Released versions carry an npm provenance attestation,
+built by the workflow in `.github/workflows/release.yml` with no publishing token
+in this repository at all.
 
 `npm link` works the same on Windows, macOS and Linux: npm writes `convert.in`
 shims into its own bin directory, including the `.cmd` and `.ps1` ones Windows
@@ -415,13 +437,13 @@ MozJPEG's gains flatten out; the WebP and AVIF figures come from
 [Malte Ubl's DSSIM measurements](https://www.industrialempathy.com/posts/avif-webp-quality-settings/)
 against JPEG at matched quality; JPEG XL's is libjxl's own.
 
-| Format | Default | Why |
-| --- | --- | --- |
-| JPEG | 80 | the reference |
-| WebP | 82 | measured equal to JPEG 80 |
-| AVIF | 64 | measured equal to JPEG 80, at roughly a third off the size |
-| JPEG XL | 75 | libjxl's default, on the libjpeg scale |
-| PNG | lossless | then run through Oxipng, which on flat graphics is routinely an order of magnitude |
+| Format  | Default  | Why                                                                                |
+| ------- | -------- | ---------------------------------------------------------------------------------- |
+| JPEG    | 80       | the reference                                                                      |
+| WebP    | 82       | measured equal to JPEG 80                                                          |
+| AVIF    | 64       | measured equal to JPEG 80, at roughly a third off the size                         |
+| JPEG XL | 75       | libjxl's default, on the libjpeg scale                                             |
+| PNG     | lossless | then run through Oxipng, which on flat graphics is routinely an order of magnitude |
 
 Three things happen to a file on the way through, and all three are the point.
 
@@ -498,15 +520,14 @@ Only an open password keeps a document from being read.
 
 **Encryption is not a signature.** `AESV3` is AES in CBC mode with no integrity
 check, so ciphertext can be altered without the change being detected. [Practical
-Decryption exFiltration](https://dl.acm.org/doi/10.1145/3319535.3354214) (ACM CCS
-2019) turned that malleability into working attacks against all 27 readers its
+Decryption exFiltration](https://dl.acm.org/doi/10.1145/3319535.3354214) (ACM CCS 2019) turned that malleability into working attacks against all 27 readers its
 authors tested. [ISO/TS 32003:2023](https://pdfa.org/pdf-2-0-adds-aes-gcm-support/)
 adds AES-GCM to PDF 2.0 to close it, but Acrobat does not read GCM yet, so AESV3
 remains the only choice a recipient can actually open. An encrypted PDF keeps its
 contents from someone without the password; it does not prove the file arrived
 the way it left. A digital signature does that, and this tool does not sign.
 
-That paper's other attack needs a *partially* encrypted file, which the format
+That paper's other attack needs a _partially_ encrypted file, which the format
 permits and some writers produce. This one never does: `/StmF` and `/StrF` both
 point at the standard crypt filter, and the audit greps the finished bytes for
 the source document's own title, author, page text and field names to prove none
@@ -654,6 +675,8 @@ src/ui/i18n.ts   Both languages in one object; `id` must match `en` or the build
 src/ui/Landing.tsx  The hero above the window, and the clouds layered around it.
 src/ui/prefs.ts  The chosen language, persisted, with storage failures swallowed.
 scripts/prerender.mts  Writes the hero into dist/index.html at build time.
+scripts/build-cli.mjs  Bundles the CLI for npm, so a release ships no compiler.
+test/help.test.ts      Guards the two guides against drifting apart.
 test/         node:test over core, no framework.
 test/browser/   the built app driven in a real browser, under the shipped headers.
 test/encryption-audit.py  the produced PDFs read back by pypdf, not by pdf-lib.
@@ -698,7 +721,7 @@ npm run test:fuzz -- ./fixtures        # damaged files, seeded so they repeat
 `npm run test:browser` serves `dist/` with the contents of `public/_headers` and
 drives every tool through the interface: images in, pages out, a watermark that
 has to be findable in the text of the saved file, a password that has to open it
-and a wrong one that must not. It also checks what should *not* happen: no
+and a wrong one that must not. It also checks what should _not_ happen: no
 request leaves the origin, pdf.js never warns that an asset is missing, and
 nothing is refused by the Content-Security-Policy.
 
@@ -728,7 +751,7 @@ the project needs Python.
   better served by a video tool.
 - **Scaling, but no cropping.** `convert` will fit a picture inside a width and a
   height, by averaging over the area each output pixel covers rather than picking
-  one of them. Choosing *which part* of a picture to keep is a different
+  one of them. Choosing _which part_ of a picture to keep is a different
   interface and is not here.
 - **PDF compression stops at the pictures.** `compress` re-encodes the JPEGs
   inside the document, which on a scan is 60 to 90 percent of the file and on a
@@ -809,12 +832,12 @@ under.
 
 ## Project
 
-| | |
-| --- | --- |
-| What changed, and when | [CHANGELOG.md](CHANGELOG.md) |
-| Reporting a vulnerability | [SECURITY.md](SECURITY.md) |
-| Running the checks before a pull request | [CONTRIBUTING.md](CONTRIBUTING.md) |
-| How people are expected to behave here | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
+|                                          |                                          |
+| ---------------------------------------- | ---------------------------------------- |
+| What changed, and when                   | [CHANGELOG.md](CHANGELOG.md)             |
+| Reporting a vulnerability                | [SECURITY.md](SECURITY.md)               |
+| Running the checks before a pull request | [CONTRIBUTING.md](CONTRIBUTING.md)       |
+| How people are expected to behave here   | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
 
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Below
 1.0.0 the CLI flags and the `src/core` exports may still change between minor
