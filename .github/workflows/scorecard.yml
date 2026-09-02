@@ -1,0 +1,48 @@
+# OpenSSF Scorecard: the security posture of the repository itself, rather than
+# of the code in it. CodeQL reads what the source does; this reads how the
+# project is run — whether actions are pinned, whether the token every workflow
+# inherits is least-privilege, whether releases are signed, whether a branch can
+# be pushed to without review. Those are the failures no static analyser sees.
+name: Scorecard
+
+on:
+  # The one event that says a protection rule changed, which is exactly the
+  # kind of change worth re-scoring immediately.
+  branch_protection_rule:
+  schedule:
+    - cron: '0 8 * * 1'
+  push:
+    branches: [main]
+
+permissions: read-all
+
+jobs:
+  analyse:
+    name: Score the repository
+    runs-on: ubuntu-latest
+    permissions:
+      # The findings are uploaded to code scanning like CodeQL's.
+      security-events: write
+      # Scorecard reads the workflow runs it is scoring.
+      actions: read
+      contents: read
+      # Mints the OIDC token that signs the published result. Without it the
+      # badge has nothing to verify and publish_results is refused.
+      id-token: write
+    steps:
+      # Pinned to a commit for the reason spelled out in ci.yml.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          # Publishing is what makes the badge in the README mean something: the
+          # score is signed and served by OpenSSF rather than asserted here.
+          publish_results: true
+
+      - uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+        with:
+          sarif_file: results.sarif
