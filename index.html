@@ -11,23 +11,59 @@
     />
 
     <!--
+      What a link to this page turns into when it is pasted somewhere. Without
+      these, a share in a chat window is a bare URL, and the one claim worth
+      making about this tool is the one that goes unread.
+
+      The URLs here are absolute because the Open Graph protocol requires it:
+      a relative og:image is ignored by most of the scrapers that read it. That
+      makes this block the one thing in the repository that names a particular
+      deployment, and `base` is still './', so a copy hosted anywhere else works
+      exactly as before, with a card that points back here. A fork that wants
+      its own card changes these five lines; one that wants none deletes them.
+    -->
+    <link rel="canonical" href="https://convertin.kevinpradith.my.id/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="convert.in" />
+    <meta property="og:url" content="https://convertin.kevinpradith.my.id/" />
+    <meta property="og:title" content="PDF and image tools that never upload a file" />
+    <meta
+      property="og:description"
+      content="Convert, compress, merge, sign, protect and redact a PDF or an image. Your browser does the work, and there is no server behind it."
+    />
+    <meta property="og:image" content="https://convertin.kevinpradith.my.id/images/og.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="The convert.in landing page: the headline PDF and image tools that never upload a file, over a photograph of a sky."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- The deep blue at the top of the photograph, so a mobile browser's own
+         chrome carries the page's colour rather than its default grey. -->
+    <meta name="theme-color" content="#0a2a56" />
+
+    <!--
       The stylesheet is what names the fonts, so without this the browser only
       learns about them after it has parsed the CSS, and the first paint is set
       in a fallback that then swaps. This is the face every line on the page is
       set in; the display italic in the headline is one line and can wait.
     -->
-    <link
-      rel="preload"
-      href="./fonts/inter-latin.woff2"
-      as="font"
-      type="font/woff2"
-      crossorigin
-    />
+    <link rel="preload" href="./fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
 
-    <!-- Inline, so a visit does not spend a request finding out there is none. -->
+    <!--
+      The tail of the wordmark, on the same dark tile the placeholder used. The
+      whole of "convert.in" is 628 by 183 and turns to a smear at 16 pixels, so
+      the icon carries the part that is the mark: the dot and the blue "in", cut
+      from the same file the header draws. The dot is white here rather than
+      black because the tile it sits on is dark.
+
+      Inline, so a visit does not spend a request finding out there is none.
+    -->
     <link
       rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='4' fill='%231b1b1b'/%3E%3Cpath d='M4.5 6.5h4.5M4.5 9.5h7' stroke='white' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E"
+      href="data:image/png;base64,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"
     />
   </head>
   <body>
