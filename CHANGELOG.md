@@ -9,6 +9,82 @@ still change between minor versions.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-02
+
+The command line is on npm, the repository says why it exists, and the
+Indonesian guide has its commands back.
+
+### Added
+
+- **The command line is installable.** `npx convert-in`, or
+  `npm install -g convert-in`; the command stays `convert.in` either way,
+  because a package name and a command name are spelled by different rules. What
+  npm receives is not this tree: `prepack` bundles `src/cli.ts` into one file
+  with every dependency left external, so an installed copy is five files and
+  runs JavaScript. It could not have worked otherwise. The launcher imported tsx,
+  which is a devDependency, so the first line of an installed copy would have
+  thrown.
+- **Releases publish themselves.** A GitHub release runs
+  `.github/workflows/release.yml`, which mints a short-lived OIDC token rather
+  than reading a stored one, so there is no publishing secret in this repository
+  at all, and npm attaches a provenance attestation naming the commit the
+  tarball was built from. It refuses to publish if the tag and `package.json`
+  disagree.
+- **A favicon, and a card for a link.** The icon is the tail of the wordmark cut
+  from the file the header already draws, since the whole of it is 628 by 183
+  and turns to a smear at 16 pixels. Open Graph, a canonical URL and a
+  `theme-color` mean a link pasted into a chat window arrives as the headline
+  and a picture of the page instead of a bare URL.
+- **Three documents beside the README.** `docs/cli.md` for every command, flag
+  and format, `docs/hosting.md` for running a copy and the headers it ships
+  with, `docs/internals.md` for why the interface and the PDF work are built
+  this way.
+- **The repository scores itself.** OpenSSF Scorecard runs weekly and whenever a
+  branch protection rule changes, publishes the result, and reports into code
+  scanning beside CodeQL. It reads what CodeQL cannot: whether actions are
+  pinned, whether the token every workflow inherits is least privilege, whether
+  releases carry provenance.
+- **A formatter.** Prettier, pinned to an exact version so it cannot rewrite
+  files nobody edited, checked in CI rather than applied, and an `.editorconfig`
+  that tells an editor what `.gitattributes` already tells Git.
+
+### Changed
+
+- **The README says why this exists.** It opened with what the tools are and how
+  to run them; the argument for building them sat at line 103 inside another
+  section and made only half the case. The missing half is the one a reader
+  actually has, which is that a file uploaded to be converted goes somewhere
+  nobody outside that machine can inspect. The version and what may still move
+  below 1.0.0 are near the top now too, rather than at the bottom.
+- **The README is 457 lines rather than 881.** Reference and reasoning moved
+  into `docs/`, because the reader who wants to convert a file and the reader
+  who wants to know why redaction rebuilds pages from pixels are not the same
+  person and were being served the same document.
+- **The repository links the copy that is running.** It never did, in the
+  README, the citation metadata or `llms.txt`, which for a tool whose whole
+  claim is what happens in a browser is the first question a reader has.
+- **`react` and `react-dom` are devDependencies.** Vite bundles them; nothing
+  requires them at runtime, and leaving them declared would have put 7.3 MB of a
+  web framework into every command line install.
+
+### Fixed
+
+- **`convert.in help id` lists its commands again.** A reflow over the template
+  string had rewrapped the fifteen rows of the command table into a paragraph,
+  so no command lined up with its description. Restored against `src/cli.ts`,
+  which is how three wrong signatures surfaced: `compress`, `sign` and `select`
+  all take many files and the guide announced one. The same rewrap had swallowed
+  a word from the paragraph on batches. `test/help.test.ts` now checks that both
+  guides name the same commands in the same order, one row each.
+- **The Indonesian is in the register the project commits it to.** A section
+  heading read `TENTANG LU`, which is slang; `kalau` stood twice where
+  CONTRIBUTING.md asks for `jika`; and one `kamu` sat among twelve uses of
+  `Anda`. The same test refuses a cak form in the guide.
+- **The window's top-right corner is round in Gecko too.** The panel clips its
+  children with a radius, and Gecko does not always apply an ancestor's rounded
+  clip to a child carrying its own `backdrop-filter`. Both bars now carry the
+  radius rather than relying on being cut to it.
+
 ## [0.3.0] - 2026-09-01
 
 A page in front of the tools, one palette instead of two, and a first paint that
@@ -493,7 +569,8 @@ line, and one `src/core` shared by both so a change lands in both at once.
 - `convert photo.png webp --to avif` is refused instead of quietly picking one of
   the two answers.
 
-[Unreleased]: https://github.com/kevinpradith/convert.in/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/kevinpradith/convert.in/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/kevinpradith/convert.in/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/kevinpradith/convert.in/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/kevinpradith/convert.in/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/kevinpradith/convert.in/compare/v0.1.0...v0.2.0
