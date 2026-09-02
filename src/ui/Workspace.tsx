@@ -53,7 +53,15 @@ export function Workspace({
         down to sit beside the toolbar's second row while its first row ran
         along the top of the bar with nothing to the left of it.
       */}
-      <div className="glass-strong border-line liquid relative flex shrink-0 flex-wrap items-start gap-x-3 gap-y-1 border-b px-3 py-1 sm:min-h-bar sm:px-4">
+      {/*
+        Its own corners, matched to the window's. The panel already clips this
+        bar with `overflow-hidden` and a radius, and Chrome honours that; Gecko
+        does not always apply an ancestor's rounded clip to a child carrying its
+        own `backdrop-filter`, and the bar is one, so the window came out with a
+        square top-right corner there. Carrying the radius rather than relying
+        on being cut to it costs two classes and leaves nothing square to show.
+      */}
+      <div className="glass-strong border-line liquid relative flex shrink-0 flex-wrap items-start gap-x-3 gap-y-1 border-b px-3 py-1 sm:min-h-bar sm:rounded-t-window sm:px-4 lg:rounded-tl-none">
         {/* The title and, below the sidebar breakpoint, the navigation behind
             it. One box, so it keeps a control's height and centres inside it
             however many rows the toolbar beside it turns into. */}
@@ -103,11 +111,7 @@ export function Workspace({
               reaches, and because a surface that only responds to a drag tells
               nobody it can be clicked at all.
             */}
-            <FilePicker
-              accept={accept}
-              onFiles={onFiles}
-              className="block w-[min(36rem,100%)]"
-            >
+            <FilePicker accept={accept} onFiles={onFiles} className="block w-[min(36rem,100%)]">
               <div
                 className={cx(
                   // Below the small breakpoint the card is as wide as the pane
@@ -170,7 +174,10 @@ export function Workspace({
       </div>
 
       {(footer || error) && (
-        <div className="glass-strong border-line liquid relative shrink-0 border-t px-4 py-3">
+        // The foot of the window, and the same reason as the bar at its head:
+        // it carries its own radius rather than trusting the panel's clip to
+        // round a backdrop-filtered child.
+        <div className="glass-strong border-line liquid relative shrink-0 border-t px-4 py-3 sm:rounded-b-window lg:rounded-bl-none">
           {error && (
             // Announced, not just drawn. A failure that only appears as text is
             // a failure a screen reader never mentions, and this bar is the
