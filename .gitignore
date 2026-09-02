@@ -19,6 +19,11 @@ vite.config.ts.timestamp-*
 *.p12
 *.pfx
 
+# Recovery codes for an account that can publish this package. They are handed
+# over as a download, which is how one lands in whatever directory the browser
+# was pointed at last, and secret scanning does not know the shape of them.
+*recovery*codes*
+
 # Logs, caches and coverage
 *.log
 npm-debug.log*
