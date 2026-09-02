@@ -81,11 +81,7 @@ const en = {
     losslessNote: 'Nothing is thrown away',
     flattens: 'JPEG has no transparency: transparent areas come out white.',
     change: (percent: number) =>
-      percent === 0
-        ? 'the same size'
-        : percent > 0
-          ? `${percent}% smaller`
-          : `${-percent}% larger`,
+      percent === 0 ? 'the same size' : percent > 0 ? `${percent}% smaller` : `${-percent}% larger`,
     run: (n: number, format: string) => `Convert ${n} to ${format}`,
     download: (n: number) => (n === 1 ? 'Download' : `Download ${n}`),
     resize: 'Size',
@@ -233,7 +229,8 @@ const en = {
     lockedNotice: 'This file is locked. Give its password to open it up.',
     partlyOpen: (names: string) =>
       `${names} asks for a password but does not encrypt everything: its pages, or its title and author, can be read straight out of the file without one. The format allows that, so no reader will warn you. Treat it as unprotected.`,
-    restrictedNotice: 'This file is encrypted but opens without a prompt: only its permissions are locked.',
+    restrictedNotice:
+      'This file is encrypted but opens without a prompt: only its permissions are locked.',
     openPassword: 'Open password',
     openHint: 'Needed to open the file at all. Leave blank to restrict only.',
     permissionsPassword: 'Permissions password',
@@ -284,8 +281,7 @@ const en = {
   },
   export: {
     emptyTitle: 'Drop a PDF here',
-    emptyHint:
-      'Pages are rasterised in this browser. Pick the ones you want, or take the lot.',
+    emptyHint: 'Pages are rasterised in this browser. Pick the ones you want, or take the lot.',
     open: 'Open another',
     pages: (n: number) => `${n} page${n === 1 ? '' : 's'}`,
     pageLabel: (n: number) => `Page ${n}`,
@@ -305,7 +301,7 @@ const id: Strings = {
     badge: 'Gratis dan sumber terbuka',
     title: 'Alat PDF dan gambar',
     titleEm: 'yang tak pernah mengunggah berkas.',
-    sub: 'Konversi, kompres, gabung, tanda tangan, kunci dan sensor PDF atau gambar. Peramban kamu yang bekerja, dan tidak ada server di baliknya.',
+    sub: 'Konversi, kompres, gabung, tanda tangan, kunci dan sensor PDF atau gambar. Peramban Anda yang bekerja, dan tidak ada server di baliknya.',
     start: 'Buka alatnya',
     assure: 'Tanpa akun, tanpa instal, tanpa pelacakan.',
     repo: 'Lihat di GitHub',
@@ -393,7 +389,8 @@ const id: Strings = {
     working: 'Meng-encode ulang…',
     save: 'Simpan PDF',
     nothingToDo: 'Tidak ada gambar di PDF ini, jadi tidak ada yang bisa di-encode ulang.',
-    noneSmaller: (n: number) => `${n} gambar di dalamnya sudah lebih kecil daripada hasil pengaturan ini.`,
+    noneSmaller: (n: number) =>
+      `${n} gambar di dalamnya sudah lebih kecil daripada hasil pengaturan ini.`,
     result: (percent: number, replaced: number) =>
       `${percent}% lebih kecil, ${replaced} gambar di-encode ulang`,
     hint: 'Membatasi sisi terpanjang lebih berpengaruh daripada kualitas untuk apa pun yang dipindai di atas 300 dpi.',
@@ -511,7 +508,8 @@ const id: Strings = {
     lockedNotice: 'Berkas ini terkunci. Masukkan passwordnya untuk membuka.',
     partlyOpen: (names: string) =>
       `${names} meminta password tetapi tidak mengenkripsi semuanya: halamannya, atau judul dan penulisnya, bisa dibaca langsung dari berkasnya tanpa password. Format PDF memang mengizinkan itu, jadi tidak ada pembaca yang memperingatkan. Anggap saja berkas ini tidak terlindungi.`,
-    restrictedNotice: 'Berkas ini terenkripsi tetapi terbuka tanpa diminta password: yang dikunci hanya izinnya.',
+    restrictedNotice:
+      'Berkas ini terenkripsi tetapi terbuka tanpa diminta password: yang dikunci hanya izinnya.',
     openPassword: 'Password buka',
     openHint: 'Dibutuhkan untuk membuka berkasnya. Kosongkan jika hanya ingin membatasi.',
     permissionsPassword: 'Password izin',

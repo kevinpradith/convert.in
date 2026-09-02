@@ -397,20 +397,21 @@ CARA PAKAI
   convert.in <perintah> [opsi]
 
 PERINTAH
-  convert <gambar...> --to <f> Antara PNG, JPEG, WebP, AVIF dan JPEG XL compress
-  <in.pdf>            Encode ulang gambar di dalam PDF sign    <in.pdf>
-  <ttd.png>   Tempelkan gambar tanda tangan ke halaman images  <gambar...>
-  JPEG dan PNG jadi satu PDF, satu gambar per halaman merge   <pdf...>
-  Gabung PDF sesuai urutan yang diberikan select  <in.pdf> <halaman>   Ambil
-  halaman itu sesuai urutannya: susun ulang, hapus, petik rotate  <pdf...>
-  [derajat]   Putar halaman, bawaannya 90 split   <in.pdf> [tiap]      Satu PDF
-  per kelompok halaman, bawaannya 1 protect <pdf...>             Kunci dengan
-  password, AES-256, Acrobat X and later unlock  <pdf...>             Lepas
-  password dari berkas yang terkunci watermark <pdf...> <teks>    Cap teks
-  miring melintasi halaman number  <pdf...>             Cetak nomor halaman
-  clean   <pdf...>             Buang keterangan siapa yang membuat berkasnya
-  resize  <pdf...> [kertas]    Samakan ukuran halaman, bawaannya a4 info
-  <pdf...>             Jumlah halaman, ukuran, dimensi, status kunci
+  convert <gambar...> --to <f>  Antara PNG, JPEG, WebP, AVIF dan JPEG XL
+  compress <pdf...>             Encode ulang gambar di dalam PDF
+  sign    <pdf...> <ttd.png>    Tempelkan gambar tanda tangan ke halaman
+  images  <gambar...>           JPEG dan PNG jadi satu PDF, satu gambar per halaman
+  merge   <pdf...>              Gabung PDF sesuai urutan yang diberikan
+  select  <pdf...> <halaman>    Ambil halaman sesuai urutan: susun ulang, hapus, petik
+  rotate  <pdf...> [derajat]    Putar halaman, bawaannya 90
+  split   <in.pdf> [tiap]       Satu PDF per kelompok halaman, bawaannya 1
+  protect <pdf...>              Kunci dengan password, AES-256, Acrobat X ke atas
+  unlock  <pdf...>              Lepas password dari berkas yang terkunci
+  watermark <pdf...> <teks>     Cap teks miring melintasi halaman
+  number  <pdf...>              Cetak nomor halaman
+  clean   <pdf...>              Buang keterangan siapa yang membuat berkasnya
+  resize  <pdf...> [kertas]     Samakan ukuran halaman, bawaannya a4
+  info    <pdf...>              Jumlah halaman, ukuran, dimensi, status kunci
 
 HASIL
   -o boleh dikosongkan. Tanpa itu hasilnya mendarat di sebelah berkas asal:
@@ -438,13 +439,13 @@ HASIL
 BANYAK BERKAS SEKALIGUS
   Semua perintah yang mengubah satu berkas jadi satu berkas menerima sebanyak
   yang Anda sebutkan, tanpa batas dan tanpa antrean, karena kerjanya di sini.
-  dan merge memang sudah membaca banyak; split yang tetap satu dokumen.
+  images dan merge memang sudah membaca banyak; split yang tetap satu dokumen.
 
     convert.in number *.pdf -o numbered/
     convert.in protect statements/*.pdf --open-password ...
     convert.in compress scans/*.pdf --quality 40 -o small/
 
-  Kalau berkasnya satu, -o adalah berkas hasil. Kalau banyak, -o adalah folder
+  Jika berkasnya satu, -o adalah berkas hasil. Jika banyak, -o adalah folder
   tujuannya, dan tanpa -o hasilnya mendarat di sebelah berkas asal. Semua nama
   hasil dihitung sebelum berkas pertama ditulis, jadi kumpulan yang akan menimpa
   sesuatu, atau memberi dua berkas nama yang sama, berhenti sebelum separuh
@@ -534,7 +535,7 @@ MEMPERKECIL PDF
   dicoba lebih dulu pengaturan paling ringan, baru diperkeras selama berkasnya
   masih kebesaran, dan setiap percobaan berangkat dari berkas asli, jadi dokumen
   yang butuh empat percobaan tetap dikompres sekali. Berkas yang sudah di bawah
-  batas disalin apa adanya. Kalau tidak ada yang berhasil, percobaan terkecil
+  batas disalin apa adanya. Jika tidak ada yang berhasil, percobaan terkecil
   tetap ditulis dan kekurangannya dilaporkan.
 
     compress paspor.pdf --max-size 500kb      angka yang diminta formulirnya
@@ -698,7 +699,7 @@ URUTAN HALAMAN
   split memberi tahu sebelum melakukannya; rotate, watermark, number, dan
   protect tidak merusaknya.
 
-APA YANG DIKATAKAN PDF TENTANG LU
+APA YANG DIKATAKAN PDF TENTANG ANDA
   Sebuah PDF menyebut siapa penulisnya, software apa yang menulisnya, atas nama
   perusahaan mana software itu terdaftar, serta kapan berkasnya dibuat dan
   terakhir disimpan. Word menambahkan nama perusahaan, pemindai kadang
@@ -766,6 +767,10 @@ CATATAN
   In English:             convert.in help en
 `
 
+/** The guides themselves, without the banner: what the tests read, since the
+ *  banner carries ANSI codes and an absolute path that differ per machine. */
+export const GUIDES: Record<Lang, string> = { en: EN, id: ID }
+
 export function guide(lang: Lang): string {
-  return banner(lang) + (lang === 'id' ? ID : EN)
+  return banner(lang) + GUIDES[lang]
 }
