@@ -56,7 +56,9 @@ export function Clean() {
       error={batch.error}
       busy={batch.busy}
       empty={
-        loaded ? undefined : { icon: <TagIcon />, title: t.clean.emptyTitle, hint: t.clean.emptyHint }
+        loaded
+          ? undefined
+          : { icon: <TagIcon />, title: t.clean.emptyTitle, hint: t.clean.emptyHint }
       }
       toolbar={
         loaded ? (
@@ -96,7 +98,9 @@ export function Clean() {
     >
       {loaded && (
         <>
-          <p className="text-muted text-footnote mx-auto w-full max-w-[720px] px-5 pt-4 sm:px-8">{t.clean.hint}</p>
+          <p className="text-muted text-footnote mx-auto w-full max-w-[720px] px-5 pt-4 sm:px-8">
+            {t.clean.hint}
+          </p>
           <FileList items={batch.items} onRemove={batch.remove} />
           <Sheets items={batch.items} found={found} />
         </>

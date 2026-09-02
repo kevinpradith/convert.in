@@ -61,7 +61,10 @@ export function Hero({ lang, onLang }: { lang: Lang; onLang: (lang: Lang) => voi
       */}
       <div className="pointer-events-none absolute inset-0">
         <Cloud className="top-[6%] right-[-4%] hidden w-[34%] max-w-[560px] md:block" />
-        <Cloud className="top-[40%] left-[-7%] hidden w-[28%] max-w-[460px] opacity-90 md:block" flip />
+        <Cloud
+          className="top-[40%] left-[-7%] hidden w-[28%] max-w-[460px] opacity-90 md:block"
+          flip
+        />
         <Cloud className="bottom-[-16%] left-[2%] hidden w-[26%] max-w-[430px] lg:block" />
       </div>
 
@@ -356,7 +359,11 @@ export function CloudFooter() {
  */
 const BANK: { key: string; className: string; flip?: boolean }[] = [
   { key: 'far-1', className: 'bottom-[-140px] left-[-10%] w-[40%] max-w-[600px] opacity-55' },
-  { key: 'far-2', className: 'bottom-[-168px] left-[24%] w-[44%] max-w-[650px] opacity-50', flip: true },
+  {
+    key: 'far-2',
+    className: 'bottom-[-168px] left-[24%] w-[44%] max-w-[650px] opacity-50',
+    flip: true,
+  },
   { key: 'far-3', className: 'bottom-[-151px] left-[60%] w-[42%] max-w-[620px] opacity-55' },
   { key: 'near-1', className: 'bottom-[-166px] left-[-14%] w-[50%] max-w-[700px]', flip: true },
   { key: 'near-2', className: 'bottom-[-200px] left-[20%] w-[54%] max-w-[760px]' },

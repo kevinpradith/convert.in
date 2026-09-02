@@ -100,10 +100,7 @@ export function canvasToBlob(
 }
 
 /** Rasterise a PDF to one image per page. */
-export async function pdfToImages(
-  file: Uint8Array,
-  options: RenderOptions = {},
-): Promise<Blob[]> {
+export async function pdfToImages(file: Uint8Array, options: RenderOptions = {}): Promise<Blob[]> {
   const { scale = 2, type = 'image/png', quality = 0.92, pages, onPage } = options
   if (!Number.isFinite(scale) || scale <= 0) throw new Error('scale must be a number > 0')
 

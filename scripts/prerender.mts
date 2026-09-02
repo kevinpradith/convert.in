@@ -36,10 +36,7 @@ const hero = renderToStaticMarkup(createElement(Hero, { lang: 'en', onLang: () =
   already hidden. The wordmark's preload is left alone, since that one is on
   screen at every width.
 */
-const withoutHiddenClouds = hero.replace(
-  '<link rel="preload" as="image" href="./cloud.webp"/>',
-  '',
-)
+const withoutHiddenClouds = hero.replace('<link rel="preload" as="image" href="./cloud.webp"/>', '')
 
 const root = '<div id="root"></div>'
 if (!html.includes(root)) throw new Error('dist/index.html has no empty #root to prerender into')

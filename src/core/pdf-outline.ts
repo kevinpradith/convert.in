@@ -234,11 +234,7 @@ function rebuild(
  * contents, not its content, and a merge that refuses to finish because one
  * source has a malformed outline would be a worse tool than one that merges.
  */
-export function carryOutline(
-  sources: PDFDocument[],
-  out: PDFDocument,
-  origins: Origin[],
-): void {
+export function carryOutline(sources: PDFDocument[], out: PDFDocument, origins: Origin[]): void {
   const pages = out.getPages()
   // The first output page a source page landed on. A page duplicated three
   // times gets one bookmark, on the first copy, which is where a reader

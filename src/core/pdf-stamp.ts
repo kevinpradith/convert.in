@@ -114,8 +114,16 @@ export async function watermarkPdf(
     // drawText rotates around its own origin, so walk back from the page centre
     // along the baseline and then across it to land the text visually centred.
     page.drawText(text, {
-      x: box.x + width / 2 - (textWidth / 2) * Math.cos(radians) + (textHeight / 2) * Math.sin(radians),
-      y: box.y + height / 2 - (textWidth / 2) * Math.sin(radians) - (textHeight / 2) * Math.cos(radians),
+      x:
+        box.x +
+        width / 2 -
+        (textWidth / 2) * Math.cos(radians) +
+        (textHeight / 2) * Math.sin(radians),
+      y:
+        box.y +
+        height / 2 -
+        (textWidth / 2) * Math.sin(radians) -
+        (textHeight / 2) * Math.cos(radians),
       size: fontSize,
       font,
       rotate: degrees(spin),
@@ -127,12 +135,7 @@ export async function watermarkPdf(
 }
 
 export type Corner =
-  | 'top-left'
-  | 'top-center'
-  | 'top-right'
-  | 'bottom-left'
-  | 'bottom-center'
-  | 'bottom-right'
+  'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right'
 
 export const CORNERS: Corner[] = [
   'top-left',
@@ -166,8 +169,14 @@ export async function numberPages(
   file: Uint8Array,
   options: NumberOptions = {},
 ): Promise<Uint8Array> {
-  const { position = 'bottom-center', start = 1, size = 10, margin = 28, format = '{n}', pages } =
-    options
+  const {
+    position = 'bottom-center',
+    start = 1,
+    size = 10,
+    margin = 28,
+    format = '{n}',
+    pages,
+  } = options
   if (!Number.isInteger(start)) throw new Error('the starting number must be a whole number')
   if (!(size > 0)) throw new Error('size must be above 0')
   if (!(margin >= 0)) throw new Error('margin must be 0 or more')

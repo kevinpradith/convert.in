@@ -104,10 +104,7 @@ async function open(
   advice = 'supply the password to open it',
 ): Promise<PDFDocument> {
   try {
-    return await PDFDocument.load(
-      file,
-      password === undefined ? extra : { ...extra, password },
-    )
+    return await PDFDocument.load(file, password === undefined ? extra : { ...extra, password })
   } catch (error) {
     // A wrong password does not come back as EncryptedPDFError: the cipher
     // itself rejects it, with a message rather than a type.
@@ -284,7 +281,12 @@ function assertUsablePassword(password: string, what: string): void {
 /** Acrobat's two dropdowns expand into the individual flags the PDF spec stores. */
 function permissionsFor(printing: PrintingLevel, changes: ChangesLevel, copying: boolean) {
   return {
-    printing: printing === 'none' ? false : printing === 'low' ? ('lowResolution' as const) : ('highResolution' as const),
+    printing:
+      printing === 'none'
+        ? false
+        : printing === 'low'
+          ? ('lowResolution' as const)
+          : ('highResolution' as const),
     modifying: changes === 'any',
     annotating: changes === 'comments' || changes === 'any',
     fillingForms: changes === 'forms' || changes === 'comments' || changes === 'any',

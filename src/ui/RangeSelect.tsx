@@ -59,12 +59,7 @@ export function RangeSelect({
       {error !== null && (
         // Truncated to keep the toolbar a toolbar; a reader announces the whole
         // string either way, and the title carries it for a pointer.
-        <span
-          id={said}
-          role="alert"
-          title={error}
-          className="text-footnote max-w-[30ch] truncate"
-        >
+        <span id={said} role="alert" title={error} className="text-footnote max-w-[30ch] truncate">
           {error}
         </span>
       )}

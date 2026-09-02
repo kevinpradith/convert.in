@@ -102,11 +102,11 @@ function tiffMeta(bytes: Uint8Array, start: number): ImageMeta {
     little ? ((bytes[at + 1] ?? 0) << 8) | (bytes[at] ?? 0) : big16(bytes, at)
   const u32 = (at: number) =>
     little
-      ? (((bytes[at + 3] ?? 0) * 0x1000000 +
+      ? ((bytes[at + 3] ?? 0) * 0x1000000 +
           ((bytes[at + 2] ?? 0) << 16) +
           ((bytes[at + 1] ?? 0) << 8) +
           (bytes[at] ?? 0)) >>>
-        0)
+        0
       : big32(bytes, at)
 
   if (u16(start + 2) !== 42) return UPRIGHT
@@ -135,8 +135,7 @@ function tiffMeta(bytes: Uint8Array, start: number): ImageMeta {
   }
 
   if (orientation < 1 || orientation > 8) orientation = 1
-  const dpi =
-    resolution === null ? null : believable(unit === 3 ? resolution * 2.54 : resolution)
+  const dpi = resolution === null ? null : believable(unit === 3 ? resolution * 2.54 : resolution)
   return { orientation, dpi }
 }
 

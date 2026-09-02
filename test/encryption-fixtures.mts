@@ -56,7 +56,10 @@ const files: [string, Uint8Array][] = [
     }),
   ],
   ['unlocked.pdf', await unlockPdf(openOnly, 'hunter2')],
-  ['relocked.pdf', await protectPdf(openOnly, { openPassword: 'second', currentPassword: 'hunter2' })],
+  [
+    'relocked.pdf',
+    await protectPdf(openOnly, { openPassword: 'second', currentPassword: 'hunter2' }),
+  ],
 ]
 
 for (const [name, bytes] of files) await writeFile(`${out}/${name}`, bytes)

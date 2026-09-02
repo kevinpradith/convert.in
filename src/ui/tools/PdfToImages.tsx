@@ -184,7 +184,12 @@ export function PdfToImages() {
                 ]}
               />
             </Field>
-            <Button variant="primary" className="ml-auto" onClick={exportImages} disabled={busy !== null}>
+            <Button
+              variant="primary"
+              className="ml-auto"
+              onClick={exportImages}
+              disabled={busy !== null}
+            >
               <DownloadIcon />
               {busy ?? t.export.save(count)}
             </Button>

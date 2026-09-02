@@ -228,9 +228,7 @@ async function outlineOf(file: Uint8Array): Promise<string[]> {
         title instanceof PDFHexString || title instanceof PDFString ? title.decodeText() : '?'
       const destination: PDFObject | undefined = pdf.context.lookup(node.get(PDFName.of('Dest')))
       const at =
-        destination instanceof PDFArray
-          ? refs.indexOf(destination.get(0)?.toString() ?? '')
-          : -1
+        destination instanceof PDFArray ? refs.indexOf(destination.get(0)?.toString() ?? '') : -1
       found.push(`${'  '.repeat(depth)}${text} -> ${at === -1 ? 'nowhere' : `page ${at + 1}`}`)
       walk(node.get(PDFName.of('First')), depth + 1)
       node = pdf.context.lookup(node.get(PDFName.of('Next')))
@@ -325,7 +323,11 @@ test('a codec does not get to write on the terminal', async () => {
     const pixels = { width: 40, height: 30, data: new Uint8ClampedArray(40 * 30 * 4).fill(180) }
     for (const format of IMAGE_FORMATS) {
       const whole = await encodeImage(pixels, { format })
-      for (const bytes of [whole, whole.slice(0, Math.floor(whole.length * 0.6)), whole.slice(0, 20)]) {
+      for (const bytes of [
+        whole,
+        whole.slice(0, Math.floor(whole.length * 0.6)),
+        whole.slice(0, 20),
+      ]) {
         // Whether it reads is not the point; whether it complains out loud is.
         await decodeImage(bytes).catch(() => undefined)
       }
@@ -448,10 +450,7 @@ test('every page can be put on the same sheet', async () => {
     ['792x612', '792x612', '792x612', '792x612'],
   )
 
-  await assert.rejects(
-    () => resizePages(mixed, { paper: 'a4', marginPt: 400 }),
-    /margin is larger/,
-  )
+  await assert.rejects(() => resizePages(mixed, { paper: 'a4', marginPt: 400 }), /margin is larger/)
   await assert.rejects(() => resizePages(mixed, { paper: 'a4', marginPt: -1 }), /margin/)
 
   // A page with no width is a broken page and there is nothing on it to scale,
@@ -479,8 +478,9 @@ test('resizing moves the content with the box, in proportion and centred', async
     marginPt: 36,
   })
   const drawn = await operatorsOf(fitted)
-  const matrices = [...drawn.matchAll(/([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+) cm/g)]
-    .map((found) => found.slice(1).map(Number))
+  const matrices = [
+    ...drawn.matchAll(/([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+) cm/g),
+  ].map((found) => found.slice(1).map(Number))
 
   // 300 points of content into 595.28 minus two 36-point margins.
   const factor = (595.28 - 72) / 300
@@ -536,8 +536,9 @@ test('resizing a cropped page starting away from the origin lands square', async
   // 150 points of visible page onto 595.28 of sheet.
   const factor = 595.28 / 150
   const drawn = await operatorsOf(fitted)
-  const matrices = [...drawn.matchAll(/([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+) cm/g)]
-    .map((found) => found.slice(1).map(Number))
+  const matrices = [
+    ...drawn.matchAll(/([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+) cm/g),
+  ].map((found) => found.slice(1).map(Number))
   assert.ok(
     matrices.some((m) => m[4] === -100 && m[5] === -100),
     'the visible corner is brought to the origin before anything is scaled',
@@ -655,7 +656,13 @@ test('an outline that points back at itself does not run away with the merge', a
   const loop = pdf.context.obj({
     Title: PDFString.of('Round and round'),
     Parent: rootRef,
-    Dest: pdf.context.obj([page.ref, PDFName.of('XYZ'), PDFNumber.of(0), PDFNumber.of(200), PDFNumber.of(0)]),
+    Dest: pdf.context.obj([
+      page.ref,
+      PDFName.of('XYZ'),
+      PDFNumber.of(0),
+      PDFNumber.of(200),
+      PDFNumber.of(0),
+    ]),
   })
   const loopRef = pdf.context.register(loop)
   // Its own sibling, and its own child.
@@ -781,11 +788,7 @@ test('a download name cannot carry anything but a name', () => {
  * further in.
  */
 test('a drop is filtered by extension without an empty entry letting everything in', () => {
-  const dropped = [
-    new File([], 'scan.pdf'),
-    new File([], 'photo.PNG'),
-    new File([], 'notes.txt'),
-  ]
+  const dropped = [new File([], 'scan.pdf'), new File([], 'photo.PNG'), new File([], 'notes.txt')]
   assert.deepEqual(
     matching(dropped, '.pdf,.png').map((file) => file.name),
     ['scan.pdf', 'photo.PNG'],
@@ -840,7 +843,14 @@ test('the rotation helpers agree with what a reader is shown', async () => {
 test('orientation tags map to turns, and the mirrored ones are known', () => {
   assert.deepEqual([1, 2, 3, 4, 5, 6, 7, 8].map(turnFor), [0, 0, 180, 180, 90, 90, 270, 270])
   assert.deepEqual([1, 2, 3, 4, 5, 6, 7, 8].map(isMirrored), [
-    false, true, false, true, true, false, true, false,
+    false,
+    true,
+    false,
+    true,
+    true,
+    false,
+    true,
+    false,
   ])
   // Nothing that is not a tag becomes a turn.
   assert.equal(turnFor(0), 0)
@@ -990,9 +1000,7 @@ test('imagesToPdf: the page is painted white before the picture goes on it', asy
 })
 
 test('imagesToPdf: a4 orients to the image and scales it to fit', async () => {
-  const landscape = await PDFDocument.load(
-    await imagesToPdf([makePng(40, 20)], { pageSize: 'a4' }),
-  )
+  const landscape = await PDFDocument.load(await imagesToPdf([makePng(40, 20)], { pageSize: 'a4' }))
   const { width, height } = landscape.getPage(0).getSize()
   assert.ok(width > height, 'a landscape image should give a landscape A4 page')
   assert.equal(Math.round(width), 842)
@@ -1418,9 +1426,18 @@ test('the two header files carry the same security headers', () => {
   const csp = vercel.get('Content-Security-Policy') ?? ''
   assert.match(csp, /script-src 'self' 'wasm-unsafe-eval'/, 'wasm needs its keyword, nothing more')
   // The lookbehind is the point: 'wasm-unsafe-eval' contains 'unsafe-eval'.
-  assert.doesNotMatch(csp, /(?<!wasm-)'unsafe-eval'/, 'the wasm keyword must not widen into a full eval grant')
+  assert.doesNotMatch(
+    csp,
+    /(?<!wasm-)'unsafe-eval'/,
+    'the wasm keyword must not widen into a full eval grant',
+  )
   assert.doesNotMatch(csp, /script-src[^;]*'unsafe-inline'/, 'inline script stays blocked')
-  for (const directive of ["default-src 'self'", "connect-src 'self'", "object-src 'none'", "frame-ancestors 'none'"]) {
+  for (const directive of [
+    "default-src 'self'",
+    "connect-src 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+  ]) {
     assert.ok(csp.includes(directive), `the CSP dropped ${directive}`)
   }
 })
@@ -1488,7 +1505,10 @@ test('a permissions password protects nothing from whoever can open the file', a
     inTheClear: [],
   })
 
-  const permissionsOnly = await protectPdf(plain, { permissionsPassword: 'owner', printing: 'none' })
+  const permissionsOnly = await protectPdf(plain, {
+    permissionsPassword: 'owner',
+    printing: 'none',
+  })
   assert.deepEqual(await describeSecurity(permissionsOnly), {
     encrypted: true,
     needsPassword: false,
@@ -1536,15 +1556,17 @@ test('a file that only pretends to be encrypted is called out', async () => {
     return new Uint8Array(Buffer.from(text.slice(0, at) + changed, 'latin1'))
   }
 
-  assert.deepEqual((await describeSecurity(locked)).inTheClear, [], 'what this tool writes is sealed')
   assert.deepEqual(
-    (await describeSecurity(swap('/StmF /StdCF', '/StmF /Identity'))).inTheClear,
-    ['streams'],
+    (await describeSecurity(locked)).inTheClear,
+    [],
+    'what this tool writes is sealed',
   )
-  assert.deepEqual(
-    (await describeSecurity(swap('/StrF /StdCF', '/StrF /Identity'))).inTheClear,
-    ['strings'],
-  )
+  assert.deepEqual((await describeSecurity(swap('/StmF /StdCF', '/StmF /Identity'))).inTheClear, [
+    'streams',
+  ])
+  assert.deepEqual((await describeSecurity(swap('/StrF /StdCF', '/StrF /Identity'))).inTheClear, [
+    'strings',
+  ])
   assert.deepEqual(
     (await describeSecurity(swap('/Filter /Standard', '/Filter /Standard /EncryptMetadata false')))
       .inTheClear,
@@ -1581,7 +1603,10 @@ test('the library is not allowed to answer in its own words', async () => {
 test('caveat reports what a set of restrictions is actually worth', () => {
   // Nothing restricted, so there is nothing to qualify.
   assert.equal(caveat({ openPassword: 'reader' }), null)
-  assert.equal(caveat({ openPassword: 'reader', printing: 'high', changes: 'any', copying: true }), null)
+  assert.equal(
+    caveat({ openPassword: 'reader', printing: 'high', changes: 'any', copying: true }),
+    null,
+  )
 
   // Restricted with no open password: the file opens for anyone.
   assert.equal(caveat({ permissionsPassword: 'owner', printing: 'none' }), 'opensToAnyone')
@@ -1651,9 +1676,18 @@ test('transparency is composited rather than dropped', () => {
     width: 3,
     height: 1,
     data: new Uint8ClampedArray([
-      200, 100, 50, 255, // opaque: untouched
-      200, 100, 50, 0, // clear: all background
-      200, 100, 50, 128, // half: halfway between
+      200,
+      100,
+      50,
+      255, // opaque: untouched
+      200,
+      100,
+      50,
+      0, // clear: all background
+      200,
+      100,
+      50,
+      128, // half: halfway between
     ]),
   }
   const onWhite = flatten(pixels, '#ffffff')
@@ -1706,10 +1740,7 @@ test('every format written here can be read back', async () => {
 
 test('an impossible request is refused rather than fudged', async () => {
   const pixels = await decodeImage(makePng(4, 4))
-  await assert.rejects(
-    encodeImage(pixels, { format: 'jpeg', lossless: true }),
-    /no lossless mode/,
-  )
+  await assert.rejects(encodeImage(pixels, { format: 'jpeg', lossless: true }), /no lossless mode/)
   await assert.rejects(encodeImage(pixels, { format: 'webp', quality: 0 }), /1 to 100/)
   await assert.rejects(encodeImage(pixels, { format: 'webp', quality: 101 }), /1 to 100/)
   await assert.rejects(encodeImage(pixels, { format: 'webp', quality: NaN }), /1 to 100/)
@@ -1993,7 +2024,10 @@ test('a picture the codecs cannot read says so in words', async () => {
   await assert.rejects(decodeImage(liar), /this PNG could not be read/)
 
   // Cut in half, which is what an interrupted download leaves behind.
-  await assert.rejects(decodeImage(real.subarray(0, real.length >> 1)), /this PNG could not be read/)
+  await assert.rejects(
+    decodeImage(real.subarray(0, real.length >> 1)),
+    /this PNG could not be read/,
+  )
 
   // A header claiming 30000x30000 with almost nothing behind it. The decoder
   // refuses the allocation and traps with the single word "unreachable".

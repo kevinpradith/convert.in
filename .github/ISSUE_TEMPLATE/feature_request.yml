@@ -1,6 +1,6 @@
 name: Feature request
 description: Something the tools should do and do not.
-labels: ["enhancement"]
+labels: ['enhancement']
 body:
   - type: markdown
     attributes:

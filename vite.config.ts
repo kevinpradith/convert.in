@@ -65,9 +65,7 @@ function inlineCss(): Plugin {
           /<link rel="stylesheet"[^>]*href="\.\/([^"]+\.css)"[^>]*>/g,
           (tag, file: string) => {
             const asset = ctx.bundle?.[file]
-            return asset && asset.type === 'asset'
-              ? `<style>${String(asset.source)}</style>`
-              : tag
+            return asset && asset.type === 'asset' ? `<style>${String(asset.source)}</style>` : tag
           },
         )
       },

@@ -136,7 +136,10 @@ export async function compressPdf(
     // loose photo and wrong for one already placed on a page by a transformation
     // matrix. Mismatched dimensions are how that shows up, and the safe answer
     // to it is to leave the image alone.
-    if (pixels.width !== numberOf(object.dict, 'Width') || pixels.height !== numberOf(object.dict, 'Height')) {
+    if (
+      pixels.width !== numberOf(object.dict, 'Width') ||
+      pixels.height !== numberOf(object.dict, 'Height')
+    ) {
       skipped++
       continue
     }
@@ -237,7 +240,8 @@ export async function compressToFit(
   // A ceiling given by the caller applies to every rung, so "no wider than
   // 1500px, and under 2MB" is one request rather than two.
   const rungs = LADDER.map((rung) => ({
-    quality: options.quality === undefined ? rung.quality : Math.min(rung.quality!, options.quality),
+    quality:
+      options.quality === undefined ? rung.quality : Math.min(rung.quality!, options.quality),
     ...(options.maxSide === undefined && rung.maxSide === undefined
       ? {}
       : { maxSide: Math.min(options.maxSide ?? Infinity, rung.maxSide ?? Infinity) }),

@@ -134,10 +134,7 @@ function normaliseAngle(angle: number): number {
  * any number of source PDFs and lay them out in exactly the order given.
  * Merge, reorder, delete, extract and duplicate are all just different picks.
  */
-export async function assemblePages(
-  sources: Uint8Array[],
-  picks: PagePick[],
-): Promise<Uint8Array> {
+export async function assemblePages(sources: Uint8Array[], picks: PagePick[]): Promise<Uint8Array> {
   if (picks.length === 0) throw new Error('no pages selected')
   const docs = await Promise.all(sources.map((source) => openPdf(source)))
   const out = await PDFDocument.create()
@@ -204,7 +201,10 @@ export async function mergePdfs(files: Uint8Array[]): Promise<Uint8Array> {
  * extract in one operation. Repeating an index duplicates that page.
  */
 export async function selectPages(file: Uint8Array, indices: number[]): Promise<Uint8Array> {
-  return assemblePages([file], indices.map((page) => ({ source: 0, page })))
+  return assemblePages(
+    [file],
+    indices.map((page) => ({ source: 0, page })),
+  )
 }
 
 /** One output PDF per group of page indices. */
@@ -384,10 +384,7 @@ function moveAnnotations(page: PDFPage, factor: number, dx: number, dy: number):
  * turned to match it rather than the content being squeezed into the short
  * edge.
  */
-export async function resizePages(
-  file: Uint8Array,
-  options: ResizeOptions,
-): Promise<Uint8Array> {
+export async function resizePages(file: Uint8Array, options: ResizeOptions): Promise<Uint8Array> {
   const { paper, orientation = 'auto', marginPt = 0 } = options
   const sheet = PAPER[paper]
   if (sheet === undefined) throw new Error(`page size must be one of: ${PAPERS.join(', ')}`)
@@ -403,17 +400,14 @@ export async function resizePages(
     // 'auto' follows the shape the page is looked at in, not the shape its box
     // happens to be stored in.
     const shownWide = turned ? height >= width : width >= height
-    const landscape =
-      orientation === 'auto' ? shownWide : orientation === 'landscape'
+    const landscape = orientation === 'auto' ? shownWide : orientation === 'landscape'
 
     // The sheet as the reader will see it, then expressed in the page's own
     // unrotated terms so the box and the content agree.
     const [shownWidth, shownHeight] = landscape
       ? [Math.max(...sheet), Math.min(...sheet)]
       : [Math.min(...sheet), Math.max(...sheet)]
-    const [boxWidth, boxHeight] = turned
-      ? [shownHeight, shownWidth]
-      : [shownWidth, shownHeight]
+    const [boxWidth, boxHeight] = turned ? [shownHeight, shownWidth] : [shownWidth, shownHeight]
 
     const room = { width: boxWidth - marginPt * 2, height: boxHeight - marginPt * 2 }
     if (room.width <= 0 || room.height <= 0) throw new Error('margin is larger than the page')
@@ -425,8 +419,7 @@ export async function resizePages(
     // on it to scale. It still gets the sheet, because being asked to put every
     // page on A4 and quietly leaving one at nothing by three hundred points is
     // the answer nobody wants.
-    const factor =
-      width > 0 && height > 0 ? Math.min(room.width / width, room.height / height) : 1
+    const factor = width > 0 && height > 0 ? Math.min(room.width / width, room.height / height) : 1
     const left = (boxWidth - width * factor) / 2
     const bottom = (boxHeight - height * factor) / 2
 

@@ -7,7 +7,16 @@ import { FilePicker } from '../Dropzone.tsx'
 import { PageGrid, type Tile } from '../PageGrid.tsx'
 import { RangeSelect } from '../RangeSelect.tsx'
 import { Spacer, Workspace } from '../Workspace.tsx'
-import { Button, DownloadIcon, Field, PlusIcon, Segmented, Select, StampIcon, TextInput } from '../kit.tsx'
+import {
+  Button,
+  DownloadIcon,
+  Field,
+  PlusIcon,
+  Segmented,
+  Select,
+  StampIcon,
+  TextInput,
+} from '../kit.tsx'
 import { useT } from '../i18n.ts'
 import { message, newId, stem, toBlob } from '../files.ts'
 

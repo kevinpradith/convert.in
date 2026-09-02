@@ -16,10 +16,7 @@ import type { Lang } from './prefs.ts'
  * This has to be a class: React exposes error catching only through
  * componentDidCatch and getDerivedStateFromError, and there is no hook for it.
  */
-export class Boundary extends Component<
-  { lang: Lang; children: ReactNode },
-  { failed: boolean }
-> {
+export class Boundary extends Component<{ lang: Lang; children: ReactNode }, { failed: boolean }> {
   override state = { failed: false }
 
   static getDerivedStateFromError(): { failed: boolean } {

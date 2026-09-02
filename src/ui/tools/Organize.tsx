@@ -22,7 +22,17 @@ import {
   TrashIcon,
 } from '../kit.tsx'
 import { useT } from '../i18n.ts'
-import { message, newId, numbered, readBytes, save, saveAll, stem, toBlob, useOnce } from '../files.ts'
+import {
+  message,
+  newId,
+  numbered,
+  readBytes,
+  save,
+  saveAll,
+  stem,
+  toBlob,
+  useOnce,
+} from '../files.ts'
 
 const ACCEPT = '.pdf'
 

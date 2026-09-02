@@ -198,7 +198,10 @@ export function Redact() {
                 className="w-[160px]"
               />
             </Field>
-            <Button onClick={() => void search()} disabled={batch.busy !== null || query.trim() === ''}>
+            <Button
+              onClick={() => void search()}
+              disabled={batch.busy !== null || query.trim() === ''}
+            >
               {t.redact.addMatches}
             </Button>
             {found !== null && (
@@ -273,9 +276,12 @@ function PageSheet({
 }) {
   const t = useT()
   const sheet = useRef<HTMLDivElement>(null)
-  const [drag, setDrag] = useState<{ fromX: number; fromY: number; toX: number; toY: number } | null>(
-    null,
-  )
+  const [drag, setDrag] = useState<{
+    fromX: number
+    fromY: number
+    toX: number
+    toY: number
+  } | null>(null)
 
   function at(event: ReactPointerEvent): { x: number; y: number } {
     const area = sheet.current?.getBoundingClientRect()

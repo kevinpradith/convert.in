@@ -89,10 +89,7 @@ async function smallerOf(canvas: HTMLCanvasElement): Promise<Uint8Array> {
  * the edge of a preview is somebody covering a corner, and cutting it back to
  * the corner is what they meant.
  */
-function blackOut(
-  canvas: HTMLCanvasElement,
-  boxes: readonly RedactionBox[],
-): void {
+function blackOut(canvas: HTMLCanvasElement, boxes: readonly RedactionBox[]): void {
   if (boxes.length === 0) return
   const context = canvas.getContext('2d')
   if (context === null) throw new Error('this browser would not give out a 2D canvas')
@@ -145,7 +142,10 @@ export async function redactPdf(
     }
     for (let number = 1; number <= doc.numPages; number++) {
       const canvas = await renderPage(doc, number, dpi / 72)
-      blackOut(canvas, boxes.filter((box) => box.page === number))
+      blackOut(
+        canvas,
+        boxes.filter((box) => box.page === number),
+      )
       pages.push(await smallerOf(canvas))
       onPage?.(number, doc.numPages)
       // Free the backing store now rather than waiting for GC; a long document
@@ -164,7 +164,6 @@ export async function redactPdf(
   // closed it.
   return stripMetadata(rebuilt)
 }
-
 
 /* ------------------------------------------------------- finding words --- */
 

@@ -79,7 +79,9 @@ export function Dropzone({
         className={cx(
           'pointer-events-none absolute inset-3 rounded-card border-2 border-dashed',
           'transition-all duration-200 ease-glass',
-          over ? 'border-ink/35 bg-fill scale-100 opacity-100' : 'scale-[0.99] border-transparent opacity-0',
+          over
+            ? 'border-ink/35 bg-fill scale-100 opacity-100'
+            : 'scale-[0.99] border-transparent opacity-0',
         )}
       />
     </div>

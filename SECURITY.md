@@ -17,10 +17,10 @@ that you are waiting on a security response. Do not put the details in it.
 This project is pre-1.0 and there is no maintenance branch. Fixes land on `main`
 and go out in the next tag. Run the latest release.
 
-| Version | Supported |
-| --- | --- |
-| latest release | yes |
-| anything older | no |
+| Version        | Supported |
+| -------------- | --------- |
+| latest release | yes       |
+| anything older | no        |
 
 ## What is in scope
 

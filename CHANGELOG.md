@@ -199,6 +199,7 @@ things that reported success over work that had not happened.
 
   There is no `redact` command, for the same reason there is no `PDF to images`
   one: the rendering runs through a canvas.
+
 - **An end-to-end suite for the command line**, `npm run test:cli`. It drives
   every command once and reads the result back, covering the layer between a
   typed command and `src/core` that nothing else touched: argument parsing,
@@ -228,7 +229,7 @@ things that reported success over work that had not happened.
 - **Natural order in Images to PDF.** Files arrive sorted the way a person
   counts, so `shot2.png` comes before `shot10.png` rather than after it.
   Dragging a tile still overrides it. The CLI already had this as `--sort
-  natural`.
+natural`.
 
 ### Fixed
 

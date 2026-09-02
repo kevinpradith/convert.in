@@ -183,7 +183,9 @@ export function Sign() {
       error={batch.error}
       busy={batch.busy}
       empty={
-        loaded ? undefined : { icon: <SignIcon />, title: t.sign.emptyTitle, hint: t.sign.emptyHint }
+        loaded
+          ? undefined
+          : { icon: <SignIcon />, title: t.sign.emptyTitle, hint: t.sign.emptyHint }
       }
       toolbar={
         loaded ? (

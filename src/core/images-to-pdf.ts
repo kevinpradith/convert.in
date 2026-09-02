@@ -91,7 +91,11 @@ async function embeddable(
   // PNG rather than JPEG: this is a one-way trip into a document, and a
   // re-compression the person never asked for is not one to make for them.
   // The decoder applies the EXIF orientation, so nothing is left to turn.
-  return { bytes: await encodeImage(await decode(bytes), { format: 'png' }), turn: 0, dpi: meta.dpi }
+  return {
+    bytes: await encodeImage(await decode(bytes), { format: 'png' }),
+    turn: 0,
+    dpi: meta.dpi,
+  }
 }
 
 function wantsLandscape(orientation: Orientation, imageIsLandscape: boolean): boolean {
@@ -108,9 +112,7 @@ function pageDimensions(
   marginPt: number,
 ): [number, number] {
   const [w, h] =
-    pageSize === 'fit'
-      ? [imageWidth + marginPt * 2, imageHeight + marginPt * 2]
-      : SIZES[pageSize]
+    pageSize === 'fit' ? [imageWidth + marginPt * 2, imageHeight + marginPt * 2] : SIZES[pageSize]
   const landscape = wantsLandscape(orientation, imageWidth >= imageHeight)
   return landscape === w >= h ? [w, h] : [h, w]
 }
@@ -168,7 +170,8 @@ export async function imagesToPdf(
   const pdf = await PDFDocument.create()
   for (const source of images) {
     const { bytes, turn, dpi } = await embeddable(source, decode)
-    const image = sniffImage(bytes) === 'jpg' ? await pdf.embedJpg(bytes) : await pdf.embedPng(bytes)
+    const image =
+      sniffImage(bytes) === 'jpg' ? await pdf.embedJpg(bytes) : await pdf.embedPng(bytes)
 
     // The picture as it is meant to be looked at, which for a photo taken
     // sideways is not the shape its pixels are stored in.

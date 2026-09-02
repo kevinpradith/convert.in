@@ -448,7 +448,10 @@ function sized(
     // Fit inside the box: the tighter of the two constraints wins, which is the
     // smaller scale factor.
     const scale = Math.min(width / pixels.width, height / pixels.height)
-    return { width: Math.max(1, Math.round(pixels.width * scale)), height: Math.max(1, Math.round(pixels.height * scale)) }
+    return {
+      width: Math.max(1, Math.round(pixels.width * scale)),
+      height: Math.max(1, Math.round(pixels.height * scale)),
+    }
   }
   if (width !== undefined) {
     return { width: Math.round(width), height: Math.max(1, Math.round(width / ratio)) }
@@ -574,7 +577,8 @@ export async function encodeImage(
     throw new Error('JPEG has no lossless mode: use PNG, WebP, AVIF or JPEG XL')
   }
 
-  const source = !KEEPS_ALPHA[format] && hasTransparency(pixels) ? flatten(pixels, background) : pixels
+  const source =
+    !KEEPS_ALPHA[format] && hasTransparency(pixels) ? flatten(pixels, background) : pixels
   try {
     return await runEncoder(source, format, quality, lossless)
   } catch (failure) {
@@ -617,7 +621,10 @@ async function runEncoder(
       // In lossless mode libwebp reads `quality` as how hard to try rather than
       // how much to throw away, so it is pinned high instead of passed through.
       return new Uint8Array(
-        await webp.default(asImageData(source), lossless ? { lossless: 1, quality: 90 } : { quality }),
+        await webp.default(
+          asImageData(source),
+          lossless ? { lossless: 1, quality: 90 } : { quality },
+        ),
       )
     }
     case 'avif': {

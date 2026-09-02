@@ -48,7 +48,10 @@ export function Compress() {
       // Why nothing happened, in the words that name the reason rather than
       // leaving a result of "0% smaller" to be read as a broken tool.
       if (result.replaced === 0) {
-        return { note: result.images === 0 ? t.compress.nothingToDo : t.compress.noneSmaller(result.images) }
+        return {
+          note:
+            result.images === 0 ? t.compress.nothingToDo : t.compress.noneSmaller(result.images),
+        }
       }
       return {
         result: {
@@ -62,7 +65,9 @@ export function Compress() {
           // A limit nothing could meet is worth saying: the file is still
           // offered, but sending it somewhere that will bounce it is worse
           // than being told now.
-          (result.fits ? '' : ` · ${t.compress.tooBig(humanSize(result.after), humanSize(target))}`),
+          (result.fits
+            ? ''
+            : ` · ${t.compress.tooBig(humanSize(result.after), humanSize(target))}`),
       }
     }, t.compress.working)
   }

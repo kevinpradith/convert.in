@@ -25,7 +25,9 @@ const TOOL_VIEWS: Record<ToolId, ReturnType<typeof lazy>> = {
   protect: lazy(() => import('./ui/tools/Protect.tsx').then((m) => ({ default: m.Protect }))),
   clean: lazy(() => import('./ui/tools/Clean.tsx').then((m) => ({ default: m.Clean }))),
   redact: lazy(() => import('./ui/tools/Redact.tsx').then((m) => ({ default: m.Redact }))),
-  export: lazy(() => import('./ui/tools/PdfToImages.tsx').then((m) => ({ default: m.PdfToImages }))),
+  export: lazy(() =>
+    import('./ui/tools/PdfToImages.tsx').then((m) => ({ default: m.PdfToImages })),
+  ),
 }
 
 /** Holds the pane's height while a tool's chunk is on the way, so the window
