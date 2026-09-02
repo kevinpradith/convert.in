@@ -1,0 +1,23 @@
+# Read by most editors without a plugin, and by the few that need one.
+# .gitattributes already pins what Git stores; this pins what an editor writes,
+# so the two cannot disagree in a working copy.
+# https://editorconfig.org
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# Terminal copy laid out in columns by hand, in two languages: trimming a line
+# there would move a description out from under the one above it.
+[src/help.ts]
+trim_trailing_whitespace = false
+
+[*.md]
+# Two trailing spaces are a hard line break in Markdown.
+trim_trailing_whitespace = false

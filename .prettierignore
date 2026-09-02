@@ -1,0 +1,12 @@
+# Generated, vendored or not this project's to format.
+dist/
+dist-cli/
+node_modules/
+fixtures/
+public/pdfjs/
+public/THIRD-PARTY-NOTICES.txt
+package-lock.json
+
+# Terminal copy laid out by hand in template strings, in two languages. A
+# formatter cannot see the columns and would not preserve them.
+src/help.ts

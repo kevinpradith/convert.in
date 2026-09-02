@@ -47,6 +47,10 @@ jobs:
 
       - run: npm run typecheck
 
+      # Formatting is checked rather than applied, so a pull request is told
+      # what to run instead of having its diff rewritten under it.
+      - run: npm run format:check
+
       - run: npm test
 
       - run: npm run build
