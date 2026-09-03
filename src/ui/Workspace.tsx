@@ -52,6 +52,14 @@ export function Workspace({
         child that grows to two or three rows: centred, the title was pushed
         down to sit beside the toolbar's second row while its first row ran
         along the top of the bar with nothing to the left of it.
+
+        That alignment says where an item sits inside its line. It says nothing
+        about where the line sits when the bar is taller than its contents, and
+        `min-h-bar` makes it taller by 14 pixels whenever a tool has no controls
+        to show: every one of those pixels fell below the title, which then read
+        as pinned to the ceiling. `content-center` places the line itself, so a
+        bar at its minimum height centres what is in it and a bar grown by a
+        wrapped toolbar is unaffected, having no spare room to place.
       */}
       {/*
         Its own corners, matched to the window's. The panel already clips this
@@ -61,7 +69,7 @@ export function Workspace({
         square top-right corner there. Carrying the radius rather than relying
         on being cut to it costs two classes and leaves nothing square to show.
       */}
-      <div className="glass-strong border-line liquid relative flex shrink-0 flex-wrap items-start gap-x-3 gap-y-1 border-b px-3 py-1 sm:min-h-bar sm:rounded-t-window sm:px-4 lg:rounded-tl-none">
+      <div className="glass-strong border-line liquid relative flex shrink-0 flex-wrap content-center items-start gap-x-3 gap-y-1 border-b px-3 py-1 sm:min-h-bar sm:rounded-t-window sm:px-4 lg:rounded-tl-none">
         {/* The title and, below the sidebar breakpoint, the navigation behind
             it. One box, so it keeps a control's height and centres inside it
             however many rows the toolbar beside it turns into. */}
@@ -80,10 +88,17 @@ export function Workspace({
         </div>
 
         {/* Its own row below the small breakpoint: at 320 the title leaves too
-            little beside it for even one control. */}
-        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:flex-1">
-          {toolbar}
-        </div>
+            little beside it for even one control.
+
+            Rendered only when there is something to put in it. Empty, the box
+            still counted as a flex line and still took the row gap with it, so
+            a tool with no controls carried four pixels of nothing under its
+            title and sat that much too high. */}
+        {toolbar && (
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:flex-1">
+            {toolbar}
+          </div>
+        )}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
