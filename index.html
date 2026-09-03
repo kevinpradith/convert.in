@@ -53,17 +53,17 @@
     <link rel="preload" href="./fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
 
     <!--
-      The tail of the wordmark, on the same dark tile the placeholder used. The
-      whole of "convert.in" is 628 by 183 and turns to a smear at 16 pixels, so
-      the icon carries the part that is the mark: the dot and the blue "in", cut
-      from the same file the header draws. The dot is white here rather than
-      black because the tile it sits on is dark.
+      A rounded dark tile with two rules on it, which reads as a document at the
+      size a tab actually draws it. The wordmark was tried here and does not
+      survive: 628 by 183 letterforms squeezed into 16 pixels are a smear, and
+      the tile they sit on disappears into a dark tab strip, leaving the mark
+      floating with nothing under it.
 
       Inline, so a visit does not spend a request finding out there is none.
     -->
     <link
       rel="icon"
-      href="data:image/png;base64,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"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='4' fill='%231b1b1b'/%3E%3Cpath d='M4.5 6.5h4.5M4.5 9.5h7' stroke='white' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E"
     />
   </head>
   <body>
